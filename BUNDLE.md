@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-12T14:02:51Z · commit: af137e9_
+_Generated: 2026-06-12T14:09:16Z · commit: af137e9_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
