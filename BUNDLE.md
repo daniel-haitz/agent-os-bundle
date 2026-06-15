@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-15T01:11:23Z · commit: 556b8c9_
+_Generated: 2026-06-15T15:17:05Z · commit: cae8910_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -52,9 +52,9 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 
 ## NEXT (the single bounded task the next worker does)
 
-> Phase 2 email-assistant workstream is COMPLETE + injection-tested under Path B.
->
-> Next: **F-A Containment/egress** — resolve Platform Mechanics §4 VERIFY items first: select the host egress mechanism, and determine whether sandboxing the reader breaks the gog file keyring or wrapper. Then build egress before observability, action-policy, generalized dispatch/confirm, or broad capability expansion.
+> **F-A Containment/egress — DECISION POINT (operator).** §4 verify item #1 resolved: host-pf is NON-VIABLE on this macOS build (Plan A eliminated on evidence — see §4). Surviving fork: **Plan B (separate egress box)** vs **Plan C (install Docker → container + Squid egress)**. The build cannot proceed until the operator picks one. Once chosen: read-only verify the chosen path, then build.
+
+**PARKED (do after egress decision):** Publish-hygiene fix — bundle-for-claude.sh couples generate+commit+push with no review gate and didn't keep the public mirror current (18-commit drift surfaced this session). Diagnose why the existing end-session/bundle wiring didn't fire; add a review/dry-run mode and ensure publish actually runs at session end.
 
 **FLAG:** When Foundations 1 (dispatch/confirm split) and 4 (action-policy + deny-by-default) are built, migrate those invariants from docs/ into live agent doctrine (workspace AGENTS.md / doctrine/) so the running system enforces them, not just the plan. Not now — enforcing mechanism doesn't exist yet.
 
@@ -90,6 +90,7 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-15 | Plan A (host-pf UID-keyed proxy) eliminated for egress | pf-viability verify resolved NO: route-to≠proxy-redirect, rdr can't match UID, translation precedes filtering, no per-agent UID in one gateway. Egress decision now open: Plan B separate-box vs Plan C Docker (needs install).
 - 2026-06-14 | Confined reader runs Path B: default Codex runtime with `tools.exec.mode="auto"`; OS-level exec allowlisting is not enforced | Live testing proved `auto` does not preserve the approvals-layer allowlist and embedded runtime requires a separate OpenAI API key. Accepted confinement is OAuth scope + three-layer no-send + research validator + coming egress; the reader remains supervised/non-sensitive until egress and isolation close the temporary host-shell gap. Reconsider Path A if sensitive unsupervised use is needed first.
 - 2026-06-14 | Phase order changed to foundations-first per end-state architecture; egress/containment moved ahead of new capabilities | Containment is the unlock for unattended use; capability-first leaves capabilities stuck in supervised-mode and risks per-capability rebuild
 - 2026-06-13 | Gmail draft-only uses `gmail.readonly` + `gmail.compose` with a three-layer software no-send barrier | Readonly cannot create Gmail drafts; wrapper allowlisting, a policy-compiled gog v0.25.0 binary, and `gmail_no_send` all independently block send paths
@@ -158,6 +159,8 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 
 ## Recent git log (20)
 ```
+cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-hygiene fix
+53f146b platform-mechanics §4: reconcile leftover Plan-A-adopted text with elimination (internal consistency)
 556b8c9 platform-mechanics §4: amend egress decision (host-side reader + UID-keyed pf proxy; Docker→Plan B) per egress-verify findings
 a6ae107 [codex] reconcile Path B state and platform references
 7f08680 [codex] harden cross-repo handoff state
@@ -176,8 +179,6 @@ da10378 [codex] 1.1: strict exec baseline allowlist/on-miss/deny, verified effec
 4435816 [codex] fix end-session: add --no-push opt-out (push coupling bug)
 a94ddbb [codex] 1.0: pre-Phase-1 trust audit - NO-GO
 2b15fce [codex] fix bundle: sync docs + cache-bust URL
-af137e9 [codex] Phase 0 complete: OpenClaw install, daemon, Codex+Qwen, secrets, heartbeat, baseline, Clawhatch, Telegram bot paired
-e9eed48 [human] teardown: clear old build, install OpenClaw workflow kit (clean slate)
 ```
 
 ## Repo tree (no node_modules / .secrets / state)

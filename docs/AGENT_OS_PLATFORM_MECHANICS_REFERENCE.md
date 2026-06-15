@@ -73,14 +73,26 @@ There is NO "confined on subscription auth" option. **Decision: Path B** (Codex 
 
 ## 4. Egress / network control — Foundation 2 (DECISION AMENDED 2026-06-14b)
 
-> **Amendment note (2026-06-14b):** The original 2026-06-14 decision ("egress = Docker
-> container isolation") is **superseded** by the read-only egress-verify drop + field
-> research run the same day. Docker is now Plan B (disproportionate cost on this install),
-> and host-side reader + UID-keyed pf-forced allowlisting proxy is Plan A. Reasoning below.
-> The original Docker decision and the pf de-recommendation it contained were both made
-> BEFORE knowing (a) the reader's entire credential/runtime chain is macOS-arm64-native and
-> (b) pf's actual selector model. Recording the change so the pushed source-of-truth matches
-> the evidence.
+> **Amendment note (2026-06-14c):** Plan A (host-side reader + UID-keyed pf-forced proxy) is
+> **ELIMINATED on evidence.** The 2026-06-14b decision adopted Plan A *gated behind OPEN VERIFY
+> item #1 (pf viability on this macOS build)*. That verify ran (read-only pf-viability drop,
+> 2026-06-14) and resolved **NO**: host-pf cannot enforce same-host UID-keyed redirect-to-proxy
+> on this macOS version. Plan A is therefore off the table — not on preference, on a failed
+> verify gate. Decision status returns to OPEN among the surviving plans. Findings below.
+
+### Verify item #1 result (pf-viability drop, 2026-06-14) — Plan A eliminated
+- `pf route-to` performs policy routing, **not** transparent proxy redirection — it changes the
+  egress path/interface but does not hand the connection to a local proxy listener.
+- `pf rdr` (redirect) **cannot match on UID/user** — the redirect grammar has no user selector;
+  only inbound/destination tuples. So "redirect this UID's 443 to the local proxy" is
+  unexpressible: the two features that would compose (UID match + redirect) do not compose.
+- pf **address translation precedes filtering**, so even a filter-stage UID match cannot drive a
+  translation decision.
+- There is **no per-agent UID** within one OpenClaw gateway (gateway runs as a single UID;
+  per-UID separation needs a *separate gateway/service instance*), so the dedicated-reader-UID
+  premise Plan A depended on does not hold without additional infrastructure.
+- Net: the UID-keyed-pf mechanism is not viable on this host. Squid/tinyproxy as *engines* remain
+  fine; the missing piece is an enforceable, non-bypassable **forced-routing** layer on macOS.
 
 ### Why the Docker decision was narrowed (verify-drop findings, 2026-06-14)
 
@@ -116,53 +128,48 @@ layer the reader cannot opt out of.
 
 ### macOS enforcement mechanism
 
+**(Superseded — see verify item #1 result above: this mechanism was eliminated. Retained only to explain what was attempted.)**
+
 No Linux netns, no NetworkPolicy on macOS. The one host-level chokepoint for same-host
 outbound is **pf, keyed on UID** (pf's only usable selector for own-box traffic is user/group,
-not PID). Canonical recipe:
+not PID). The candidate recipe was:
 - Run the reader under a **dedicated UID**.
 - `route-to lo0` all of that UID's outbound 80/443 → a **local allowlisting forward proxy**.
 - Run the proxy under a **DIFFERENT UID** so its own egress is not re-redirected (the UID is
   the filter that prevents the proxy looping its own traffic).
 
-**Correction to the prior pf de-recommendation:** the earlier "per-process host pf is
-non-standard/fiddly" was partly wrong-reasoned. pf does not do per-process (it does per-UID),
-and UID-keyed forced routing IS the legitimate, documented macOS mechanism. The real cost is
-**operational fragility** (same-host pf redirect on current macOS is finicky and a frequent
-failure point in the wild), not non-standardness. We adopt it as Plan A with eyes open to that
-fragility, gated by a dedicated verify.
+**Note (2026-06-14c):** an earlier pass argued UID-keyed forced routing was the legitimate macOS mechanism. The pf-viability verify (above) supersedes that: the UID-match and redirect features do not compose on this macOS build, so the mechanism is eliminated regardless of standardness. Operational fragility was not even the deciding factor — expressibility was.
 
-### DECISION (2026-06-14b)
+### DECISION STATUS (2026-06-14c): OPEN — operator decision required
+Plan A eliminated (above). Surviving options:
 
-**Plan A — host-side reader + UID-keyed pf-forced allowlisting proxy.**
-- Reader migrates to a dedicated UID (re-own the keyring secret chain to that UID — wrapper
-  UID-check, per verify drop).
-- Local forward proxy (Squid or tinyproxy), SNI/host default-deny allowlist, separate UID.
-- pf `route-to lo0` forces the reader UID's outbound through the proxy = real enforcement
-  (not bypassable by ignoring env vars). Env-var proxy config rides along as belt-and-suspenders.
-- Closes the exfil half of the Path B gap once live.
+- **Plan B — separate egress box.** A small always-on box (Pi/spare machine) is the only internet
+  route for the reader; allowlist at its interface. Field-standard and robust. Cost: added
+  hardware + a network hop + its own setup. **No new software prerequisite on the Mini.**
+- **Plan C — Docker container egress (revived from shelf).** Containerize the reader on an
+  `internal:true` Docker network with a Squid allowlist forward proxy; enforcement runs inside
+  Docker Desktop's Linux VM (iptables/DOCKER-USER), which sidesteps macOS pf entirely — this is
+  the field-standard mechanism and the reason Docker keeps recurring. **Hard prerequisite: Docker
+  is NOT installed (FLAG), so this path starts with an operator decision to install a container
+  runtime.** Also carries the §4 port costs already documented above (Mach-O→Linux rebuild of the
+  safe-send binary, gog file-keyring UID handling, writable protected credential mounts, and the
+  bind-validator constraint that rejects mounting `~/.openclaw` subdirs — so the reader's keyring/
+  wrapper chain must be re-homed or re-proven). **Net answer to the standing §4 VERIFY question
+  "does sandboxing the reader break the keyring/wrapper": YES, in the specific ways listed — it
+  requires re-homing the credential chain, not a transparent lift-and-shift.**
 
-**Plan B — separate egress box** (Pi / spare machine as the only internet route, allowlisting
-at its interface). Field-standard and robust; adds hardware + a network hop. Use only if the
-pf same-host path proves too fragile on this macOS version.
+**This choice is the operator's (Plan B vs install-Docker-for-Plan-C). It is NOT resolved here.**
+The next build step cannot proceed until it is made.
 
-**Plan C (shelved) — full Docker containerization.** Revisit only if a confined agent needs
-sensitive unsupervised use that demands process isolation beyond egress, justifying the
-Linux-port + image + mount + UID + no-send-revalidation cost.
-
-### OPEN VERIFY ITEMS (resolve read-only BEFORE the egress build drop)
-
-1. **pf viability on this macOS version** — does pf load custom anchors here; does
-   `route-to lo0` work for a given UID; is there an SIP/Network-Extension wall on same-host
-   redirect on this OS build? (This is the likely next landmine — verify before building.)
-2. **Dedicated-UID secret re-own** — exact steps to move the keyring password file + gog home
-   ownership to the new reader UID without breaking the wrapper UID-check; confirm gateway can
-   launch the reader process under that UID.
-3. **Proxy engine choice** — Squid vs tinyproxy on macOS host (not container); SNI-filter
-   support, default-deny config, run-as-UID.
-
-Sequenced plan: (1) read-only verify pf + UID re-own + proxy engine → (2) design topology from
-results → (3) build proxy + allowlist + pf rules → (4) migrate reader to dedicated UID + point
-at proxy. Mark §4 VERIFIED only after item 1 resolves.
+#### Considered, NOT adopted (recorded as input only — not decisions)
+- *Cooperative env-var proxying alone* (`HTTPS_PROXY`/`NODE_USE_ENV_PROXY`): a hijacked process
+  ignores it. Convenience, not an exfil control. Only valid as belt alongside a forced layer.
+- *Credential-broker / exec-profile-narrowing as a PRECURSOR to egress*: field research this
+  session noted the reader's host `exec` (mode auto) lets a hijacked reader read its own keyring,
+  making egress the *last* link rather than the first. Whether to narrow the reader's exec/tool
+  profile (or broker the credential) BEFORE building egress is a **sequencing question for the
+  operator** — recorded here as an option, explicitly not a change to the foundations-first order
+  in CONTROL.md.
 ## 5. Observability / audit — Foundation 3 (RESEARCHED; critical finding)
 
 **THE key finding for the V1 "zero silent failures" gate:**
@@ -210,7 +217,7 @@ So we calibrate against reality, not over-engineer:
 | Phase | Section | Status |
 |---|---|---|
 | Email loop runtime/exec | §1, §2 | VERIFIED (live 2026-06-14) |
-| Foundation 2 — egress/sandbox | §3, §4 | DECISION AMENDED — Plan A host reader + UID-keyed pf proxy; verify pf viability, dedicated-UID launch/re-own, and proxy engine before build |
+| Foundation 2 — egress/sandbox | §3, §4 | DECISION OPEN — Plan A (host-pf) ELIMINATED on verify (pf non-viable on this macOS build); choose Plan B (separate box) vs Plan C (Docker — requires runtime install). Operator decision gates the build. |
 | Foundation 3 — observability | §5 | RESEARCHED — design direction set; confirm OTel plugin choice before build |
 | Foundation 4 — action-policy/exec | §2, §6 | RESEARCHED — standing orders + exec model mapped |
 | Secrets/credential proxy | §7 | RESEARCHED |
