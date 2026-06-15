@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-15T15:32:35Z · commit: a33d031_
+_Generated: 2026-06-15T16:56:05Z · commit: a33d031_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -28,6 +28,13 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 
 > Phase 2 email-assistant workstream (as tracked in live state) is COMPLETE and injection-tested under Path B: sanitized local drift tracking, `gmail.readonly` + `gmail.compose`, draft-only wrapper, pinned safe gog binary, file keyring, three-layer no-send proof, isolated reader/researcher delegation, schema-constrained research validation, and real-thread draft tests. This does not mark the legacy numbered `PHASE 2 — Doctrine as skills` in the build plan complete.
 
+VERIFIED (vendor security doc, 2026-06-15):
+- Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
+- Prompt injection does not require public DMs — untrusted CONTENT (email/web/docs) is the vector even with single-operator DMs. Confirms the email reader is the live injection surface.
+- Native `openclaw security audit` (`--deep`/`--fix`/`--json`) exists and checks tool blast radius, exec/approval drift, network exposure, and "sandbox docker configured but sandbox mode off" (= current state). Adopt for drift detection.
+- Native sandbox default-deny: `agents.defaults.sandbox.workspaceAccess:"none"` (default) + openshell `network:"none"` (default) = egress-off out of the box; connectivity is opt-in.
+- Native Docker egress enforcement is documented: DOCKER-USER iptables allowlist (evaluated before Docker's accept rules) = the forced-routing layer that makes Plan C a real wall, not cooperative proxying.
+
 **FLAG:** A full Mac reboot was not tested (only a controlled daemon restart) — verify auto-start on next reboot.
 **FLAG:** Sandbox remains off; do not add untrusted inbound paths before later Phase 1 hardening.
 **FLAG:** Phase 1.4 must isolate `~/.ssh`, `~/.aws`, and secrets paths; OpenClaw 2026.6.5 has no exec/tool path-deny control.
@@ -47,18 +54,32 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 **FLAG:** Email instruction/data separation follows the CaMeL dual-plane pattern: paired Telegram operator instructions are commands; email content is inert untrusted data.
 **FLAG:** Agent separation is containment, not formal DLP. Research-question smuggling remains a residual injection risk; the loop is supervised-use and non-sensitive ONLY until egress control exists.
 **FLAG:** KNOWN ISSUE — sub-agent completion delivery: parent `main` session yields before the delegated reader's result surfaces, causing a recovery re-run and, in Part C Test 2, a duplicate draft. Benign under supervision; must be fixed before unsupervised operation. The same yield-before-child-result behavior occurred in the earlier failed run.
+**FLAG (NEW, verify read-only):** Confirm `hooks.gmail.allowUnsafeExternalContent` is unset/false and external-content wrapping (untrusted-content markers) is intact on the live Gmail path. Vendor audit tracks this flag as insecure/dangerous; if accidentally enabled it bypasses the CaMeL dual-plane separation at the PLATFORM layer regardless of agent design. Fast read-only check via `openclaw security audit`.
+**FLAG (NEW, plan-correction):** §4 of PLATFORM_MECHANICS_REFERENCE understates native Plan-C capability. Vendor docs confirm native sandbox default-deny networking + documented DOCKER-USER egress enforcement. §4 should be reconciled to reflect that Plan C is "configure native sandbox + re-home credential chain," not "build bespoke Docker egress rig." Re-verify before §4 is treated as settled. (Per operating rule: recorded as correction-to-verify, not enacted.)
 
 ---
 
 ## NEXT (the single bounded task the next worker does)
 
-> **F-A Containment/egress — DECISION POINT (operator).** §4 verify item #1 resolved: host-pf is NON-VIABLE on this macOS build (Plan A eliminated on evidence — see §4). Surviving fork: **Plan B (separate egress box)** vs **Plan C (install Docker → container + Squid egress)**. The build cannot proceed until the operator picks one. Once chosen: read-only verify the chosen path, then build.
+> **F-A Native sandbox-first containment — SCOPE + READ-ONLY VERIFY (no installs yet).**
+> Operator decision recorded: pursue native OpenClaw sandbox (Plan C family) over separate-box (Plan B eliminated) and over standalone-egress-first. Native sandbox closes isolation + egress together.
+> Bounded task for next worker (READ-ONLY; STOP before any install/build/write):
+>   1. Verify Docker/container-runtime requirement for `agents.defaults.sandbox` on this host (still absent per prior FLAG). Confirm whether sandbox can run without Docker or whether install is the hard gate.
+>   2. Verify the credential-chain re-homing cost: vendor doc confirms `sandbox.docker.binds` FAIL CLOSED on credential dirs under OS home (canonicalized-path validator). So the gog keyring/wrapper under `~/.openclaw` CANNOT be mounted as-is. Scope exactly what re-homing requires (Linux arm64 gog rebuild, keyring relocation, UID handling) — this is the load-bearing cost, surface it before any build.
+>   3. Run `openclaw security audit --deep` (read-only) and record findings, especially the "sandbox docker configured but sandbox mode off" and any exec/approval-drift items.
+> Output: a scoped GO/NO-GO with the container-runtime install decision surfaced to operator. Build proceeds only after operator approves the install (if required) and the re-homing scope.
 
 **PARKED (do after egress decision — one focused session on the publish pipeline, fix both together):**
 > Publish-pipeline hardening. Two known defects in the same handoff machinery:
 > (1) **end-session guard false-positive** — `end-session.sh` only detects an *uncommitted* CONTROL.md, so a session that commits CONTROL.md *before* running end-session trips the "CONTROL.md not modified" block, falls to a manual workaround, and SKIPS the bundle regen → public mirror silently goes stale. (Root cause confirmed live 2026-06-15.)
 > (2) **bundle omits canonical docs** — `bundle-for-claude.sh` publishes CONTROL.md inline but only *references* the four canonical docs (END_STATE_ARCHITECTURE, PLATFORM_MECHANICS_REFERENCE, SECURITY_DESIGN_STANDARD, ROADMAP_BEST_PRACTICES). A fresh Claude thread gets state+decisions but not the architecture/§4 evidence behind them, forcing a manual paste every session. Fix: include canonical doc contents in the bundle, size-permitting (large-markdown fetch ceiling is real — if too big, include PLATFORM_MECHANICS at minimum and reference the rest). Also add a review/dry-run mode so publish can be checked before push.
 > Until fixed: always run `./scripts/bundle-for-claude.sh` manually at session end, and paste any needed canonical doc to Claude on request.
+
+**SWAP-CANDIDATES (audit-gated — source-read REQUIRED before any adoption; do NOT install on architect's research alone):**
+- Notify-tier custom hook → EVALUATE vs native telemetry (logging/OTel/Prometheus/redaction). Lean: DROP custom if native covers the notify need. Gate: confirm against current observability docs.
+- Custom hash-chain audit fallback → SPLIT: misconfiguration/drift role → adopt native `openclaw security audit`. Audit-LOG-INTEGRITY (tamper-evidence) role → evaluate clawdstrike/ClawGuard SOURCE first; custom fallback only if source read fails. (Reminder: a security skill is a perfect trojan — ClawHavoc campaign wrote malware into SOUL.md/MEMORY.md. Source read is non-negotiable.)
+- Workspace backup (`~/.openclaw` single point of loss) → ADOPT keepmyclaw/claw-sync ONLY after source read, ELSE roll minimal encrypted local snapshot. Lean: minimal self-rolled given sensitivity.
+- KEEP (do not swap): confined gog wrapper + three-layer no-send (load-bearing, vendor pattern offers no replacement). REJECT (conscious): Composio/universal-connector (dissolves the scoping that is the actual enforcement).
 
 **FLAG:** When Foundations 1 (dispatch/confirm split) and 4 (action-policy + deny-by-default) are built, migrate those invariants from docs/ into live agent doctrine (workspace AGENTS.md / doctrine/) so the running system enforces them, not just the plan. Not now — enforcing mechanism doesn't exist yet.
 
@@ -94,6 +115,9 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-15 | Sensitive-data integration HELD until containment proven; reader stays supervised + non-sensitive | Prompt-injection→exfil is unsolved field-wide (vendor security doc states it explicitly); native process-level proxy is not an OS sandbox; removing the consequence leg (no sensitive data) is the only currently-sound posture. Aligns with vendor "model last / limit blast radius" stance.
+- 2026-06-15 | Plan B (separate egress box) ELIMINATED by operator — no new hardware | If a forced-routing egress wall is needed, it is Plan C (Docker/openshell internal network + DOCKER-USER allowlist, both vendor-documented). Native managed proxy is interim defense-in-depth only.
+- 2026-06-15 | NEXT reframed egress-decision → sandbox-first (operator-approved) | Vendor native sandbox (`agents.defaults.sandbox`, openshell `network:"none"` default) closes ISOLATION and most of EGRESS in one native config tree; doing egress as a standalone wall duplicates work the sandbox already provides. Foundations-first order preserved; this resequences within foundations, not across them.
 - 2026-06-15 | Plan A (host-pf UID-keyed proxy) eliminated for egress | pf-viability verify resolved NO: route-to≠proxy-redirect, rdr can't match UID, translation precedes filtering, no per-agent UID in one gateway. Egress decision now open: Plan B separate-box vs Plan C Docker (needs install).
 - 2026-06-14 | Confined reader runs Path B: default Codex runtime with `tools.exec.mode="auto"`; OS-level exec allowlisting is not enforced | Live testing proved `auto` does not preserve the approvals-layer allowlist and embedded runtime requires a separate OpenAI API key. Accepted confinement is OAuth scope + three-layer no-send + research validator + coming egress; the reader remains supervised/non-sensitive until egress and isolation close the temporary host-shell gap. Reconsider Path A if sensitive unsupervised use is needed first.
 - 2026-06-14 | Phase order changed to foundations-first per end-state architecture; egress/containment moved ahead of new capabilities | Containment is the unlock for unattended use; capability-first leaves capabilities stuck in supervised-mode and risks per-capability rebuild
