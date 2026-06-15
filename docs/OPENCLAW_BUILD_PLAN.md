@@ -1,10 +1,14 @@
 # OPENCLAW_BUILD_PLAN.md
 
+**Phase sequencing follows docs/AGENT_OS_END_STATE_ARCHITECTURE.md (foundations-first). If this file and the end-state architecture disagree, the architecture wins.**
+
 **Project:** Agent OS on OpenClaw — clean rebuild
 **Author of plan:** Claude (reviewer/architect thread)
 **For:** Daniel Haitz
 **Version:** v1.0 (2026-06-11)
-**Status:** Pre-Phase-0. Nothing built yet on OpenClaw. Prior custom `agent-os` Python build torn down.
+**Status:** Active foundations-first plan. OpenClaw stand-up and the Phase 2 email-assistant workstream are complete; legacy numbered inventory remains partially open.
+
+**Live-state status (2026-06-14):** The Phase 2 email-assistant workstream tracked in `CONTROL.md` and `BUILD_STATE.md` is **COMPLETE**: the read/research/draft loop, three-layer no-send barrier, and injection boundary passed on live Gmail threads under Path B. This is separate from the legacy numbered `PHASE 2 — Doctrine as skills + the audit question` below, which remains open.
 
 ---
 
@@ -12,14 +16,14 @@
 
 This is the master plan, same role `AGENT_OS_PLAN.md` played before. It is the source of truth. It is portable: any worker (Claude.ai, ChatGPT, Claude Code on the mini, local Qwen via Aider) reads this plus the three live state files and continues without needing session memory.
 
-**The relay still works exactly as before.** Four canonical files, filenames constant, version inside:
+**The relay still works exactly as before.** Four relay files, filenames constant, version inside:
 
 - `OPENCLAW_BUILD_PLAN.md` — this file. Written rarely, deliberately.
-- `BUILD_STATE.md` — current phase/step/blockers. Updated end of every work session.
-- `HANDOFF_BRIEF.md` — last session summary. Overwritten each session.
-- `ITERATION_LOG.md` — append-only. Decisions, learnings, scope changes.
+- Repository-root `BUILD_STATE.md` — current phase/step/blockers. Updated end of every work session.
+- Repository-root `HANDOFF_BRIEF.md` — last session summary. Overwritten each session.
+- Repository-root `ITERATION_LOG.md` — append-only. Decisions, learnings, scope changes.
 
-Worker protocol unchanged: read the four files → work → update `BUILD_STATE.md` + `HANDOFF_BRIEF.md` → append to `ITERATION_LOG.md` if a real decision/learning happened → commit → push.
+Worker protocol: read authoritative root-level `CONTROL.md` plus the four relay files → work → update `BUILD_STATE.md` + `HANDOFF_BRIEF.md` → append to `ITERATION_LOG.md` if a real decision/learning happened → commit → push.
 
 **What changed from the old plan:** the *foundation*. You are no longer hand-building the agent harness in Python. OpenClaw is the harness. Your work is now configuration, skills, doctrine, and one genuinely custom piece (the Command Center). This collapses what was Phases A–C into mostly configuration, and lets your real IP (Closure Doctrine, capability tiers, lifestream model, eval cases) sit on top where it belongs.
 
@@ -40,7 +44,7 @@ Adopt OpenClaw as the foundation (Outcome A from the evaluation). Port the doctr
 - **Gateway + agent loop + channels.** One long-lived Gateway owns all messaging surfaces, supervised by launchd/systemd. This is your old Phase A + most of Phase C.
 - **Telegram approval ingestion.** `approvals.exec` + `channels.telegram.execApprovals` deliver approval prompts to your phone with `/approve <id> allow-once|allow-always|deny`. Pending approvals expire after 30 min by default. This is your entire C.4/C.5 — the thing you spent days building and proving live — as a config block.
 - **Per-agent capability tiers.** `exec.security` (`deny`/`allowlist`/`full`) × `exec.ask` (`off`/`on-miss`/`always`), per agent. This is your Free/Notify/Approve model.
-- **Fail-closed by default.** Ask-fallback defaults to `deny` when no approver UI is reachable. Approved runs bind exact argv/cwd/env; if a bound file changes between approval and execution, the run is denied (TOCTOU protection your old build did not have).
+- **Fail-closed when explicitly configured.** The installed default is `full`/`off`/`full`; set allowlist/ask policy plus `askFallback: deny` explicitly. Approved runs bind exact argv/cwd/env; if a bound file changes between approval and execution, the run is denied (see `audits/2026-06-12-pre-phase1-audit.md`).
 - **Sandboxing.** Docker-backed isolation with fail-closed bind validation, blocked credential roots (`~/.ssh`, `~/.aws`, etc.), masked browser observer tokens.
 - **Skills system.** AgentSkills-compatible `SKILL.md` folders — the exact convention from your plan. Per-agent allowlists, load-time gating, `disable-model-invocation` for reference-only docs.
 - **Secrets indirection.** SecretRef contract (`env`/`file`/`exec` sources), exec-provider integration with 1Password/Vault/sops, eager fail-fast activation, `openclaw secrets audit` tooling.
@@ -81,7 +85,7 @@ OpenClaw's *default* posture is "tools run on host for the main session; you are
 |---|---|---|---|
 | Single-agent loop, role-tagged phases | Agent runtime + agent loop | `[VERIFIED]` native | 0 |
 | Capability tiers (Free/Notify/Approve) | `exec.security` × `exec.ask` per-agent | `[VERIFIED]` config | 1 |
-| Propose-then-commit, fail-closed | Default ask-fallback=deny + approval file-binding | `[VERIFIED]` native default | 1 |
+| Propose-then-commit, fail-closed | Explicit `askFallback: deny` + approval file-binding; installed default is `full`/`off`/`full` | `[VERIFIED]` configured, not default (see `audits/2026-06-12-pre-phase1-audit.md`) | 1 |
 | Telegram approval ingestion (C.4/C.5) | `approvals.exec` + `channels.telegram.execApprovals` | `[VERIFIED]` config | 1 |
 | Stop/halt kill switch | `/approve <id> deny` + `steer`/`goal` tools | `[VERIFY]` likely native | 1 |
 | Loop prevention (6 controls) | Tool-loop detection subsystem | `[VERIFY]` depth unknown | 1 |
@@ -105,7 +109,7 @@ OpenClaw's *default* posture is "tools run on host for the main session; you are
 | External reviewer access | Public mirror (unchanged from old plan gap) | carry forward | 5 |
 
 **The three real watch-items (where custom work or hard verification lives):**
-1. **Append-only immutable audit** — verify whether trajectory bundles + hooks meet your tamper-evident standard, or whether you write a hook that emits your audit format. (Phase 2)
+1. **Append-only immutable audit** — verify whether trajectory bundles + hooks meet your tamper-evident standard, or whether you write a hook that emits your audit format. (Legacy numbered Phase 2 doctrine/audit inventory.)
 2. **Command Center** — your biggest bespoke build; Canvas vs. separate WS app is an open design decision. (Phase 4)
 3. **Form-fill secrets masking** — your SSN end-state; the browser tool's screenshot/DOM masking must be verified adversarially before any high-tier secret goes near it. (Phase 6)
 
@@ -138,6 +142,18 @@ You are changing foundations. Carrying the old bot/tokens/secrets into a new sys
 ## 4. The phased build
 
 Phases are sized so each is a coherent, reviewable unit with a clear exit gate. The relay workflow runs throughout. After each phase: update `BUILD_STATE.md`, append learnings to `ITERATION_LOG.md`, and (for phases touching real external systems or secrets) run a pre-phase audit the way you did before C.4/C.5.
+
+### Authoritative execution sequence
+
+The numbered phase sections below remain the detailed task inventory, but their legacy numbering no longer determines execution order.
+
+1. **COMPLETE — Phase 2 email-assistant workstream (live-state naming):** supervised read/research/draft loop, three-layer no-send, and injection boundary proven on live threads under Path B.
+2. **NEXT — F-A Containment:** resolve the Platform Mechanics Reference §4 VERIFY items, then implement egress allowlisting, workload isolation, and credential proxying. Egress also closes the exfiltration half of the temporary Path B gap.
+3. **F-B Observability substrate:** correlation-ID tracing, run replay, and queryable zero-silent-failure evidence.
+4. **F-C Action-policy layer:** centralized auto/confirm/deny registry with deny-by-default and evidence-based promotion.
+5. **F-D Generalized dispatch/confirm split:** structurally separate gathering/proposal from consequential action, with validated schemas at every handoff.
+6. Only after F-A through F-D exist, resume broad capability expansion.
+7. The Command Center remains blocked until all four foundations exist and all eight behavioral tests pass.
 
 ---
 
@@ -214,6 +230,8 @@ openclaw secrets audit --check
 
 ### PHASE 2 — Doctrine as skills + the audit question
 
+**Status clarification:** This legacy numbered doctrine phase remains OPEN. It is not the completed Phase 2 email-assistant workstream referenced by the live state files.
+
 **Goal:** Port your behavioral IP (Closure Doctrine, tier philosophy, operating rules) into OpenClaw's skill/SOUL system, and resolve the one real possible gap: append-only immutable audit.
 
 **This replaces:** old Phase B (constitution, closure doctrine, capability hooks, trust dial, skills).
@@ -240,6 +258,8 @@ openclaw secrets audit --check
 
 ### PHASE 3 — Integrations + memory + lifestreams (daily utility)
 
+**Sequence gate:** This capability-expansion inventory is blocked until foundations F-A through F-D are complete.
+
 **Goal:** The system becomes useful day-to-day. Gmail morning brief, cron-driven autonomy, web search, and your lifestream model as memory/workspace structure.
 
 **This replaces:** old Phase D integrations (minus the eval infra, which moves to Phase 5).
@@ -263,6 +283,8 @@ openclaw secrets audit --check
 ---
 
 ### PHASE 4 — Command Center (the real custom build)
+
+**Sequence gate:** Do not begin until foundations F-A through F-D exist and all eight behavioral tests pass.
 
 **Goal:** Your 7-surface v4 mockup, on top of OpenClaw. This is the largest genuinely-bespoke effort and the place your design IP becomes a product surface.
 
@@ -288,6 +310,8 @@ openclaw secrets audit --check
 ---
 
 ### PHASE 5 — Evals, observability, reviewer access (hardening)
+
+**Sequence change:** The observability work in this section is now Foundation F-B and executes immediately after containment. Legacy phase numbering does not defer it until after capability expansion or the Command Center.
 
 **Goal:** Your behavioral guarantees become mechanically tested; the system is observable; external review is wired.
 
@@ -317,7 +341,7 @@ openclaw secrets audit --check
 6.1 — **Read the browser docs adversarially.** `[VERIFY]` browser tool, browser-control, browser-login — not yet read in full. The critical question: does the browser tool mask sensitive DOM/screenshots so the LLM never sees typed secrets? Your old Layer-3 design (Playwright `mask`, redacted `get_page_text`) — does OpenClaw provide equivalent? **This is the make-or-break verification.** If OpenClaw's browser tool screenshots the page and feeds it to the LLM unmasked, that's the httpx-token-leak failure mode at SSN scale. Verify before any secret goes near it.
 6.2 — **SecretRef for high-tier secrets.** Store SSN-class secrets as SecretRefs (`exec` provider → Keychain/1Password/Vault). `[VERIFIED]` the indirection exists. Confirm the form-fill path resolves the ref at execution inside the tool, never returning the value to the LLM.
 6.3 — **Sandbox the browser.** `mode: all` for browser sessions, dedicated network, masked observer tokens. `[VERIFIED]` sandboxed browser with conservative Chromium flags and password-protected noVNC.
-6.4 — **Tiered approval on submit.** High-tier secret use → Approve tier → Telegram confirm before form submission. Every access audited. `[VERIFIED]` approval engine + (Phase 2) audit.
+6.4 — **Tiered approval on submit.** High-tier secret use → Approve tier → Telegram confirm before form submission. Every access audited. `[VERIFIED]` approval engine + legacy numbered Phase 2 doctrine/audit work.
 6.5 — **Adversarial test.** Before trusting it with a real SSN: a full red-team pass. Can a malicious page prompt-inject the agent into exfiltrating the secret? Does the secret appear in ANY log, trajectory, screenshot, or notification? This is the audit that actually matters.
 
 **Exit gate:** A test form filled with a *fake* SSN, end-to-end, with proof the fake value never appeared in any log/trajectory/screenshot/LLM-context, and submission gated behind Telegram approval. Only after that proof do real secrets get configured.
@@ -331,11 +355,11 @@ openclaw secrets audit --check
 Same as before. Portable across Claude.ai, ChatGPT, Claude Code on the mini, and Aider+Qwen.
 
 **Session-start protocol (every worker):**
-1. Read `OPENCLAW_BUILD_PLAN.md` (this file), `BUILD_STATE.md`, `HANDOFF_BRIEF.md`, recent `ITERATION_LOG.md`.
+1. In the `agent-os` repository, read root-level `CONTROL.md`, including every canonical reference listed at its top, then root-level `BUILD_STATE.md`, root-level `HANDOFF_BRIEF.md`, and recent root-level `ITERATION_LOG.md` before reading this plan or beginning build work.
 2. For Claude Code on the mini: `security unlock-keychain ~/Library/Keychains/login.keychain-db` before `claude` (lesson from prior session — avoids repeated re-login).
 3. Work.
-4. Update `BUILD_STATE.md` (current phase/step/blockers) + overwrite `HANDOFF_BRIEF.md` (what I did, what's next, open questions).
-5. Append to `ITERATION_LOG.md` if a real decision/learning happened.
+4. Update repository-root `BUILD_STATE.md` (current phase/step/blockers) + overwrite repository-root `HANDOFF_BRIEF.md` (what I did, what's next, open questions).
+5. Append to repository-root `ITERATION_LOG.md` if a real decision/learning happened.
 6. Commit, push.
 
 **Worker division (unchanged intent):**
@@ -360,7 +384,7 @@ This pattern was working well in the old build — it caught real issues. Keep i
 
 These are `[VERIFY]` items that need a doc read or hands-on confirmation before the relevant phase. Logged here so they're not lost.
 
-1. **Append-only immutable audit** (Phase 2) — do trajectory bundles + hooks + OTel meet your tamper-evident standard, or do you write a custom audit hook? READ: trajectory, hooks, logging docs.
+1. **Append-only immutable audit** (legacy numbered Phase 2 doctrine/audit inventory) — do trajectory bundles + hooks + OTel meet your tamper-evident standard, or do you write a custom audit hook? READ: trajectory, hooks, logging docs.
 2. **Kill-switch semantics** (Phase 1) — does `/approve deny` + `steer` + `goal`-cancel actually interrupt a running task, collapsing your old C.5/C.6 split? CONFIRM hands-on.
 3. **Loop prevention depth** (Phase 1) — does tool-loop detection cover all six of your controls? READ: loop-detection doc.
 4. **Lifestream mapping** (Phase 3) — best way to express seven life-area containers in OpenClaw's memory/workspace model. DESIGN work.
