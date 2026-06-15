@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-15T15:17:05Z · commit: cae8910_
+_Generated: 2026-06-15T15:32:35Z · commit: a33d031_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -54,7 +54,11 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 
 > **F-A Containment/egress — DECISION POINT (operator).** §4 verify item #1 resolved: host-pf is NON-VIABLE on this macOS build (Plan A eliminated on evidence — see §4). Surviving fork: **Plan B (separate egress box)** vs **Plan C (install Docker → container + Squid egress)**. The build cannot proceed until the operator picks one. Once chosen: read-only verify the chosen path, then build.
 
-**PARKED (do after egress decision):** Publish-hygiene fix — bundle-for-claude.sh couples generate+commit+push with no review gate and didn't keep the public mirror current (18-commit drift surfaced this session). Diagnose why the existing end-session/bundle wiring didn't fire; add a review/dry-run mode and ensure publish actually runs at session end.
+**PARKED (do after egress decision — one focused session on the publish pipeline, fix both together):**
+> Publish-pipeline hardening. Two known defects in the same handoff machinery:
+> (1) **end-session guard false-positive** — `end-session.sh` only detects an *uncommitted* CONTROL.md, so a session that commits CONTROL.md *before* running end-session trips the "CONTROL.md not modified" block, falls to a manual workaround, and SKIPS the bundle regen → public mirror silently goes stale. (Root cause confirmed live 2026-06-15.)
+> (2) **bundle omits canonical docs** — `bundle-for-claude.sh` publishes CONTROL.md inline but only *references* the four canonical docs (END_STATE_ARCHITECTURE, PLATFORM_MECHANICS_REFERENCE, SECURITY_DESIGN_STANDARD, ROADMAP_BEST_PRACTICES). A fresh Claude thread gets state+decisions but not the architecture/§4 evidence behind them, forcing a manual paste every session. Fix: include canonical doc contents in the bundle, size-permitting (large-markdown fetch ceiling is real — if too big, include PLATFORM_MECHANICS at minimum and reference the rest). Also add a review/dry-run mode so publish can be checked before push.
+> Until fixed: always run `./scripts/bundle-for-claude.sh` manually at session end, and paste any needed canonical doc to Claude on request.
 
 **FLAG:** When Foundations 1 (dispatch/confirm split) and 4 (action-policy + deny-by-default) are built, migrate those invariants from docs/ into live agent doctrine (workspace AGENTS.md / doctrine/) so the running system enforces them, not just the plan. Not now — enforcing mechanism doesn't exist yet.
 
@@ -159,6 +163,7 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 
 ## Recent git log (20)
 ```
+a33d031 control: expand PARKED publish-hygiene — end-session guard false-positive + bundle missing canonical docs
 cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-hygiene fix
 53f146b platform-mechanics §4: reconcile leftover Plan-A-adopted text with elimination (internal consistency)
 556b8c9 platform-mechanics §4: amend egress decision (host-side reader + UID-keyed pf proxy; Docker→Plan B) per egress-verify findings
@@ -178,7 +183,6 @@ e9c9304 [codex] 1.2a: Free/Never tiers — allowlist seed, deny-list, strictInli
 da10378 [codex] 1.1: strict exec baseline allowlist/on-miss/deny, verified effective; plan-doc fail-closed claim corrected
 4435816 [codex] fix end-session: add --no-push opt-out (push coupling bug)
 a94ddbb [codex] 1.0: pre-Phase-1 trust audit - NO-GO
-2b15fce [codex] fix bundle: sync docs + cache-bust URL
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
