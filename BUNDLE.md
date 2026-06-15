@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-15T16:56:05Z · commit: a33d031_
+_Generated: 2026-06-15T20:44:58Z · commit: a33d031_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -14,6 +14,13 @@ Read these at the start of any build session. Architecture and phase ordering de
 - docs/AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md — how OpenClaw 2026.6.5 actually enforces runtime, exec, sandbox, egress, auth, and observability. Resolve its §9 VERIFY items before any foundation build drop.
 - docs/AGENT_OS_SECURITY_DESIGN_STANDARD.md — prompt-injection patterns; run the §6 checklist before any new capability.
 - docs/AGENT_OS_ROADMAP_BEST_PRACTICES.md — per-domain research + per-phase pre-build checklists.
+
+## Access / connection (operator reference)
+- Confined build user: `ssh agent@Danny-Mac-Mini.local` (or `@100.96.231.45`). Repo `~/agent-os`; built system `~/.openclaw`.
+- Admin user (installs/privileged ops, owns `/opt/homebrew`): `ssh dannybigdeals@Danny-Mac-Mini.local` (or `@100.96.231.45`).
+- Boundary (verified 2026-06-15): agent CANNOT escalate to dannybigdeals. Privileged actions = operator-by-hand in a dannybigdeals session, not an agent/Codex action.
+- Pull file to MacBook: `scp agent@Danny-Mac-Mini.local:~/agent-os/[file] ~/Downloads/`
+- Credentials/keys live in operator's keychain/password manager — NOT in this doc.
 
 ## System state (where the built system actually is)
 The PLAN lives here (agent-os, pushed to origin). The BUILT SYSTEM lives in ~/.openclaw on the mini — LOCAL-ONLY, no remote, never pushed. A fresh session must read ~/.openclaw directly on the mini; it is not in any remote.
@@ -34,6 +41,11 @@ VERIFIED (vendor security doc, 2026-06-15):
 - Native `openclaw security audit` (`--deep`/`--fix`/`--json`) exists and checks tool blast radius, exec/approval drift, network exposure, and "sandbox docker configured but sandbox mode off" (= current state). Adopt for drift detection.
 - Native sandbox default-deny: `agents.defaults.sandbox.workspaceAccess:"none"` (default) + openshell `network:"none"` (default) = egress-off out of the box; connectivity is opt-in.
 - Native Docker egress enforcement is documented: DOCKER-USER iptables allowlist (evaluated before Docker's accept rules) = the forced-routing layer that makes Plan C a real wall, not cooperative proxying.
+
+VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
+- agent runs its OWN Colima instance (Option B), using admin-installed binaries (`/opt/homebrew`, read-only shared) — NO agent install, NO admin-socket sharing, NO permission changes. Boundary held.
+- agent socket: `unix:///Users/agent/.colima/default/docker.sock`, perms `srw-------` owner agent. Separate daemon from admin's. `docker info` healthy: Ubuntu 24.04 aarch64, overlayfs, iptables firewall backend present.
+- OPERATIONAL NOTE: agent's Colima MUST be started from a plain agent SSH session, NOT via Codex — Codex's session sandbox blocks the `~/.colima` home writes Colima needs.
 
 **FLAG:** A full Mac reboot was not tested (only a controlled daemon restart) — verify auto-start on next reboot.
 **FLAG:** Sandbox remains off; do not add untrusted inbound paths before later Phase 1 hardening.
@@ -61,13 +73,14 @@ VERIFIED (vendor security doc, 2026-06-15):
 
 ## NEXT (the single bounded task the next worker does)
 
-> **F-A Native sandbox-first containment — SCOPE + READ-ONLY VERIFY (no installs yet).**
-> Operator decision recorded: pursue native OpenClaw sandbox (Plan C family) over separate-box (Plan B eliminated) and over standalone-egress-first. Native sandbox closes isolation + egress together.
-> Bounded task for next worker (READ-ONLY; STOP before any install/build/write):
->   1. Verify Docker/container-runtime requirement for `agents.defaults.sandbox` on this host (still absent per prior FLAG). Confirm whether sandbox can run without Docker or whether install is the hard gate.
->   2. Verify the credential-chain re-homing cost: vendor doc confirms `sandbox.docker.binds` FAIL CLOSED on credential dirs under OS home (canonicalized-path validator). So the gog keyring/wrapper under `~/.openclaw` CANNOT be mounted as-is. Scope exactly what re-homing requires (Linux arm64 gog rebuild, keyring relocation, UID handling) — this is the load-bearing cost, surface it before any build.
->   3. Run `openclaw security audit --deep` (read-only) and record findings, especially the "sandbox docker configured but sandbox mode off" and any exec/approval-drift items.
-> Output: a scoped GO/NO-GO with the container-runtime install decision surfaced to operator. Build proceeds only after operator approves the install (if required) and the re-homing scope.
+> **F-A sandbox enablement + credential re-homing (resume point — the real surgery).**
+> Runtime DONE: agent-owned Colima live + healthy. Next is the flagged hard part — do NOT rush.
+> 1. Scope credential re-homing BEFORE enabling sandbox: `sandbox.docker.binds` FAIL CLOSED on credential dirs under
+>    OS home, so gog keyring/wrapper under `~/.openclaw` CANNOT mount as-is. Scope Linux arm64 gog rebuild (current
+>    binary is macOS Mach-O), keyring relocation, UID handling. Report plan, decide.
+> 2. Only after re-homing plan approved: enable `agents.defaults.sandbox`. STOP before mount.
+> 3. Re-prove three-layer no-send through the re-homed path (new attack surface).
+> FLAG (carry): agent-Colima reboot persistence (must auto-start AS agent; ties to untested-reboot FLAG).
 
 **PARKED (do after egress decision — one focused session on the publish pipeline, fix both together):**
 > Publish-pipeline hardening. Two known defects in the same handoff machinery:
@@ -115,6 +128,7 @@ VERIFIED (vendor security doc, 2026-06-15):
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-15 | Sandbox runtime = agent-owned Colima using shared read-only admin binaries; agent-owned VM+socket | Option B (full daemon/socket separation), zero install/socket-sharing/permission-change. Shared read-only BINARIES safe; shared SOCKET avoided as escalation risk. Launch from plain agent SSH (Codex sandbox blocks home writes).
 - 2026-06-15 | Sensitive-data integration HELD until containment proven; reader stays supervised + non-sensitive | Prompt-injection→exfil is unsolved field-wide (vendor security doc states it explicitly); native process-level proxy is not an OS sandbox; removing the consequence leg (no sensitive data) is the only currently-sound posture. Aligns with vendor "model last / limit blast radius" stance.
 - 2026-06-15 | Plan B (separate egress box) ELIMINATED by operator — no new hardware | If a forced-routing egress wall is needed, it is Plan C (Docker/openshell internal network + DOCKER-USER allowlist, both vendor-documented). Native managed proxy is interim defense-in-depth only.
 - 2026-06-15 | NEXT reframed egress-decision → sandbox-first (operator-approved) | Vendor native sandbox (`agents.defaults.sandbox`, openshell `network:"none"` default) closes ISOLATION and most of EGRESS in one native config tree; doing egress as a standalone wall duplicates work the sandbox already provides. Foundations-first order preserved; this resequences within foundations, not across them.
