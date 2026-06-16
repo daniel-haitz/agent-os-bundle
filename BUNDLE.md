@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-16T01:06:58Z · commit: a33d031_
+_Generated: 2026-06-16T01:15:58Z · commit: 6b818db_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -231,6 +231,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+6b818db audit: complete F-A0 platform hardening inspection
 a33d031 control: expand PARKED publish-hygiene — end-session guard false-positive + bundle missing canonical docs
 cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-hygiene fix
 53f146b platform-mechanics §4: reconcile leftover Plan-A-adopted text with elimination (internal consistency)
@@ -250,7 +251,6 @@ e9c9304 [codex] 1.2a: Free/Never tiers — allowlist seed, deny-list, strictInli
 8c526f0 [codex] 1.1c: dedicated restricted heartbeat agent; heartbeat routed off main; config re-baselined
 da10378 [codex] 1.1: strict exec baseline allowlist/on-miss/deny, verified effective; plan-doc fail-closed claim corrected
 4435816 [codex] fix end-session: add --no-push opt-out (push coupling bug)
-a94ddbb [codex] 1.0: pre-Phase-1 trust audit - NO-GO
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -271,6 +271,7 @@ audits/2026-06-12-killswitch-test.md
 audits/2026-06-12-panic-button-test.md
 audits/2026-06-12-pre-phase1-audit.md
 audits/2026-06-12-sandbox-killswitch-discovery.md
+audits/F-A0-platform-hardening-audit.md
 docs/AGENT_OS_END_STATE_ARCHITECTURE.md
 docs/AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md
 docs/AGENT_OS_ROADMAP_BEST_PRACTICES.md
