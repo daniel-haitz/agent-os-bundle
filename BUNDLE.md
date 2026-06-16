@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-16T02:08:12Z · commit: 835ce50_
+_Generated: 2026-06-16T22:08:04Z · commit: 2bfba54_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -231,6 +231,9 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+2bfba54 audit(F-A1): close exit gate — 25/25 PASS, broker live and contained
+8ee8a7b build(F-A1): exit-gate test suite 24/24 PASS; broker fix and results
+138dd54 build(F-A1): broker code complete, deploy list, and state handoff
 835ce50 docs: propose F-A1 Gmail capability broker design
 41c66f3 audit: record F-A0 gateway restart verification
 cbc4087 audit: record F-A0 qwen web-browser remediation
@@ -248,9 +251,6 @@ a6ae107 [codex] reconcile Path B state and platform references
 6d11758 [codex] 2.A: scope Phase 2 email assistant; Gmail connector read-only discovery + go/no-go
 49d5f8e [codex] H.2: push verified work; record deferred plan items (egress, instruction-file drift, three-wall SSN gate)
 614fbf6 [codex] 1.5b: verified panic button (kickstart-kill + auto-recover); EPERM root cause diagnosed
-9ffa2c3 [codex] 1.4-discovery: sandbox/kill-switch feasibility + EPERM root cause + config secret check
-ea1e3f0 [codex] 1.5: kill-switch verified live against inert task; panic-button command documented
-0fdde55 [codex] 1.2b-discovery: hooks mechanism audit; safe-list now git-tracked
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -272,11 +272,14 @@ audits/2026-06-12-panic-button-test.md
 audits/2026-06-12-pre-phase1-audit.md
 audits/2026-06-12-sandbox-killswitch-discovery.md
 audits/F-A0-platform-hardening-audit.md
+audits/F-A1-negative-test-results.md
 docs/AGENT_OS_END_STATE_ARCHITECTURE.md
 docs/AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md
 docs/AGENT_OS_ROADMAP_BEST_PRACTICES.md
 docs/AGENT_OS_SECURITY_DESIGN_STANDARD.md
+docs/F-A1_DEPLOY_LIST.md
 docs/F-A1_GMAIL_BROKER_DESIGN.md
+docs/F-A1_GMAIL_BROKER_DESIGN_ADDENDUM.md
 docs/OPENCLAW_BUILD_PLAN.md
 docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
 docs/OPENCLAW_DEEP_DIVE_CONFIG.md
@@ -289,6 +292,8 @@ scripts/bundle-for-claude.sh
 scripts/end-session.sh
 scripts/secret-scan.sh
 scripts/start-session.sh
+src/gmail-broker/f-a1-test-suite.mjs
+src/gmail-broker/gmail-broker.mjs
 templates/COMMIT_FORMAT.md
 templates/DROP_FORMAT.md
 ```
