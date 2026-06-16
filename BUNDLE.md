@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-16T01:15:58Z · commit: 6b818db_
+_Generated: 2026-06-16T01:51:10Z · commit: e47e91c_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -231,6 +231,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+e47e91c audit: close F-A0 deep-audit findings and remediation scope
 6b818db audit: complete F-A0 platform hardening inspection
 a33d031 control: expand PARKED publish-hygiene — end-session guard false-positive + bundle missing canonical docs
 cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-hygiene fix
@@ -250,7 +251,6 @@ ea1e3f0 [codex] 1.5: kill-switch verified live against inert task; panic-button 
 e9c9304 [codex] 1.2a: Free/Never tiers — allowlist seed, deny-list, strictInlineEval; pending batch pushed; config re-baselined
 8c526f0 [codex] 1.1c: dedicated restricted heartbeat agent; heartbeat routed off main; config re-baselined
 da10378 [codex] 1.1: strict exec baseline allowlist/on-miss/deny, verified effective; plan-doc fail-closed claim corrected
-4435816 [codex] fix end-session: add --no-push opt-out (push coupling bug)
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
