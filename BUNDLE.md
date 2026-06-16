@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-15T20:44:58Z · commit: a33d031_
+_Generated: 2026-06-16T01:06:58Z · commit: a33d031_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -47,16 +47,23 @@ VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
 - agent socket: `unix:///Users/agent/.colima/default/docker.sock`, perms `srw-------` owner agent. Separate daemon from admin's. `docker info` healthy: Ubuntu 24.04 aarch64, overlayfs, iptables firewall backend present.
 - OPERATIONAL NOTE: agent's Colima MUST be started from a plain agent SSH session, NOT via Codex — Codex's session sandbox blocks the `~/.colima` home writes Colima needs.
 
+RECONCILED SPINE OF RECORD (2026-06-16): Two independent reviews (Claude + ChatGPT) converged.
+Governing principle: "OpenClaw is the runtime. Agent OS security is the broker, policy, egress,
+typed-handoff, audit, and skill-governance layer AROUND it." OpenClaw is harness, NOT the trust boundary.
+Correction adopted: Gmail needs a CAPABILITY broker (enforces allowed semantic operations:
+read/search/draft only), not merely a credential proxy that hides the key. Credential-hiding alone
+is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
+
 **FLAG:** A full Mac reboot was not tested (only a controlled daemon restart) — verify auto-start on next reboot.
 **FLAG:** Sandbox remains off; do not add untrusted inbound paths before later Phase 1 hardening.
 **FLAG:** Phase 1.4 must isolate `~/.ssh`, `~/.aws`, and secrets paths; OpenClaw 2026.6.5 has no exec/tool path-deny control.
 **FLAG:** Heartbeat agent replied `NO_REPLY` instead of `HEARTBEAT_OK` on its first restricted run — verify the output is interpretable as a health signal in a later check.
 **FLAG:** `EPERM: chmod ~/.openclaw/state` is caused by OpenClaw 2026.6.5 unconditionally chmodding an already-correct `agent:staff` 0700 directory inside a repo-only managed sandbox; pending fix is an OpenClaw code/version fix, not chmod/chown.
 **FLAG:** VERIFIED emergency stop: first stop any attached CLI/supervisor retry source, then run `launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway`; do not use `openclaw gateway stop`/`restart` on this Mac. Telegram `/stop` remains reasoning-halt only.
-**FLAG:** Docker is not installed and `/var/run/docker.sock` is absent; Phase 1.4 sandbox discovery/build is blocked pending an operator container-runtime decision.
-**FLAG:** Egress control is DEFERRED and gates the sensitive-data tier: outbound network access is currently unrestricted. Resolve the Platform Mechanics §4 VERIFY items before choosing host `pf`, sandbox networking, or a layered mechanism.
+**FLAG:** Container runtime prep is DONE via agent-owned Colima, but OpenClaw sandbox mode is still off; do not treat runtime availability as containment.
+**FLAG:** Egress allowlist is DEFERRED until F-A4. Outbound network access is currently unrestricted; egress alone does not unlock sensitive data.
 **FLAG:** Instruction/memory-file drift detection is DEFERRED: add `HEARTBEAT.md` and all SOUL/AGENTS-equivalent files to the `~/.openclaw` baseline so persistent instruction edits trip the drift check.
-**FLAG:** THREE-WALL SENSITIVE-DATA GATE: do not expose SSN-class data until action-policy/exec controls [PARTIAL — Path B reader has no OS-level exec allowlist], isolation/sandbox [DEFERRED — Docker], and egress control [DEFERRED — mechanism under §4 verification] all exist; prompt instructions are not a structural wall.
+**SENSITIVE-DATA GATE:** Sensitive data stays HELD until ALL are PASS: Platform hardening (F-A0) | Gmail capability broker (F-A1) | Reader credential containment (F-A2) | Typed handoff (F-A3) | Egress allowlist (F-A4) | Observability (F-B) | Action policy (F-C) | Dispatch/confirm template (F-D) | Negative injection tests | Secret/log redaction tests. NOTE: broker alone does NOT lift the hold.
 **FLAG:** Notify-tier build (`1.2b-build`) is DEFERRED and non-urgent; the hooks mechanism audit and safe design constraints are recorded.
 **FLAG:** `~/.openclaw` is a local-only drift repo at `b20dda1`; live `openclaw.json` is ignored, the redacted snapshot and security policy files are tracked, and the root `.gitignore` is an allowlist.
 **FLAG:** Gmail uses `gmail.compose`; never-send is a three-layer software guarantee, not a scope boundary. The operator reviews and sends every draft manually.
@@ -64,7 +71,7 @@ VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
 **FLAG:** Draft deletion is not exposed by the safe wrapper; test and unwanted drafts are removed manually in Gmail UI.
 **FLAG:** Headless Gmail auth uses gog's file keyring; the password is stored under ignored `~/.openclaw/secrets/` and is visible to same-user processes only while injected into the safe child environment. This exposure is accepted.
 **FLAG:** Email instruction/data separation follows the CaMeL dual-plane pattern: paired Telegram operator instructions are commands; email content is inert untrusted data.
-**FLAG:** Agent separation is containment, not formal DLP. Research-question smuggling remains a residual injection risk; the loop is supervised-use and non-sensitive ONLY until egress control exists.
+**FLAG:** Agent separation is containment, not formal DLP. Research-question smuggling remains a residual injection risk; the loop is supervised-use and non-sensitive ONLY until the full sensitive-data gate passes.
 **FLAG:** KNOWN ISSUE — sub-agent completion delivery: parent `main` session yields before the delegated reader's result surfaces, causing a recovery re-run and, in Part C Test 2, a duplicate draft. Benign under supervision; must be fixed before unsupervised operation. The same yield-before-child-result behavior occurred in the earlier failed run.
 **FLAG (NEW, verify read-only):** Confirm `hooks.gmail.allowUnsafeExternalContent` is unset/false and external-content wrapping (untrusted-content markers) is intact on the live Gmail path. Vendor audit tracks this flag as insecure/dangerous; if accidentally enabled it bypasses the CaMeL dual-plane separation at the PLATFORM layer regardless of agent design. Fast read-only check via `openclaw security audit`.
 **FLAG (NEW, plan-correction):** §4 of PLATFORM_MECHANICS_REFERENCE understates native Plan-C capability. Vendor docs confirm native sandbox default-deny networking + documented DOCKER-USER egress enforcement. §4 should be reconciled to reflect that Plan C is "configure native sandbox + re-home credential chain," not "build bespoke Docker egress rig." Re-verify before §4 is treated as settled. (Per operating rule: recorded as correction-to-verify, not enacted.)
@@ -73,14 +80,33 @@ VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
 
 ## NEXT (the single bounded task the next worker does)
 
-> **F-A sandbox enablement + credential re-homing (resume point — the real surgery).**
-> Runtime DONE: agent-owned Colima live + healthy. Next is the flagged hard part — do NOT rush.
-> 1. Scope credential re-homing BEFORE enabling sandbox: `sandbox.docker.binds` FAIL CLOSED on credential dirs under
->    OS home, so gog keyring/wrapper under `~/.openclaw` CANNOT mount as-is. Scope Linux arm64 gog rebuild (current
->    binary is macOS Mach-O), keyring relocation, UID handling. Report plan, decide.
-> 2. Only after re-homing plan approved: enable `agents.defaults.sandbox`. STOP before mount.
-> 3. Re-prove three-layer no-send through the re-homed path (new attack surface).
-> FLAG (carry): agent-Colima reboot persistence (must auto-start AS agent; ties to untested-reboot FLAG).
+> **LOCKED SEQUENCE (frozen — do not reorder, do not research the next phase mid-build):**
+> F-A0  Platform hardening audit        ← NEXT EXECUTION STEP (audit only, no changes)
+> F-A1  Gmail capability broker
+> F-A2  Reader CREDENTIAL containment    (see relabel note below)
+> F-A3  Typed reader → researcher handoff
+> F-A4  Egress allowlist
+> F-B   Observability substrate
+> F-C   Action policy registry
+> F-D   Generalized dispatch / confirm split
+> THEN: capability expansion → Command Center → browser/form-fill → sensitive-data workflows LAST.
+>
+> **F-A2 RELABEL (operator-locked 2026-06-16):** F-A2 achieves **Reader Credential Containment ONLY** —
+> the reader cannot steal credentials or call raw Gmail. F-A2 does NOT achieve exfiltration containment.
+> **Exfiltration containment is NOT achieved until BOTH F-A3 (Typed Handoff) AND F-A4 (Egress Allowlist) pass.**
+> F-A2's exit gate must NOT claim the reader is contained against leakage — only against credential theft.
+>
+> **IMMEDIATE NEXT: Run F-A0 Platform Hardening Audit — AUDIT ONLY. No config changes, no installs,
+> no new skills, no broker work, no re-sequencing.** Freeze and inspect OpenClaw before any new architecture:
+> record exact version + install method + runtime user; run `openclaw security audit --deep` and
+> `openclaw secrets audit --check`; inventory channels, tools (main/reader/researcher), elevated tools,
+> skills, hooks; confirm Gateway WS auth on + Gateway local/Tailscale-only (not public) + browser-control
+> off/local-only + Telegram sender allowlist; identify every place the reader can see secrets/env/cred
+> files/config. Produce `audits/F-A0-platform-hardening-audit.md` with PASS/FAIL/UNKNOWN; every UNKNOWN
+> carries exact command/file evidence; every FAIL becomes a bounded remediation task.
+> (Rationale: 2026 OpenClaw CVEs exist — WS/origin validation, sandbox path handling, gateway auth,
+> secret exposure to lower-scope clients, approval-path escalation. A broker on an exposed/vulnerable
+> gateway secures nothing. Audit the real exposure first.)
 
 **PARKED (do after egress decision — one focused session on the publish pipeline, fix both together):**
 > Publish-pipeline hardening. Two known defects in the same handoff machinery:
@@ -95,6 +121,7 @@ VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
 - KEEP (do not swap): confined gog wrapper + three-layer no-send (load-bearing, vendor pattern offers no replacement). REJECT (conscious): Composio/universal-connector (dissolves the scoping that is the actual enforcement).
 
 **FLAG:** When Foundations 1 (dispatch/confirm split) and 4 (action-policy + deny-by-default) are built, migrate those invariants from docs/ into live agent doctrine (workspace AGENTS.md / doctrine/) so the running system enforces them, not just the plan. Not now — enforcing mechanism doesn't exist yet.
+**FLAG (doc reconciliation pending):** Three docs still reference dead/stale items and must be reconciled in a later doc-cleanup pass (NOT now): (a) `PHASE_2_EMAIL_ASSISTANT` + `ROADMAP` still cite macOS pf as egress start — pf is ELIMINATED (expressibility verify NO). (b) `SECURITY_STANDARD` §4 lists "send structurally impossible ✓ BUILT" — currently COOPERATIVE (3 agent-side layers); becomes structural only after F-A1 capability broker. (c) `ROADMAP` Theme 2 egress order "allowlist first" superseded by locked spine (broker first). Reconcile these in the docs themselves when the cleanup session runs.
 
 ---
 
@@ -128,6 +155,9 @@ VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-16 | Spine of record = locked F-A0→F-D sequence; reviews converged, operator-accepted | Two independent model reviews reached the same architecture; churn was doc-vs-working-state drift, not a flawed plan. Spine is now frozen and not re-litigated phase-by-phase.
+- 2026-06-16 | Gmail solution = self-rolled minimal CAPABILITY broker (semantic-operation enforcement), not just credential proxy | gmail.compose is send-adjacent; broker must enforce which operations are allowed (draft-only), not only hide the credential. Agent Vault / IETF CB4A = reference/future generic proxy, source-read before any adoption, NOT the Gmail solution.
+- 2026-06-16 | Sensitive-data hold lifts ONLY when the full gate table passes (not broker alone) | Broker prevents credential theft; it does NOT prevent poisoned summaries, search/web exfiltration, or malicious drafts. Multiple required conditions, no single keystone.
 - 2026-06-15 | Sandbox runtime = agent-owned Colima using shared read-only admin binaries; agent-owned VM+socket | Option B (full daemon/socket separation), zero install/socket-sharing/permission-change. Shared read-only BINARIES safe; shared SOCKET avoided as escalation risk. Launch from plain agent SSH (Codex sandbox blocks home writes).
 - 2026-06-15 | Sensitive-data integration HELD until containment proven; reader stays supervised + non-sensitive | Prompt-injection→exfil is unsolved field-wide (vendor security doc states it explicitly); native process-level proxy is not an OS sandbox; removing the consequence leg (no sensitive data) is the only currently-sound posture. Aligns with vendor "model last / limit blast radius" stance.
 - 2026-06-15 | Plan B (separate egress box) ELIMINATED by operator — no new hardware | If a forced-routing egress wall is needed, it is Plan C (Docker/openshell internal network + DOCKER-USER allowlist, both vendor-documented). Native managed proxy is interim defense-in-depth only.
@@ -138,7 +168,7 @@ VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
 - 2026-06-13 | Gmail draft-only uses `gmail.readonly` + `gmail.compose` with a three-layer software no-send barrier | Readonly cannot create Gmail drafts; wrapper allowlisting, a policy-compiled gog v0.25.0 binary, and `gmail_no_send` all independently block send paths
 - 2026-06-13 | Gmail authentication and runtime use separate binaries and a file keyring | The auth bootstrap has no Gmail commands, the production binary has no auth/send commands, and macOS Keychain was unreliable in the headless session
 - 2026-06-13 | Gmail remains on-demand pull; Pub/Sub/gcloud push is deferred | Pull satisfies the supervised workflow without adding webhook secrets, public ingress, or cloud infrastructure
-- 2026-06-13 | Email automation follows a CaMeL-style dual-plane model and remains supervised/non-sensitive until egress control exists | Email is untrusted data, Telegram is the command plane, but agent separation cannot formally prevent injected text from being smuggled into a research query
+- 2026-06-13 | SUPERSEDED 2026-06-16: Email automation follows a CaMeL-style dual-plane model and remains supervised/non-sensitive until the full sensitive-data gate passes | Email is untrusted data, Telegram is the command plane, but agent separation cannot formally prevent injected text from being smuggled into a research query. Original shorthand "until egress control exists" is superseded; egress alone does not lift the hold.
 - 2026-06-13 | `~/.openclaw` tracks a sanitized snapshot and explicit security artifacts under a root allowlist | Live config, credentials, workspaces, and runtime state remain ignored while meaningful drift stays reviewable
 - 2026-06-12 | SUPERSEDED 2026-06-13: stock webhook Gmail setup was rejected | It wrote plaintext hook secrets and introduced unnecessary push ingress; the implemented design uses on-demand pull through the confined wrapper
 - 2026-06-12 | SUPERSEDED 2026-06-13: read-only OAuth and macOS Keychain were the initial target | Real Gmail drafts require compose scope, and headless Keychain access proved unreliable; the live design uses three-layer software no-send plus a protected file keyring
