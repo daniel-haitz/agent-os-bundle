@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-16T02:01:56Z · commit: 41c66f3_
+_Generated: 2026-06-16T02:08:12Z · commit: 835ce50_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -231,6 +231,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+835ce50 docs: propose F-A1 Gmail capability broker design
 41c66f3 audit: record F-A0 gateway restart verification
 cbc4087 audit: record F-A0 qwen web-browser remediation
 e47e91c audit: close F-A0 deep-audit findings and remediation scope
@@ -250,7 +251,6 @@ a6ae107 [codex] reconcile Path B state and platform references
 9ffa2c3 [codex] 1.4-discovery: sandbox/kill-switch feasibility + EPERM root cause + config secret check
 ea1e3f0 [codex] 1.5: kill-switch verified live against inert task; panic-button command documented
 0fdde55 [codex] 1.2b-discovery: hooks mechanism audit; safe-list now git-tracked
-e9c9304 [codex] 1.2a: Free/Never tiers — allowlist seed, deny-list, strictInlineEval; pending batch pushed; config re-baselined
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -276,6 +276,7 @@ docs/AGENT_OS_END_STATE_ARCHITECTURE.md
 docs/AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md
 docs/AGENT_OS_ROADMAP_BEST_PRACTICES.md
 docs/AGENT_OS_SECURITY_DESIGN_STANDARD.md
+docs/F-A1_GMAIL_BROKER_DESIGN.md
 docs/OPENCLAW_BUILD_PLAN.md
 docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
 docs/OPENCLAW_DEEP_DIVE_CONFIG.md
