@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T18:36:38Z · commit: 3d3de4d_
+_Generated: 2026-06-17T20:48:37Z · commit: 35a01ee_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -39,6 +39,7 @@ Current drift state: agent-os at 1fbc3a1; ~/.openclaw at 20857ba (F-A2 Part 1 �
 > Deny block added to settings.json; standing `openclaw security audit` check wired (7642d70).
 > Publish pipeline FIXED: `wrap-up` command ships; bundle now includes all four canonical docs inline; end-session false-positive eliminated; verification uses git ls-remote not CDN (CDN ?v= does not bypass server-side cache) (1fbc3a1).
 > Front door FIXED: `start.sh` ships; one SSH command from MacBook, tmux/screen session, correct model preselected, reconnect-safe; `00_START_HERE.md` replaces `01_PICK_UP_WORK.md` as primary runbook.
+> Doctrine WIRED: `CLAUDE.md` + `doctrine/` created; communication standard and session-close protocol (git-protocol-is-truth rule, ls-remote residual, corrected CDN principle) are now binding on all workers across all threads.
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
@@ -132,6 +133,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-17 | claude-code | DROP 4: CLAUDE.md + doctrine/ wired; communication standard + session-close protocol (git-protocol-is-truth) binding on all workers | this commit
 - 2026-06-17 | claude-code | Front door: start.sh + 00_START_HERE.md; tmux/screen session, correct model, reconnect-safe | this commit
 - 2026-06-17 | claude-code | Publish pipeline fixed: wrap-up.sh ships; inline docs; ls-remote verification; dry-run mode | 1fbc3a1
 - 2026-06-16 | claude-code | Deny block added to settings.json; standing `openclaw security audit` check wired | 7642d70
@@ -240,11 +242,12 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 2. When you FINISH: move NEXT→DONE (one line), write the new NEXT (one bounded step), update NOW.
 3. If you made a real decision: add to DECISIONS LOG.
 4. Commit with the structured message (see templates/COMMIT_FORMAT.md).
-5. Never leave this file stale. `end-session.sh` enforces this.
+5. Never leave this file stale. Session close is `./scripts/wrap-up.sh "what shipped"` — it checks freshness and refuses to wrap if CONTROL.md looks untouched.
 ```
 
 ## Recent git log (20)
 ```
+35a01ee [claude-code] DROP 4: CLAUDE.md + doctrine/ wired; communication standard and session-close protocol binding on all workers
 3d3de4d [claude-code] build(ops): add start.sh front door + 00_START_HERE.md operator runbook
 512aaf3 [claude-code] build(publish): wrap-up keystone complete — pipeline proven, CONTROL.md closed
 1fbc3a1 [claude-code] build(publish): verify via git ls-remote not CDN; CDN ?v= does not bypass server cache
@@ -264,7 +267,6 @@ b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 41c66f3 audit: record F-A0 gateway restart verification
 cbc4087 audit: record F-A0 qwen web-browser remediation
 e47e91c audit: close F-A0 deep-audit findings and remediation scope
-6b818db audit: complete F-A0 platform hardening inspection
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -274,6 +276,7 @@ e47e91c audit: close F-A0 deep-audit findings and remediation scope
 00_TEARDOWN.md
 01_PICK_UP_WORK.md
 BUILD_STATE.md
+CLAUDE.md
 CONTROL.md
 HANDOFF_BRIEF.md
 ITERATION_LOG.md
@@ -304,6 +307,8 @@ docs/OPENCLAW_FIELD_NOTES.md
 docs/OPENCLAW_RESEARCH_ADDENDUM.md
 docs/PHASE_2_EMAIL_ASSISTANT.md
 docs/PRIOR_BUILD_LEARNINGS.md
+doctrine/COMMUNICATION_STANDARD.md
+doctrine/SESSION_CLOSE_PROTOCOL.md
 scripts/bundle-for-claude.sh
 scripts/end-session.sh
 scripts/observability/q1-silent-failures.mjs
