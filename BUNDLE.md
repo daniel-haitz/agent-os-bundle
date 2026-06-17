@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T14:17:58Z · commit: 6b6475a_
+_Generated: 2026-06-17T14:22:44Z · commit: 1fbc3a1_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -238,6 +238,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+1fbc3a1 [claude-code] build(publish): verify via git ls-remote not CDN; CDN ?v= does not bypass server cache
 6b6475a [claude-code] build(publish): use cache-busted URL in verifier; push once, read confirms
 89d8363 [claude-code] build(publish): fix SIGPIPE in wrap-up verifier; use bash built-ins for hash parse
 d47bea0 [claude-code] build(publish): add wrap-up close command, inline canonical docs in bundle
@@ -257,7 +258,6 @@ e47e91c audit: close F-A0 deep-audit findings and remediation scope
 6b818db audit: complete F-A0 platform hardening inspection
 a33d031 control: expand PARKED publish-hygiene — end-session guard false-positive + bundle missing canonical docs
 cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-hygiene fix
-53f146b platform-mechanics §4: reconcile leftover Plan-A-adopted text with elimination (internal consistency)
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
