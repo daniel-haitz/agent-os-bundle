@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T01:16:27Z · commit: b1ee06b_
+_Generated: 2026-06-17T13:36:10Z · commit: eebe794_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -24,7 +24,7 @@ Read these at the start of any build session. Architecture and phase ordering de
 
 ## System state (where the built system actually is)
 The PLAN lives here (agent-os, pushed to origin). The BUILT SYSTEM lives in ~/.openclaw on the mini — LOCAL-ONLY, no remote, never pushed. A fresh session must read ~/.openclaw directly on the mini; it is not in any remote.
-Current drift state: committed at b20dda1, which includes the verified Path B reader config and the completed Part C live + injection tests.
+Current drift state: agent-os at 3041a01; ~/.openclaw at 20857ba (F-A2 Part 1 — broker config active, old credential paths intact pending proof loop).
 
 **This is the ONLY state file. Every worker reads this first and updates it last.**
 **If it's not in this file, it didn't happen. The repo is truth, not any prompt or any brain's memory.**
@@ -33,7 +33,10 @@ Current drift state: committed at b20dda1, which includes the verified Path B re
 
 ## NOW (where we are this exact moment)
 
-> Phase 2 email-assistant workstream (as tracked in live state) is COMPLETE and injection-tested under Path B: sanitized local drift tracking, `gmail.readonly` + `gmail.compose`, draft-only wrapper, pinned safe gog binary, file keyring, three-layer no-send proof, isolated reader/researcher delegation, schema-constrained research validation, and real-thread draft tests. This does not mark the legacy numbered `PHASE 2 — Doctrine as skills` in the build plan complete.
+> F-A1 CLOSED: Gmail capability broker live, 25/25 exit-gate PASS, ~/.openclaw committed (2bfba54).
+> F-A2 Part 1 WIRED: broker config active; proof loop pending — blocked on Codex budget until tonight (b1ee06b / ~/.openclaw 20857ba).
+> F-B: observability design complete, Q1–Q5 query scripts written and live-validated against broker audit log (38f02f0 / 3041a01).
+> Deny block added to settings.json; standing `openclaw security audit` check wired (7642d70).
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
@@ -81,12 +84,12 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## NEXT (the single bounded task the next worker does)
 
 > **LOCKED SEQUENCE (frozen — do not reorder, do not research the next phase mid-build):**
-> F-A0  Platform hardening audit        ← NEXT EXECUTION STEP (audit only, no changes)
-> F-A1  Gmail capability broker
-> F-A2  Reader CREDENTIAL containment    (see relabel note below)
+> F-A0  Platform hardening audit        ← CLOSED (e47e91c)
+> F-A1  Gmail capability broker         ← CLOSED (2bfba54)
+> F-A2  Reader CREDENTIAL containment   ← Part 1 wired (b1ee06b); proof loop = NEXT EXECUTION STEP
 > F-A3  Typed reader → researcher handoff
 > F-A4  Egress allowlist
-> F-B   Observability substrate
+> F-B   Observability substrate         ← design + Q1–Q5 live-validated (3041a01)
 > F-C   Action policy registry
 > F-D   Generalized dispatch / confirm split
 > THEN: capability expansion → Command Center → browser/form-fill → sensitive-data workflows LAST.
@@ -96,17 +99,14 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > **Exfiltration containment is NOT achieved until BOTH F-A3 (Typed Handoff) AND F-A4 (Egress Allowlist) pass.**
 > F-A2's exit gate must NOT claim the reader is contained against leakage — only against credential theft.
 >
-> **IMMEDIATE NEXT: Run F-A0 Platform Hardening Audit — AUDIT ONLY. No config changes, no installs,
-> no new skills, no broker work, no re-sequencing.** Freeze and inspect OpenClaw before any new architecture:
-> record exact version + install method + runtime user; run `openclaw security audit --deep` and
-> `openclaw secrets audit --check`; inventory channels, tools (main/reader/researcher), elevated tools,
-> skills, hooks; confirm Gateway WS auth on + Gateway local/Tailscale-only (not public) + browser-control
-> off/local-only + Telegram sender allowlist; identify every place the reader can see secrets/env/cred
-> files/config. Produce `audits/F-A0-platform-hardening-audit.md` with PASS/FAIL/UNKNOWN; every UNKNOWN
-> carries exact command/file evidence; every FAIL becomes a bounded remediation task.
-> (Rationale: 2026 OpenClaw CVEs exist — WS/origin validation, sandbox path handling, gateway auth,
-> secret exposure to lower-scope clients, approval-path escalation. A broker on an exposed/vulnerable
-> gateway secures nothing. Audit the real exposure first.)
+> **IMMEDIATE NEXT: Run F-A2 proof loop — confirm broker enforcement end-to-end, then lock Part 2.**
+> 1. Blind both old credential paths in the reader config (do NOT delete — restore after test).
+> 2. Delegate the reader loop to exercise search + read + draft via the broker.
+> 3. Confirm broker audit log shows `search_threads`, `read_thread`, `create_draft` (no raw calls).
+> 4. Verify draft recipient is correct (operator address, not a test address).
+> 5. Restore blinded paths (undo step 1).
+> **F-A2 Part 2 (credential deletion) is LOCKED until proof loop passes.** Do not delete credentials
+> or restructure the reader config before proof is confirmed in the audit log.
 
 **PARKED (do after egress decision — one focused session on the publish pipeline, fix both together):**
 > Publish-pipeline hardening. Two known defects in the same handoff machinery:
@@ -128,6 +128,12 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-16 | claude-code | Deny block added to settings.json; standing `openclaw security audit` check wired | 7642d70
+- 2026-06-16 | claude-code | F-B observability: Q1–Q5 live-validated against broker audit log | 3041a01
+- 2026-06-16 | claude-code | F-B observability: design doc + Q1–Q5 query scripts written | 38f02f0
+- 2026-06-16 | claude-code | F-A2 Part 1 wired: broker config active, old credential paths intact pending proof loop | b1ee06b / ~/.openclaw 20857ba
+- 2026-06-16 | claude-code | F-A1 CLOSED: Gmail capability broker live, 25/25 exit-gate PASS, ~/.openclaw committed | 2bfba54
+- 2026-06-15 | claude-code | F-A0 CLOSED: platform hardening audit complete, all findings remediated | e47e91c
 - 2026-06-14 | codex | Phase 2 email-assistant workstream — Verified Path B on live threads; read/draft loop, three-layer no-send, injection handling, research-query boundary, and unchanged Sent folder all passed | ~/.openclaw b20dda1
 - 2026-06-13 | codex | Gmail compose connection — Granted only readonly + compose + OIDC, verified reads and real Gmail drafts, and proved sending blocked at wrapper, baked-binary, and `gmail_no_send` layers | a2065e8
 - 2026-06-13 | codex | Gmail confinement — Built pinned gogcli v0.25.0 production/auth binaries, strict draft wrapper, file-keyring injection, and live-token-safe local drift tracking | a2065e8
@@ -155,6 +161,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-16 | Settings deny block chosen over per-path allowlist for tool restriction | Deny block is fail-closed and applies uniformly; allowlist requires enumerating every safe path, leaving gaps on miss — deny is the right default for tools that should never be reached by the reader.
 - 2026-06-16 | Spine of record = locked F-A0→F-D sequence; reviews converged, operator-accepted | Two independent model reviews reached the same architecture; churn was doc-vs-working-state drift, not a flawed plan. Spine is now frozen and not re-litigated phase-by-phase.
 - 2026-06-16 | Gmail solution = self-rolled minimal CAPABILITY broker (semantic-operation enforcement), not just credential proxy | gmail.compose is send-adjacent; broker must enforce which operations are allowed (draft-only), not only hide the credential. Agent Vault / IETF CB4A = reference/future generic proxy, source-read before any adoption, NOT the Gmail solution.
 - 2026-06-16 | Sensitive-data hold lifts ONLY when the full gate table passes (not broker alone) | Broker prevents credential theft; it does NOT prevent poisoned summaries, search/web exfiltration, or malicious drafts. Multiple required conditions, no single keystone.
@@ -231,6 +238,10 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B validated
+3041a01 obs(F-B): record live validation of Q1-Q5 against broker audit log
+7642d70 security: add deny block to settings + standing audit check
+38f02f0 obs(F-B): add observability design and Q1-Q5 query scripts
 b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 2bfba54 audit(F-A1): close exit gate — 25/25 PASS, broker live and contained
 8ee8a7b build(F-A1): exit-gate test suite 24/24 PASS; broker fix and results
@@ -247,10 +258,6 @@ cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-h
 a6ae107 [codex] reconcile Path B state and platform references
 7f08680 [codex] harden cross-repo handoff state
 07c103c [codex] establish canonical references and foundations-first plan
-4436f63 [codex] document live Gmail architecture and supervised email loop
-2124365 gmail discovery: correct compose-scope analysis + send-path reachability audit
-6d11758 [codex] 2.A: scope Phase 2 email assistant; Gmail connector read-only discovery + go/no-go
-49d5f8e [codex] H.2: push verified work; record deferred plan items (egress, instruction-file drift, three-wall SSN gate)
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -280,6 +287,7 @@ docs/AGENT_OS_SECURITY_DESIGN_STANDARD.md
 docs/F-A1_DEPLOY_LIST.md
 docs/F-A1_GMAIL_BROKER_DESIGN.md
 docs/F-A1_GMAIL_BROKER_DESIGN_ADDENDUM.md
+docs/F-B_OBSERVABILITY_DESIGN.md
 docs/OPENCLAW_BUILD_PLAN.md
 docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
 docs/OPENCLAW_DEEP_DIVE_CONFIG.md
@@ -290,6 +298,11 @@ docs/PHASE_2_EMAIL_ASSISTANT.md
 docs/PRIOR_BUILD_LEARNINGS.md
 scripts/bundle-for-claude.sh
 scripts/end-session.sh
+scripts/observability/q1-silent-failures.mjs
+scripts/observability/q2-orphan-correlations.mjs
+scripts/observability/q3-unclosed-runs.mjs
+scripts/observability/q4-egress-denials.mjs
+scripts/observability/q5-out-of-band-drafts.mjs
 scripts/secret-scan.sh
 scripts/start-session.sh
 src/gmail-broker/f-a1-test-suite.mjs
