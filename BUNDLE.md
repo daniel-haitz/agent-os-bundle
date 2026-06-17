@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T14:10:56Z · commit: d47bea0_
+_Generated: 2026-06-17T14:11:59Z · commit: 89d8363_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -238,6 +238,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+89d8363 [claude-code] build(publish): fix SIGPIPE in wrap-up verifier; use bash built-ins for hash parse
 d47bea0 [claude-code] build(publish): add wrap-up close command, inline canonical docs in bundle
 5d025e3 [claude-code] test session
 eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B validated
@@ -257,7 +258,6 @@ a33d031 control: expand PARKED publish-hygiene — end-session guard false-posit
 cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-hygiene fix
 53f146b platform-mechanics §4: reconcile leftover Plan-A-adopted text with elimination (internal consistency)
 556b8c9 platform-mechanics §4: amend egress decision (host-side reader + UID-keyed pf proxy; Docker→Plan B) per egress-verify findings
-a6ae107 [codex] reconcile Path B state and platform references
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
