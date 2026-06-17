@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T21:38:55Z · commit: a1c17c2_
+_Generated: 2026-06-17T22:13:02Z · commit: 7bc2c36_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -41,7 +41,7 @@ Current drift state: agent-os at 1fbc3a1; ~/.openclaw at 20857ba (F-A2 Part 1 �
 > Front door FIXED: `start.sh` ships; one SSH command from MacBook, tmux/screen session, correct model preselected, reconnect-safe; `00_START_HERE.md` replaces `01_PICK_UP_WORK.md` as primary runbook.
 > Doctrine WIRED: `CLAUDE.md` + `doctrine/` created; communication standard and session-close protocol (git-protocol-is-truth rule, ls-remote residual, corrected CDN principle) are now binding on all workers across all threads.
 > Doctrine TEXT REPAIRED: wording in `CLAUDE.md` and `doctrine/COMMUNICATION_STANDARD.md` aligned to canonical verbatim spec; self-verification rule added to `SESSION_CLOSE_PROTOCOL.md`.
-> F-A2 proof loop STAGED: `docs/F-A2_PROOF_RUNBOOK.md` written; two old credential paths identified (`gog-keyring-password` 0600, `gmail-draft-gog` 0755); blind (`chmod 000`) + restore (`chmod 0600`/`0755`) dry-run against scratch — clean inverse confirmed (empty diff); audit query tested; broker confirmed live. Live config untouched. Part 2 still LOCKED.
+> F-A2 proof loop STAGED (revised): runbook updated to restore-to-live-captured modes (not hardcoded), explicit two-actor Codex→operator→Codex sequence with verbatim sudo commands, audit query flagged as logic-verified-not-yet-live. Live config untouched. Part 2 LOCKED.
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
@@ -135,7 +135,8 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
-- 2026-06-17 | claude-code | F-A2-STAGE: proof loop runbook written; restore dry-run proven clean; broker confirmed live; live config untouched | this commit
+- 2026-06-17 | claude-code | F-A2-STAGE-R: runbook revised — restore-to-captured, two-actor flow, audit query flag | this commit
+- 2026-06-17 | claude-code | F-A2-STAGE: proof loop runbook written; restore dry-run proven clean; broker confirmed live; live config untouched | a1c17c2
 - 2026-06-17 | claude-code | DROP 4-FIX: doctrine text aligned to canonical spec; self-verification rule added to SESSION_CLOSE_PROTOCOL | 6b317f0
 - 2026-06-17 | claude-code | DROP 4: CLAUDE.md + doctrine/ wired; communication standard + session-close protocol (git-protocol-is-truth) binding on all workers | 35a01ee
 - 2026-06-17 | claude-code | Front door: start.sh + 00_START_HERE.md; tmux/screen session, correct model, reconnect-safe | this commit
@@ -251,6 +252,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+7bc2c36 [claude-code] F-A2-STAGE-R: runbook revised — restore-to-captured modes, two-actor flow, audit query honestly flagged
 a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run clean; broker live; live config untouched
 6b317f0 [claude-code] DROP 4-FIX: doctrine text aligned to canonical spec; self-verification rule added to SESSION_CLOSE_PROTOCOL
 35a01ee [claude-code] DROP 4: CLAUDE.md + doctrine/ wired; communication standard and session-close protocol binding on all workers
@@ -270,7 +272,6 @@ b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 8ee8a7b build(F-A1): exit-gate test suite 24/24 PASS; broker fix and results
 138dd54 build(F-A1): broker code complete, deploy list, and state handoff
 835ce50 docs: propose F-A1 Gmail capability broker design
-41c66f3 audit: record F-A0 gateway restart verification
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
