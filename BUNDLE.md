@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T14:22:44Z · commit: 1fbc3a1_
+_Generated: 2026-06-17T14:24:41Z · commit: 512aaf3_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -24,7 +24,7 @@ Read these at the start of any build session. Architecture and phase ordering de
 
 ## System state (where the built system actually is)
 The PLAN lives here (agent-os, pushed to origin). The BUILT SYSTEM lives in ~/.openclaw on the mini — LOCAL-ONLY, no remote, never pushed. A fresh session must read ~/.openclaw directly on the mini; it is not in any remote.
-Current drift state: agent-os at 3041a01; ~/.openclaw at 20857ba (F-A2 Part 1 — broker config active, old credential paths intact pending proof loop).
+Current drift state: agent-os at 1fbc3a1; ~/.openclaw at 20857ba (F-A2 Part 1 — broker config active, old credential paths intact pending proof loop).
 
 **This is the ONLY state file. Every worker reads this first and updates it last.**
 **If it's not in this file, it didn't happen. The repo is truth, not any prompt or any brain's memory.**
@@ -37,6 +37,7 @@ Current drift state: agent-os at 3041a01; ~/.openclaw at 20857ba (F-A2 Part 1 �
 > F-A2 Part 1 WIRED: broker config active; proof loop pending — blocked on Codex budget until tonight (b1ee06b / ~/.openclaw 20857ba).
 > F-B: observability design complete, Q1–Q5 query scripts written and live-validated against broker audit log (38f02f0 / 3041a01).
 > Deny block added to settings.json; standing `openclaw security audit` check wired (7642d70).
+> Publish pipeline FIXED: `wrap-up` command ships; bundle now includes all four canonical docs inline; end-session false-positive eliminated; verification uses git ls-remote not CDN (CDN ?v= does not bypass server-side cache) (1fbc3a1).
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
@@ -108,11 +109,13 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > **F-A2 Part 2 (credential deletion) is LOCKED until proof loop passes.** Do not delete credentials
 > or restructure the reader config before proof is confirmed in the audit log.
 
-**PARKED (do after egress decision — one focused session on the publish pipeline, fix both together):**
-> Publish-pipeline hardening. Two known defects in the same handoff machinery:
-> (1) **end-session guard false-positive** — `end-session.sh` only detects an *uncommitted* CONTROL.md, so a session that commits CONTROL.md *before* running end-session trips the "CONTROL.md not modified" block, falls to a manual workaround, and SKIPS the bundle regen → public mirror silently goes stale. (Root cause confirmed live 2026-06-15.)
-> (2) **bundle omits canonical docs** — `bundle-for-claude.sh` publishes CONTROL.md inline but only *references* the four canonical docs (END_STATE_ARCHITECTURE, PLATFORM_MECHANICS_REFERENCE, SECURITY_DESIGN_STANDARD, ROADMAP_BEST_PRACTICES). A fresh Claude thread gets state+decisions but not the architecture/§4 evidence behind them, forcing a manual paste every session. Fix: include canonical doc contents in the bundle, size-permitting (large-markdown fetch ceiling is real — if too big, include PLATFORM_MECHANICS at minimum and reference the rest). Also add a review/dry-run mode so publish can be checked before push.
-> Until fixed: always run `./scripts/bundle-for-claude.sh` manually at session end, and paste any needed canonical doc to Claude on request.
+**PARKED (publish-pipeline hardening) — RESOLVED 2026-06-17 (1fbc3a1):**
+> Both defects fixed via `scripts/wrap-up.sh` (replaces `end-session.sh` as the session-close command):
+> (1) False-positive guard eliminated — freshness check looks at last 10 commits, not "is CONTROL.md currently uncommitted." Incremental-commit sessions work cleanly.
+> (2) Canonical docs now inlined in bundle (~98KB total, no fetch ceiling hit). `bundle-for-claude.sh` includes all four docs.
+> (3) Verification uses `git ls-remote` (real-time git protocol) not CDN raw URL — CDN ?v= cache-buster does NOT bypass GitHub server-side cache (can lag 5+ min).
+> (4) `--dry-run` mode shows full plan + bundle preview without committing or pushing.
+> **Session close is now: `./scripts/wrap-up.sh "what shipped"` — one command, proven confirmation.**
 
 **SWAP-CANDIDATES (audit-gated — source-read REQUIRED before any adoption; do NOT install on architect's research alone):**
 - Notify-tier custom hook → EVALUATE vs native telemetry (logging/OTel/Prometheus/redaction). Lean: DROP custom if native covers the notify need. Gate: confirm against current observability docs.
@@ -128,6 +131,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-17 | claude-code | Publish pipeline fixed: wrap-up.sh ships; inline docs; ls-remote verification; dry-run mode | 1fbc3a1
 - 2026-06-16 | claude-code | Deny block added to settings.json; standing `openclaw security audit` check wired | 7642d70
 - 2026-06-16 | claude-code | F-B observability: Q1–Q5 live-validated against broker audit log | 3041a01
 - 2026-06-16 | claude-code | F-B observability: design doc + Q1–Q5 query scripts written | 38f02f0
@@ -161,6 +165,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-17 | GitHub raw CDN verification requires git ls-remote, not ?v= cache-buster | CDN ?v= query param does NOT bypass GitHub's server-side cache (lag can exceed 5 min); git ls-remote queries the git protocol layer directly and is authoritative and immediate. Confirmed live: plain URL and ?v=HASH both served stale content while ls-remote showed the correct new HEAD.
 - 2026-06-16 | Settings deny block chosen over per-path allowlist for tool restriction | Deny block is fail-closed and applies uniformly; allowlist requires enumerating every safe path, leaving gaps on miss — deny is the right default for tools that should never be reached by the reader.
 - 2026-06-16 | Spine of record = locked F-A0→F-D sequence; reviews converged, operator-accepted | Two independent model reviews reached the same architecture; churn was doc-vs-working-state drift, not a flawed plan. Spine is now frozen and not re-litigated phase-by-phase.
 - 2026-06-16 | Gmail solution = self-rolled minimal CAPABILITY broker (semantic-operation enforcement), not just credential proxy | gmail.compose is send-adjacent; broker must enforce which operations are allowed (draft-only), not only hide the credential. Agent Vault / IETF CB4A = reference/future generic proxy, source-read before any adoption, NOT the Gmail solution.
@@ -238,6 +243,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+512aaf3 [claude-code] build(publish): wrap-up keystone complete — pipeline proven, CONTROL.md closed
 1fbc3a1 [claude-code] build(publish): verify via git ls-remote not CDN; CDN ?v= does not bypass server cache
 6b6475a [claude-code] build(publish): use cache-busted URL in verifier; push once, read confirms
 89d8363 [claude-code] build(publish): fix SIGPIPE in wrap-up verifier; use bash built-ins for hash parse
@@ -257,7 +263,6 @@ cbc4087 audit: record F-A0 qwen web-browser remediation
 e47e91c audit: close F-A0 deep-audit findings and remediation scope
 6b818db audit: complete F-A0 platform hardening inspection
 a33d031 control: expand PARKED publish-hygiene — end-session guard false-positive + bundle missing canonical docs
-cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-hygiene fix
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
