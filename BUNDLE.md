@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T13:36:10Z · commit: eebe794_
+_Generated: 2026-06-17T14:10:56Z · commit: d47bea0_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -238,6 +238,8 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+d47bea0 [claude-code] build(publish): add wrap-up close command, inline canonical docs in bundle
+5d025e3 [claude-code] test session
 eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B validated
 3041a01 obs(F-B): record live validation of Q1-Q5 against broker audit log
 7642d70 security: add deny block to settings + standing audit check
@@ -256,8 +258,6 @@ cae8910 control: record §4 Plan-A elimination, open egress fork, park publish-h
 53f146b platform-mechanics §4: reconcile leftover Plan-A-adopted text with elimination (internal consistency)
 556b8c9 platform-mechanics §4: amend egress decision (host-side reader + UID-keyed pf proxy; Docker→Plan B) per egress-verify findings
 a6ae107 [codex] reconcile Path B state and platform references
-7f08680 [codex] harden cross-repo handoff state
-07c103c [codex] establish canonical references and foundations-first plan
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -305,6 +305,7 @@ scripts/observability/q4-egress-denials.mjs
 scripts/observability/q5-out-of-band-drafts.mjs
 scripts/secret-scan.sh
 scripts/start-session.sh
+scripts/wrap-up.sh
 src/gmail-broker/f-a1-test-suite.mjs
 src/gmail-broker/gmail-broker.mjs
 templates/COMMIT_FORMAT.md
@@ -324,6 +325,689 @@ templates/DROP_FORMAT.md
 - [ ] **Browser `fill` tool-side secret resolution test** (Phase 6) — does fill resolve a SecretRef without returning the value to the LLM?
 
 ---
+
+---
+## Canonical reference docs (inlined — all four, ~98KB total)
+
+### AGENT_OS_END_STATE_ARCHITECTURE.md
+```markdown
+# Agent OS — End-State Architecture
+
+**Purpose:** define what this system is *for* and the bedrock that makes it safe, so every future phase builds toward a deliberate end state instead of accreting. This is the spine the plan reorganizes around. Companion to the Security Design Standard (prompt-injection patterns) and the Roadmap Best-Practices Brief (per-domain research).
+
+**Status:** v1, drafted [next session]. Supersedes the capability-first phase ordering in the prior plan.
+
+---
+
+## 1. What this is (the destination)
+
+A **personal life-operations agent**: a Command Center that dispatches agents on open-ended tasks and brings results back to Daniel, handling low-stakes things autonomously and proposing higher-stakes things for approval — with the boundary between the two **evolving over time as trust accrues**.
+
+Concretely, the end state can:
+- Be sent on open-ended research ("find me better insurance rates," "what's the best way to do X")
+- Watch a video / read a long thing and bring back findings
+- Triage email and family logistics, help get life in order
+- Build budgets from spending, plan vacations
+- Fill out forms (gather + draft every field; submission gated)
+- Eventually: notice context (e.g. an upcoming vacation) and proactively propose actions (e.g. "shut off the AC while you're away") — **evolving to autonomy on the low-stakes ones**
+
+The defining property is **open-endedness**: Daniel hands a goal, the system figures out the steps. This is what makes it truly agentic — and it's also the single hardest thing to secure. The entire architecture below exists to make open-ended dispatch safe.
+
+**Not required perfect on day one.** Starts fully supervised; capabilities and autonomy accrete over time. The bedrock must be strong enough that this evolution is *additive*, never a rebuild.
+
+---
+
+## 2. The central tension (and its resolution)
+
+**Tension:** The security literature's hardest finding is that you *cannot* secure a general-purpose, open-ended agent against prompt injection with current models — only application-specific agents with defined trust boundaries. But the end state *wants* open-ended dispatch.
+
+**Resolution — the load-bearing law of the whole system:**
+
+> **The open-ended part and the consequential part are permanently separated. Gathering agents can research/read/watch/summarize/propose, but structurally CANNOT act. All action is a separate, gated path.**
+
+Open-ended exploration is safe *because its only output is a proposal to the system, never an action.* A fully-injected research agent that "decides" to wire money or delete a file simply cannot — it has no action path. It can only emit a proposal, which goes through the policy layer (§3.4), which routes anything consequential to Daniel.
+
+This is the same pattern as the existing draft-only email loop (reader drafts, can't send), generalized to the whole system. The template is already built; the end state generalizes it.
+
+---
+
+## 3. The four foundations (the bedrock)
+
+These are built as **shared substrate underneath all capabilities**, not per-capability. Building them per-capability is the rebuild trap. They must exist (at least in v1 form) before the Command Center.
+
+### 3.1 Foundation 1 — The Dispatch/Confirm Split (structural law)
+- **Gather plane:** open-ended agents. Read, research, watch, summarize, draft, propose. No action tools at all. Live behind the egress allowlist (3.2). As "wild" as desired because they cannot act.
+- **Act plane:** a *fixed menu* of defined operations (send email, submit form, change a setting, control a device, move money…). Never open-ended. Every action is one of a known set, each with a policy classification (3.4).
+- A gathering agent's proposal **cannot** become an action except by passing through the policy layer. There is no bypass. This is structural, not behavioral — not "the agent is told not to act," but "the agent has no capability to act."
+- **Why it's foundational:** retrofitting "these agents actually can't act" onto a system that assumed they could is a teardown. Get it in first; every capability inherits it.
+
+### 3.2 Foundation 2 — Containment (the unlock)
+Built in value order (per "Caging the Agents," arXiv:2603.17419, and "Silent Egress," arXiv:2602.22450):
+1. **Network egress allowlist** — default-deny, no wildcards, enforced at tool-execution/network layer (not prompt layer, which barely works). This is what lets gather agents run *wild and unattended* without being an exfiltration risk — a hijacked research agent can't phone home.
+2. **Workload isolation** — agents in a container/VM, not just a user account.
+3. **Credential proxy** — agents call a broker that holds secrets and makes the authenticated call; the agent never sees the raw token. (Generalizes the draft-safe wrapper to all secrets.)
+- **Why it's foundational + reordered EARLY:** containment is what graduates the system out of "supervised, non-sensitive only." It has leverage no single capability has — it unlocks unattended operation for *everything*. Hence it moves ahead of new capabilities in the sequence.
+
+**Runtime + confinement law for agents (resolved 2026-06-14 after live testing — Path B):**
+A confinement model is only real if the runtime enforces it, and live testing settled which configurations actually work in OpenClaw 2026.6.5:
+- `tools.exec.mode: "allowlist"` is REJECTED by the Codex harness. An `openai/*` ref defaults to Codex.
+- The embedded `openclaw` runtime accepts allowlist mode but requires a separate OpenAI **API-key** auth profile (`auth.order.openai`, `agentRuntime.id: "openclaw"`) — NOT the ChatGPT/Codex subscription. (Subscription auth only works through the Codex harness.)
+- `tools.exec.mode: "auto"` on Codex was tested and does NOT preserve allowlist confinement: a per-agent approvals allowlist did NOT override `auto` — an off-allowlist command (`ls /`) executed. So "auto + strict approvals" is NOT a safe confinement substitute. [Proven live 2026-06-14.]
+
+**Decision — confined agents run the field-standard way (Path B):** default Codex runtime on the existing subscription, `tools.exec.mode: "auto"`. We do NOT enforce OS-level exec-allowlist on the reader. This matches what every OpenClaw Gmail setup does; the exec-allowlist was a non-standard belt that fought the platform and required a separate API-billing relationship.
+
+**Why this is correct, not a compromise:** the confinement that matters is layered and runtime-independent, and the gap Path B leaves is temporary and closes as the foundations land:
+- (1) **OAuth scope** (readonly+compose, no send/modify/delete) — the load-bearing control, per the field and the wild failure cases.
+- (2) **Three-layer software no-send** — proven, runtime-independent; a hijacked reader CANNOT send/forward email regardless of exec mode.
+- (3) **Schema-validated research channel** — blocks exfil-via-research-query.
+- (4) **Egress control (Foundation 2, next)** — the real exfil defense; holds at the network layer even when the model is fully hijacked. This is what closes the serious half of the Path B gap (a hijacked reader could run read-oriented shell commands, but cannot get data OFF the machine once egress is locked).
+- (5) **Workload isolation (Foundation 2, later)** — moves confined-agent shell execution into a throwaway container, closing the host-exposure half of the gap.
+- (6) **Dispatch/confirm split + deny-by-default policy (Foundations 1 & 4)** — gate any action a hijacked agent could propose.
+
+**The Path B gap, stated honestly + its expiry:** today, a reader hijacked by a malicious email could run read-oriented shell commands on the host (proven: `ls /` executes under `auto`). It CANNOT send email (blocked 3 ways) and CANNOT exfiltrate once egress lands. The reader therefore stays **supervised / non-sensitive ONLY until egress + isolation land**, at which point this gap closes more completely than an exec-allowlist ever would. This is a sequenced decision with a defined expiry, not a permanent accepted risk. **Revisit trigger:** if any confined agent must handle sensitive data unsupervised before egress/isolation exist, OR reconsider OS-level confinement (Path A: embedded runtime + API key) at that point.
+
+**Implication:** egress (Foundation 2) is now the highest-leverage next foundation — it is both the planned exfil defense AND the control that retroactively closes the Path B gap and graduates the system out of supervised-only operation. Exec-allowlist is downgraded from a Foundation law to optional hardening, superseded by egress + isolation for the confined-agent threat.
+
+**Platform-mechanics gate (mandatory before any foundation/capability build drop):**
+Best-practices/pattern research is necessary but NOT sufficient. Before writing a build drop, also research the OpenClaw-specific mechanics (runtime / exec / sandbox / egress / AUTH) per the Platform Mechanics Reference: how the layer actually enforces this, what silent defaults bite (`openai/*`→Codex; embedded→API-key; `exec.mode=allowlist`→Codex rejection; `auto`→allowlist NOT enforced; sandbox network→`none`; env doesn't inherit into sandbox; self-logging gaps for cron/subagent/heartbeat), and whether the intended config is platform-supported — proven from docs/schema, then VERIFIED against the live install with a read-only diagnostic. The 2026-06-14 runtime saga (allowlist→Codex-reject→embedded→API-key→auto-doesn't-confine→Path B) was a chain of platform dependencies discoverable upfront; finding them via failed live runs is the failure mode this gate prevents. Applies to egress (Foundation 2), observability (Foundation 3), policy/exec (Foundation 4) next — see the Platform Mechanics Reference §9 VERIFY gate.
+
+### 3.3 Foundation 3 — Observability Substrate (the trust gate AND the promotion evidence)
+- Correlation IDs on every message, plan, and tool call; full end-to-end trace per run.
+- Every run reconstructable from logs; run-replay (rewind, fork with modified input, verify a fix).
+- Immutable / append-only enough to be trustworthy.
+- **Zero silent failures as a queryable property:** every tool call has a traced result; every failure produces a *delivered* notification; "did anything fail silently in the last N days?" returns a real answer. (The Tiger silent-FAIL bug is the failure this prevents.)
+- **Dual role:** this is both the V1 trust gate (is it working?) *and* the evidence base that justifies promoting an action from confirm→auto (§3.4). You don't promote on a hunch; you promote because the trail proves it proposed correctly N times.
+- GitHub tooling to evaluate here: `agent-topology-visualizer` (renders trust boundaries), `agent-dashboard` (real-time health). See §6.
+
+### 3.4 Foundation 4 — Evolvable Action-Policy Layer (what makes earned autonomy real)
+- **One inspectable definition** of every action class and its current gate: `auto` (execute + notify after), `confirm` (propose, wait for Daniel), or `deny`. Every capability and the Command Center consult this at action time. Actions do **not** each hardcode their own gate.
+- **Promotion model:** moving an action from `confirm` → `auto` is a *policy edit*, not a code change. The capability that performs the action never changes; only its classification moves. This is how the system "evolves to autonomy" without a rebuild.
+- **Promotion criteria = observability evidence:** an action class earns `auto` when the audit trail shows it proposed correctly over time. Daniel makes the promotion; the trail justifies it.
+- **THE PERMANENT INVARIANT — deny-by-default:** any action class not explicitly classified is treated as **confirm/high-stakes** until Daniel says otherwise. The failure mode of forgetting to classify something is "it asks unnecessarily," never "it acted when it shouldn't have." **This default does not evolve. It is a foundational law.**
+- High-stakes classes (money movement, deletion, access/permission changes, anything irreversible) **cannot be promoted to `auto`** without an explicit, deliberate Daniel action — and some should be permanently `confirm` regardless of trust.
+
+---
+
+## 4. How the named capabilities decompose onto the split
+
+Each capability = a **safe-gather half** (open-ended, behind containment) + a **gated-act half** (fixed menu, policy-classified). This is the test every future capability must pass.
+
+| Capability | Safe-gather (open-ended, can't act) | Gated-act (menu, policy-classified) |
+|---|---|---|
+| Insurance hunt | Research rates, compare, summarize, draft recommendation | Switch/purchase a policy → `confirm` (likely permanent) |
+| Budget building | Read spending, categorize, model, propose budget | Move money / pay → `confirm` (likely permanent); categorize-only → could earn `auto` |
+| Vacation planning | Research, build itinerary, draft bookings | Book/pay → `confirm`; *propose* "shut off AC while away" → starts `confirm`, can earn `auto` |
+| Email/family ops | Read threads, triage, draft replies, summarize | Send → `confirm` → low-stakes replies could earn `auto` over time |
+| Form completion | Find form, read it, draft every field, show filled draft | Submit → `confirm` (promote per-form-class as trust accrues) |
+| Research / watch video | Gather, watch, summarize, bring findings back | (usually no act half — pure gather, safe to run fully unattended early) |
+| Home/device control | Detect context, propose action | Execute (e.g. AC off) → `confirm` first, earn `auto` once proven |
+
+The AC-off-for-vacation example end to end: gather agent infers the trip and proposes "turn off AC." Day one, policy has that action class as `confirm` → it asks. After it's proposed correctly enough times and the trail proves it, Daniel edits policy to promote that class to `auto, notify after`. Nothing about the agent or the device capability changes. That's evolution without rebuild.
+
+---
+
+## 5. Corrected phase sequence (foundations-first)
+
+Prior plan was capability-first (email → more capabilities → Command Center). Corrected:
+
+**Built / in progress**
+- Phase 2 email assistant (draft-only, proven no-send, injection-resistant loop) — this is the *template* for the dispatch/confirm split, already instantiated for one capability.
+
+**Foundations (before broad capability expansion)**
+- **F-A. Containment** — egress allowlist (first), then workload isolation, then credential proxy. *The unlock; reordered early.*
+- **F-B. Observability substrate** — correlation-ID tracing, run-replay, zero-silent-failure as queryable. Evaluate topology-visualizer/dashboard here.
+- **F-C. Action-policy layer** — the auto/confirm/deny registry, deny-by-default invariant, promotion model wired to observability evidence.
+- **F-D. Dispatch/confirm split generalized** — promote the email loop's pattern to a system-wide standard every capability and the Command Center inherit. (Includes: every inter-agent handoff is a validated schema enforced by a deterministic check — the research-request validator pattern, made standard. MAST's #1 failure category is spec/coordination; this is the defense.)
+
+**Capability expansion (on top of foundations, additive & safe)**
+- Each new capability = safe-gather + gated-act, passing the §4 test and the Security Standard §6 checklist. Calendar, budgets, insurance, vacation, forms, home control — accrete one at a time.
+
+**Command Center (the destination, P2 — still gated)**
+- Dispatcher of open-ended gather tasks + confirmation surface for the action menu. Hard-held behind the 8 behavioral tests AND the foundations existing. It must not become a path that bypasses any trust boundary (Roadmap Brief, Theme 4).
+
+**V1 trust milestone** — defined as *measurable properties of the observability substrate*: 30 days of daily use, full audit trails, zero silent failures (queryable, not asserted), and ≥1 action class successfully promoted confirm→auto on the strength of the trail. Not a vague duration — a demonstrated property.
+
+---
+
+## 6. GitHub / ecosystem findings folded in
+
+Out of a 5,400+ skill ecosystem that is overwhelmingly capability-maximalist (the opposite of this architecture's discipline — admire, don't adopt):
+- **Adopt-for-evaluation (observability phase F-B):** `agent-topology-visualizer` (SVG architecture/trust-boundary diagrams), `agent-dashboard` (real-time agent health). Directly serve Foundation 3.
+- **Shelf as defensive gate (only if community code is ever installed):** `antivirus` / `agent-skills-audit` / `authensor-gateway` (scan skills for malicious patterns). 
+- **Cross-check, don't adopt:** `anti-amnesia` (durable agent memory) — pressure-test our hand-rolled canonical-files state discipline against it.
+- **Reference:** community hardening guides (the "setup guide I wish I had," NetworkChuck VPS guide) — skim the security-checklist sections as a sanity check.
+- **Explicitly declined:** home automation skills (we build our own gated device control), social posting, on-chain/crypto, voice/phone surfaces, n8n bulk-automation, `agent-passport` (third-party consent-gate at our most sensitive boundary — our hand-built confirmation is correct). Each is an unbounded capability with a fresh trust boundary; adopting them trades away the narrowness that is the moat.
+
+---
+
+## 7. The one-paragraph end state
+
+A personal life-operations agent where open-ended agents are dispatched to research, watch, gather, and propose — running wild but safe because they sit behind a containment foundation and *structurally cannot act* — while a single evolvable policy layer decides which proposed actions execute automatically (low-stakes, trust earned via the audit trail) versus which ask Daniel (everything unclassified, by permanent default, and all high-stakes), all observable end-to-end with zero silent failures, so the boundary between "handle it" and "ask me" can move toward autonomy over time without ever rebuilding the bedrock.
+```
+
+### AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md
+```markdown
+# OpenClaw Platform Mechanics Reference
+
+**Purpose:** the platform-specific behavior of OpenClaw 2026.6.5 — runtime, exec, sandbox, egress, auth, observability, cron — mapped from the docs and issue tracker AHEAD of building, so build drops start from a *verified config recipe* instead of discovering incompatibilities mid-run. This is the artifact that closes the "we keep finding platform answers reactively" gap.
+
+**Status:** v1, 2026-06-14. Companion to the End-State Architecture (the platform-mechanics gate references this file). Living document — deepen each section before its phase; update when OpenClaw version changes (mechanics are version-specific — this is 2026.6.5).
+
+**The rule it enforces:** No build drop for a phase is written until that phase's section here is filled and marked VERIFIED. Principles research ≠ platform research. The landmines below were all discoverable in docs; finding them via failed runs is the failure mode this prevents.
+
+---
+
+## 0. The landmine catalog (silent defaults that bite)
+
+Quick-reference list of platform behaviors that fail silently or surprisingly. Check this before any config change.
+
+1. **`openai/*` model ref → Codex harness by default.** Selecting an OpenAI model silently routes the agent to the Codex app-server runtime unless you pin otherwise.
+2. **Codex harness REJECTS `tools.exec.mode: "allowlist"`** outright ("Codex app-server local execution is not available when tools.exec.mode=allowlist"). [Hit live 2026-06-14.]
+3. **Embedded `openclaw` runtime needs separate OpenAI API-key auth** — it can't use your Codex/ChatGPT subscription OAuth. Pinning `agentRuntime.id: "openclaw"` without API-key auth → "No API key found for provider openai". [Hit live 2026-06-14.]
+4. **Sandbox `docker.network` defaults to `"none"`** — no egress at all. Allowed web tools silently fail; package installs fail. Must set `"bridge"` for outbound. `"host"` is blocked; `"container:<id>"` is break-glass only.
+5. **Sandbox has its OWN tool filter** (`tools.sandbox.tools`) separate from agent `tools.allow`. A tool allowed at agent level still fails if the sandbox filter doesn't also permit it.
+6. **Env vars do NOT inherit into the sandbox.** Host env (API keys) invisible inside the container; must use `sandbox.docker.env` (which is Docker-inspectable — secret exposure) or a custom image/mounted secret.
+7. **macOS Keychain is unreliable headless/over-SSH** (error -50, interaction-required, write-verify timeout). Use gog file keyring for headless. [Hit live, earlier session.]
+8. **Self-reported tool logging is honor-system and has gaps** — cron jobs, sub-agents, heartbeat run in isolated contexts and DON'T share the main session's logging. "Zero silent failures" requires gateway-level/OTel logging, not agent self-logging. [GitHub #13131.] **This is the big one for the V1 trust gate.**
+9. **`exec.mode=allowlist` rejects shell chaining (`&&`, `||`, `;`) and redirections** unless every segment is allowlisted. Safe-bins reject positional file args / path-like tokens.
+10. **EPERM chmod `~/.openclaw/state`** — known managed-sandbox bug on this install; ignore it, re-run outside the managed sandbox.
+11. **Whole-agent `agentRuntime` keys are ignored/stripped by doctor** — runtime pins must be model-scoped (`models["provider/model"].agentRuntime.id`).
+12. **Sandbox inheritance guard:** a sandboxed requester can't spawn an unsandboxed sub-agent (`sessions_spawn` rejects it). Matters when composing the dispatch/confirm split under sandboxing.
+
+---
+
+## 1. Runtime + auth (VERIFIED 2026-06-14)
+
+**Three runtimes, three behaviors:**
+- **Codex** (default for `openai/*`): app-server harness. Owns native thread/resume/compaction. REJECTS `exec.mode=allowlist`. Uses Codex/ChatGPT OAuth (your current auth). Maps host-exec misses to Codex Guardian review under `auto` mode.
+- **Embedded `openclaw`** (pin `models["..."].agentRuntime.id: "openclaw"`): OpenClaw's own loop. ACCEPTS allowlist mode. BUT needs direct OpenAI API-key auth (`auth.order.openai`), a separate billing path from the Codex subscription.
+- **ACP** (`runtime: "acp"`): external harnesses (Claude Code, Gemini, etc.). Runs on host OUTSIDE OpenClaw's sandbox/tool enforcement. Not for confined OpenClaw-native agents.
+
+**Verified outcome (Path B, 2026-06-14):** Run a confined agent on default Codex runtime + `tools.exec.mode: "auto"`. This runs on existing Codex/subscription auth (no API key) BUT does **NOT** enforce OS-level exec-allowlist confinement — TESTED LIVE: with a strict per-agent exec-approvals allowlist still in place, an off-allowlist command (`ls /`) EXECUTED. The "stricter of the two layers" claim did NOT hold; `auto` mode did not defer to the approvals-layer allowlist. So **auto + strict-approvals is NOT a confinement substitute.**
+
+The two configurations that actually exist:
+- **Codex + `auto`:** runs on subscription auth, NO OS-level exec confinement (accepted under Path B — confinement comes from OAuth scope + 3-layer no-send + research validator + coming egress, not exec-allowlist).
+- **Embedded `openclaw` + `allowlist`:** real OS-level exec confinement, BUT needs separate OpenAI API-key auth (Path A).
+
+There is NO "confined on subscription auth" option. **Decision: Path B** (Codex + auto, lean on the other layers + egress). See End-State Architecture "Runtime + confinement law."
+
+**Do NOT:** claim auto+approvals confines (disproven); pin embedded runtime without provisioning API-key auth.
+
+---
+
+## 2. Exec / approvals model (VERIFIED 2026-06-14)
+
+- **`tools.exec.mode` values:** `deny` | `allowlist` | `ask` | `auto` | `full`. The normalized policy knob.
+  - `allowlist`: deterministic matches run; misses STOP and wait for operator. Strict but Codex-incompatible.
+  - `auto`: deterministic matches run; misses go to native auto-reviewer (Codex Guardian), then human fallback. Codex-compatible. **Reviewer can auto-approve a low-risk miss** — and a strict approvals layer does NOT reliably block this (disproven live: `ls /` executed under auto). Treat `auto` as NOT confined.
+  - `deny`/`full`: block all / run all (full = YOLO).
+- **Two layers:** `tools.exec.*` (mode) AND `exec-approvals.json` (per-agent `security`/`ask`/`askFallback`/allowlist). The docs describe effective policy as the *stricter* of the two — but this was DISPROVEN live 2026-06-14 for `auto` mode: an off-allowlist command executed despite a strict approvals-layer allowlist. **Do not rely on "stricter wins" to make `auto` confine.** The only mode that actually enforces allowlist confinement is `allowlist` itself — which the Codex harness rejects (so it requires the embedded runtime + API-key auth). [Landmine #2, #3; the runtime saga.]
+- **`askFallback: "deny"`** = unanswered prompts default to denial. **`autoAllowSkills: false`** = don't auto-trust ClawHub skills. Keep both strict regardless (defense-in-depth), but know they do NOT make `auto` confine.
+- **Allowlist enforcement:** matches resolved binary paths (no basename match); pin actual script paths, not wildcards (`python3 *` ≈ `full`). Chaining/redirections rejected unless all segments allowlisted.
+- **`elevated` mode** bypasses sandbox to host with its own approval gates — keep off for confined agents.
+
+---
+
+## 3. Sandbox / workload isolation (VERIFIED for Foundation 2 — egress)
+
+- **`agents.defaults.sandbox.mode`:** `off` | `non-main` | `all`. ("non-main" keys off session.mainKey, so group/channel sessions count as non-main and get sandboxed.) Your agents currently run `mode: off`.
+- **`sandbox.scope`:** how many containers (session vs shared).
+- **`sandbox.workspaceAccess`:** `none` mirrors eligible skills into the sandbox workspace.
+- **Sandbox is Docker-based.** `readOnlyRoot: true` blocks writes. `user` must be root for installs. Sandbox exec does NOT inherit host `process.env`.
+- **Sandbox has its own tool filter** (`tools.sandbox.tools`) — separate gate from agent `tools.allow`. Both must permit a tool. [Landmine #5.]
+- **Inheritance guard:** sandboxed requester can't spawn unsandboxed child.
+- **What's NEVER sandboxed:** the Gateway process itself; anything in `tools.elevated`.
+
+---
+
+## 4. Egress / network control — Foundation 2 (DECISION AMENDED 2026-06-14b)
+
+> **Amendment note (2026-06-14c):** Plan A (host-side reader + UID-keyed pf-forced proxy) is
+> **ELIMINATED on evidence.** The 2026-06-14b decision adopted Plan A *gated behind OPEN VERIFY
+> item #1 (pf viability on this macOS build)*. That verify ran (read-only pf-viability drop,
+> 2026-06-14) and resolved **NO**: host-pf cannot enforce same-host UID-keyed redirect-to-proxy
+> on this macOS version. Plan A is therefore off the table — not on preference, on a failed
+> verify gate. Decision status returns to OPEN among the surviving plans. Findings below.
+
+### Verify item #1 result (pf-viability drop, 2026-06-14) — Plan A eliminated
+- `pf route-to` performs policy routing, **not** transparent proxy redirection — it changes the
+  egress path/interface but does not hand the connection to a local proxy listener.
+- `pf rdr` (redirect) **cannot match on UID/user** — the redirect grammar has no user selector;
+  only inbound/destination tuples. So "redirect this UID's 443 to the local proxy" is
+  unexpressible: the two features that would compose (UID match + redirect) do not compose.
+- pf **address translation precedes filtering**, so even a filter-stage UID match cannot drive a
+  translation decision.
+- There is **no per-agent UID** within one OpenClaw gateway (gateway runs as a single UID;
+  per-UID separation needs a *separate gateway/service instance*), so the dedicated-reader-UID
+  premise Plan A depended on does not hold without additional infrastructure.
+- Net: the UID-keyed-pf mechanism is not viable on this host. Squid/tinyproxy as *engines* remain
+  fine; the missing piece is an enforceable, non-bypassable **forced-routing** layer on macOS.
+
+### Why the Docker decision was narrowed (verify-drop findings, 2026-06-14)
+
+The egress-verify drop established that containerizing the confined reader is NOT a config
+change — it is a port:
+- `gog-gmail-draft-safe` is a **macOS arm64 Mach-O** → cannot execute in a Linux sandbox even
+  if mounted; needs a Linux arm64 rebuild of the safe-send binary.
+- Node is host Homebrew Mach-O → needs Linux Node in a custom image.
+- Wrapper UID-checks the keyring password file (host UID 501 must equal process UID) → fails
+  closed on mismatch; container needs deliberate UID handling.
+- gog home is a full writable credential store (OAuth client metadata, credentials index,
+  encrypted keyring + lock) → needs writable, protected mounts, not a single secret file.
+- A Docker bridge gives outbound connectivity but is **not itself an allowlist** — DOCKER-USER
+  iptables rules still required on top.
+
+Net: containerizing forces a rebuild AND revalidation of the load-bearing no-send chain (§8:
+scope is the load-bearing control; the 3-layer no-send is the proven belt). Re-proving that
+through a freshly-built Linux binary is a new attack surface for no current functional gain,
+because the reader stays supervised until egress lands regardless.
+
+### Field-standard reality (researched 2026-06-14)
+
+Per-application outbound domain control, everywhere it is done (AWS, GCP, Qovery, Databricks):
+**a forward proxy that filters on destination hostname / TLS SNI, default-deny**, app pointed
+at it. Squid is the default engine; tinyproxy is the lightweight option. SNI/host-header
+filtering keeps TLS end-to-end (no MITM cert to install in the reader).
+
+**The load-bearing distinction:** the proxy allowlists domains; a SEPARATE forced-routing
+layer is what stops the app bypassing the proxy. Env-var proxying (`HTTPS_PROXY`,
+`NODE_USE_ENV_PROXY`) is **cooperative only** — a hijacked process ignores it and opens a
+direct socket. Env vars are a convenience, NOT an exfil control. The enforcement must be a
+layer the reader cannot opt out of.
+
+### macOS enforcement mechanism
+
+**(Superseded — see verify item #1 result above: this mechanism was eliminated. Retained only to explain what was attempted.)**
+
+No Linux netns, no NetworkPolicy on macOS. The one host-level chokepoint for same-host
+outbound is **pf, keyed on UID** (pf's only usable selector for own-box traffic is user/group,
+not PID). The candidate recipe was:
+- Run the reader under a **dedicated UID**.
+- `route-to lo0` all of that UID's outbound 80/443 → a **local allowlisting forward proxy**.
+- Run the proxy under a **DIFFERENT UID** so its own egress is not re-redirected (the UID is
+  the filter that prevents the proxy looping its own traffic).
+
+**Note (2026-06-14c):** an earlier pass argued UID-keyed forced routing was the legitimate macOS mechanism. The pf-viability verify (above) supersedes that: the UID-match and redirect features do not compose on this macOS build, so the mechanism is eliminated regardless of standardness. Operational fragility was not even the deciding factor — expressibility was.
+
+### DECISION STATUS (2026-06-14c): OPEN — operator decision required
+Plan A eliminated (above). Surviving options:
+
+- **Plan B — separate egress box.** A small always-on box (Pi/spare machine) is the only internet
+  route for the reader; allowlist at its interface. Field-standard and robust. Cost: added
+  hardware + a network hop + its own setup. **No new software prerequisite on the Mini.**
+- **Plan C — Docker container egress (revived from shelf).** Containerize the reader on an
+  `internal:true` Docker network with a Squid allowlist forward proxy; enforcement runs inside
+  Docker Desktop's Linux VM (iptables/DOCKER-USER), which sidesteps macOS pf entirely — this is
+  the field-standard mechanism and the reason Docker keeps recurring. **Hard prerequisite: Docker
+  is NOT installed (FLAG), so this path starts with an operator decision to install a container
+  runtime.** Also carries the §4 port costs already documented above (Mach-O→Linux rebuild of the
+  safe-send binary, gog file-keyring UID handling, writable protected credential mounts, and the
+  bind-validator constraint that rejects mounting `~/.openclaw` subdirs — so the reader's keyring/
+  wrapper chain must be re-homed or re-proven). **Net answer to the standing §4 VERIFY question
+  "does sandboxing the reader break the keyring/wrapper": YES, in the specific ways listed — it
+  requires re-homing the credential chain, not a transparent lift-and-shift.**
+
+**This choice is the operator's (Plan B vs install-Docker-for-Plan-C). It is NOT resolved here.**
+The next build step cannot proceed until it is made.
+
+#### Considered, NOT adopted (recorded as input only — not decisions)
+- *Cooperative env-var proxying alone* (`HTTPS_PROXY`/`NODE_USE_ENV_PROXY`): a hijacked process
+  ignores it. Convenience, not an exfil control. Only valid as belt alongside a forced layer.
+- *Credential-broker / exec-profile-narrowing as a PRECURSOR to egress*: field research this
+  session noted the reader's host `exec` (mode auto) lets a hijacked reader read its own keyring,
+  making egress the *last* link rather than the first. Whether to narrow the reader's exec/tool
+  profile (or broker the credential) BEFORE building egress is a **sequencing question for the
+  operator** — recorded here as an option, explicitly not a change to the foundations-first order
+  in CONTROL.md.
+## 5. Observability / audit — Foundation 3 (RESEARCHED; critical finding)
+
+**THE key finding for the V1 "zero silent failures" gate:**
+- **Agent self-logging is honor-system and has structural gaps:** cron jobs, sub-agents, and heartbeat sessions run in isolated contexts and DON'T share the main session's logging; the agent could skip entries; no centralized view. [GitHub #13131.] **So "zero silent failures" CANNOT be built on agent self-reporting.** It must be built on gateway-level / OTel instrumentation that captures every tool call regardless of session type.
+- **Built-in OTel support (v2026.2+):** `diagnostics.otel` config (`enabled`, `endpoint`, `serviceName`, `traces`, `metrics`, `logs`). Emits spans: `openclaw.request` (root, full lifecycle) → `openclaw.agent.turn` → `tool.*` children. This is the spine for correlation-ID tracing and run-replay.
+- **Plugin hooks for deeper capture:** `before_tool_call`, `before_agent_reply`, `agent_end`, `subagent_spawned`, `cron_changed`, etc. Hooks include `runId`/`ctx.runId` (and `ctx.jobId` for cron) + a W3C trace context for OTEL correlation. A native plugin captures what a network proxy can't (skill loads, memory recall, sub-agent routing, heartbeat decisions).
+- **Existing tooling to evaluate (don't rebuild):** `henrikrexed/openclaw-observability-plugin` (OTel traces/metrics/logs + built-in dashboard), Opik (`opik-openclaw`, self-hostable, LLM-as-judge eval), Arize. Plus the GitHub topology-visualizer/agent-dashboard from the earlier ecosystem scan.
+
+**Verified design direction for Foundation 3:** built-in `diagnostics.otel` for operational metrics + a lifecycle plugin (or existing observability plugin) for tool-call/trace capture across ALL session types (incl. cron/heartbeat/sub-agents) → local OTel collector → queryable store. "Zero silent failures" = a query over gateway-captured tool spans showing every call has a traced result and every failure a delivered notification. NOT agent self-report.
+
+---
+
+## 6. Automation / cron / heartbeat — (RESEARCHED; for autonomy phases)
+
+- **Cron:** precise schedules + one-shot reminders; ALL cron executions create task records (auditable). Exact user-requested reminders belong to cron.
+- **Heartbeat:** routine monitoring (inbox/calendar/notifications) batched every ~30 min. This is the mechanism for proactive "notice the vacation, propose AC-off" behavior — but see observability gap (heartbeat runs isolated, needs gateway-level logging).
+- **Standing orders:** persistent operating authority in workspace files (AGENTS.md), injected every session — combine with cron for time-based enforcement. This is where the dispatch/confirm doctrine + deny-by-default live operationally once foundations exist.
+- **Task Flow / Background Tasks:** durable multi-step orchestration with a task ledger (`openclaw tasks flow list|show|cancel`) — auditable detached work.
+- **Cost caution:** heartbeat + cron creep token spend; small config edits compound. Budget/monitor via OTel cost metrics.
+
+---
+
+## 7. Secrets / credentials — (RESEARCHED; for credential-proxy foundation)
+
+- **gog file keyring** for headless (Keychain unreliable over SSH). Tokens encrypted (AES-256-GCM per some guides).
+- **Sandbox secret delivery:** env doesn't inherit; `sandbox.docker.env` is Docker-inspectable (metadata exposure) — use custom image / mounted secret file for real secrets.
+- **Credential-proxy pattern** (Foundation 2/secrets): agent calls a broker that holds the credential — generalizes the draft-safe wrapper. The wrapper already instantiates this for Gmail.
+- **Least privilege / dedicated account:** community standard is a dedicated Gmail account for the bot, minimal scope, short-lived where possible.
+
+---
+
+## 8. Field-standard baseline (what OpenClaw Gmail users actually do)
+
+So we calibrate against reality, not over-engineer:
+- gogcli (`gog`) + OAuth, scopes in OS keyring. (Universal.)
+- `gmail.readonly` first, `draft-not-send` forever for most. (Consensus.)
+- Confinement = OAuth scope + draft-not-send + least privilege ("house-sitter key"). NOT OS-level exec-allowlist — that's an uncommon belt, and on Codex `auto` it isn't enforced anyway (disproven live); enforcing it requires the embedded runtime + API key (Path A), which we declined for the reader (Path B). The field doesn't wear this belt; neither do we, for now.
+- Cheap always-on box (VPS/Pi/Mac mini). Dedicated bot Gmail account recommended.
+- Real failure mode in the wild: agent granted modify/delete scope bulk-deleted email (Meta safety director incident). Lesson: SCOPE is the load-bearing control. Our three-layer no-send is already stronger than the norm.
+
+---
+
+## 9. Per-phase VERIFY gate status
+
+| Phase | Section | Status |
+|---|---|---|
+| Email loop runtime/exec | §1, §2 | VERIFIED (live 2026-06-14) |
+| Foundation 2 — egress/sandbox | §3, §4 | DECISION OPEN — Plan A (host-pf) ELIMINATED on verify (pf non-viable on this macOS build); choose Plan B (separate box) vs Plan C (Docker — requires runtime install). Operator decision gates the build. |
+| Foundation 3 — observability | §5 | RESEARCHED — design direction set; confirm OTel plugin choice before build |
+| Foundation 4 — action-policy/exec | §2, §6 | RESEARCHED — standing orders + exec model mapped |
+| Secrets/credential proxy | §7 | RESEARCHED |
+| Cron/heartbeat autonomy | §6 | RESEARCHED |
+
+Before each phase's build drop: re-read its section, resolve OPEN VERIFY items with a read-only diagnostic against the live install, mark VERIFIED, THEN write the build drop.
+```
+
+### AGENT_OS_SECURITY_DESIGN_STANDARD.md
+```markdown
+# Agent OS — Security Design Standard (Prompt-Injection Resistance)
+
+**Purpose:** a reference standard every Agent OS capability is checked against BEFORE it's built. Derived from primary sources, not improvised per-drop. Each future phase (and the current email loop) gets reviewed against this.
+
+**Status:** v1, June 13 2026. Living document — update as new capabilities and new literature land.
+
+---
+
+## 0. The governing principle
+
+You cannot build a general-purpose agent immune to prompt injection with current models. You CAN build application-specific agents that are provably resistant, by constraining capability and defining trust boundaries.
+
+Source: Beurer-Kellner et al., "Design Patterns for Securing LLM Agents against Prompt Injections" (arXiv 2506.08837, June 2025) — authored by IBM, Google, Microsoft, ETH Zurich, EPFL, Invariant Labs, Swisscom.
+
+Author recommendation #1: prioritize application-specific agents that adhere to secure design patterns and clearly define trust boundaries.
+
+**Implication for Agent OS:** never build "an agent that can do email." Build "an agent that drafts email replies and provably cannot send." Every capability is scoped to a specific job with a defined trust boundary, not a general grant.
+
+---
+
+## 1. The two foundational rules (apply everywhere)
+
+**Rule A — Single trusted command channel.**
+Only the operator (Daniel, via Telegram) issues commands. Nothing observed through a tool — email bodies, web pages, file contents, calendar events, tool outputs — is ever an instruction. It is all DATA.
+
+**Rule B — Untrusted data cannot reach the action-decision path.**
+It is not enough that untrusted text "shouldn't" be obeyed. The architecture must make it so untrusted content structurally cannot influence which tool fires or with what parameters. This is the difference between "the model usually resists" and "the model cannot."
+
+Both rules are architectural, not prompt-based. A system-prompt instruction to "ignore injected commands" is a weak supplement, never the primary control.
+
+---
+
+## 2. The six design patterns (the toolbox)
+
+From the paper, §3.1. Pick the ones that fit each capability.
+
+1. **Action-Selector.** The LLM may only pick from a fixed set of pre-defined tool calls; it cannot generate free-form actions. Most constrained, most resistant. Fits anything that's really a menu of operations.
+
+2. **Plan-Then-Execute.** The LLM builds a fixed, immutable plan from the operator's request FIRST, before touching any untrusted data. Untrusted data can change the plan's *inputs* but never the *plan itself* (the sequence of tool calls). Stops injected data from adding new actions.
+
+3. **LLM Map-Reduce.** Fan untrusted items out to isolated sub-agents that each process one item with no cross-contamination, then reduce. Good for "process N untrusted documents."
+
+4. **Dual LLM.** A privileged LLM handles trusted operator input and orchestrates. A quarantined LLM processes untrusted data and CANNOT issue privileged actions or modify the plan. (Willison's pattern; CaMeL extends it.)
+
+5. **Code-Then-Execute.** The privileged LLM emits code/a plan in a structured language; an interpreter runs it while tracking data provenance, blocking tool calls whose inputs trace to untrusted sources. CaMeL is this pattern. Strongest, heaviest.
+
+6. **Context-Minimization.** After the operator's request is turned into a sanitized structured action, DROP the original untrusted text from context so it can't influence later steps (post-processing, formatting, follow-on calls). Cheap, broadly applicable.
+
+**Trade-off, stated by the authors:** these patterns constrain agents to prevent them solving *arbitrary* tasks. That constraint IS the security. Resist the urge to make a capability "more general" — generality is the attack surface.
+
+---
+
+## 3. Email & Calendar Assistant — the paper's own case study (§4.3)
+
+The paper analyzes THIS use case directly. For an email/calendar assistant it endorses three designs, all of which Agent OS should implement in combination:
+
+- **User confirmation** — operator approves before any consequential action (send). In Agent OS: never-send is enforced 3 ways AND the operator is the only one who can send (by copying from the draft). Strongest single control. ✓ BUILT.
+- **Plan-Then-Execute / Code-Then-Execute** — fix the action plan from the operator request before reading email.
+- **Dual LLM** — quarantined reader processes email content; privileged plane orchestrates. ✓ BEING BUILT (reader/researcher split).
+
+---
+
+## 4. Coverage scorecard — current email loop vs. the standard
+
+| Control | Pattern | Status |
+|---|---|---|
+| Operator-only command channel (Telegram) | Rule A | Designed into loop |
+| Email content treated as inert data | Rule A / Dual LLM | Reader doctrine (being added) |
+| Send structurally impossible | Action-Selector (wrapper allowlist) + capability restriction | ✓ BUILT + PROVEN (3 layers) |
+| Operator reviews every draft | User confirmation | ✓ BUILT (draft-only, manual send) |
+| Quarantined reader / separate research plane | Dual LLM | Being built |
+| Research agent cannot see raw email | Dual LLM / least-privilege | Being built (web_search only, no Gmail) |
+| Sanitized structured research questions, raw email dropped | Context-Minimization (strong) | PARTIAL — see gap below |
+| Provenance tracking (input→action) | Code-Then-Execute / CaMeL | NOT BUILT — future, heavy |
+| Egress control (data can't leave) | — | NOT BUILT — explicitly deferred |
+
+---
+
+## 5. Known gaps & residual risks (be honest, track them)
+
+1. **Research-question smuggle path (the gap Codex flagged).** The reader emits "research questions" to the researcher. If the reader is injected, those questions are a potential exfil channel. The standard's fix is *strong context-minimization*: the research question must be a MINIMIZED, STRUCTURED extraction (ideally constrained to a fixed schema / enum of question types), not free-form text. Treat free-form reader→researcher text as a smuggle path until it's schema-constrained.
+
+2. **No provenance tracking.** Agent OS uses agent-separation (Dual LLM), not value-level provenance (Code-Then-Execute/CaMeL). This is a deliberate weight trade-off. It means the boundary is "the researcher never receives raw email," not a cryptographic guarantee no email-derived byte reaches a query. Acceptable for supervised, non-sensitive use; NOT acceptable for unattended sensitive mail.
+
+3. **No egress control.** Nothing yet prevents a compromised plane from exfiltrating via an allowed channel. Loop is therefore gated: supervised, non-sensitive ONLY until egress control is built.
+
+4. **Keyring password same-user exposure.** Accepted trade-off for headless operation (documented in Phase 2 connect).
+
+---
+
+## 6. Pre-build checklist (run this against EVERY future capability)
+
+Before any new capability (calendar, more agents, command center) is built, answer:
+
+1. What is the specific, bounded task? (If the answer is "general X," stop — narrow it.)
+2. What is the trust boundary — what's the trusted command source, what's untrusted data?
+3. Which of the 6 patterns apply? (Name them.)
+4. Can untrusted data influence which tool fires or its parameters? (If yes, redesign until no.)
+5. What's the most dangerous action this capability can take, and is it structurally unreachable from untrusted input?
+6. Does the operator confirm consequential actions?
+7. Is untrusted context minimized/dropped before post-processing?
+8. What are the residual risks, and is the capability gated (supervised/non-sensitive) until they're closed?
+9. Is there an egress path? Is data prevented from leaving via allowed channels?
+10. Is there a test that PROVES the injection boundary holds (not just that it's designed)?
+
+A capability doesn't ship until 1–10 are answered and the item 10 test passes.
+
+---
+
+## 7. Primary sources
+
+- Beurer-Kellner et al., "Design Patterns for Securing LLM Agents against Prompt Injections," arXiv:2506.08837 (2025). The six patterns + the email-assistant case study. Authors: IBM, Google, Microsoft, ETH Zurich, EPFL, Invariant Labs, Swisscom.
+- Google DeepMind, "Defeating Prompt Injections by Design" (CaMeL), 2025. The code-then-execute / provenance-tracking instantiation.
+- Microsoft MSRC, "How Microsoft defends against indirect prompt injection" — Spotlighting (mark untrusted content) + FIDES (information-flow control) + the design-patterns consortium.
+- Willison, "The Dual LLM Pattern for Building AI Assistants That Can Resist Prompt Injection."
+- OWASP LLM Top 10 — LLM01 Prompt Injection — for compliance-framework mapping.
+- Reference implementation: github.com/ReversecLabs/design-patterns-for-securing-llm-agents-code-samples (educational, not production).
+
+---
+
+## 8. The one-line standard
+
+**Every Agent OS capability is an application-specific agent with a defined trust boundary, built from the named patterns, where the most dangerous action is structurally unreachable from untrusted data, the operator confirms consequential actions, and an injection-boundary test PROVES it before ship.**
+```
+
+### AGENT_OS_ROADMAP_BEST_PRACTICES.md
+```markdown
+# Agent OS — Roadmap Best-Practices Brief
+
+**Purpose:** the research pass that should have run before each phase, done up front for the whole remaining vision. Every future drop starts from this instead of improvising. Companion to AGENT_OS_SECURITY_DESIGN_STANDARD.md (which covers prompt-injection specifically); this brief covers the other domains each phase touches.
+
+**Method:** primary sources pulled June 13 2026. Each section = the established patterns, the named failure modes, the load-bearing source, and a pre-build checklist. Update as phases land and literature moves.
+
+---
+
+## How to use this
+
+Before ANY future phase is built:
+1. Read the matching section here + the security standard's section-6 checklist.
+2. Answer the phase's pre-build checklist in the drop's discovery phase.
+3. If the phase introduces a capability the brief doesn't cover, research it first and add a section. No more discovering architecture mid-build.
+
+---
+
+## PHASE THEME 1 — More agents / orchestration (researcher, calendar agent, future roster)
+
+**The decision to make first: do you even need another agent?**
+The literature is blunt that multi-agent is over-used. A single agent with a concatenated toolbox is competitive with multi-agent for tasks that fit one context window. Multi-agent is justified in exactly two cases: (1) a **privileged-information boundary** exists between agents (your reader-can't-send, researcher-can't-see-email split — legitimate), or (2) multiple distinct principals/stakeholders. If neither holds, adding an agent adds failure surface for no gain.
+
+**The failure data (your single most useful orchestration source):**
+MAST taxonomy — "Why Do Multi-Agent LLM Systems Fail?" (Cemri et al., NeurIPS 2025, arXiv:2503.13657). 1,600+ annotated traces across 7 frameworks, expert-validated (κ=0.88). Production multi-agent systems fail at **41–86.7%** rates. 14 failure modes in 3 root categories:
+- **Specification issues (~44%)** — ambiguous agent roles/contracts. The largest category. Your defense: explicit, tight agent contracts (you already write these as AGENTS.md doctrine — keep them schema-precise, not prose-vague).
+- **Inter-agent misalignment (~32%)** — agents talk past each other, duplicate work, drop responsibilities. Defense: explicit handoff contracts (every handoff has a defined input/output shape — your schema-constrained research request is exactly this pattern; apply it to every handoff).
+- **Verification gaps** — no agent owns quality control. Defense: a dedicated verify step (your Buela validator role; make sure it actually runs, not just exists).
+
+**Hard rules from the literature:**
+- **Never let one agent trigger another without a cycle check** in the orchestration layer (prevents runaway spawn loops). Your `requireAgentId: true` + exact `allowAgents` list + no nested spawning is the right shape — keep it.
+- One compromised agent propagates downstream ("Agent-in-the-Middle," error cascades — arXiv:2603.04474). Trust boundaries must be at the orchestration layer, not per-agent ad hoc.
+- Anthropic's own long-running-agent guidance: the two big failure modes are context-loss incoherence and premature wrap-up near context limits; fix is context reset + structured handoff to a fresh agent. (You already do "fresh gmail-reader run for drafting" — that's this pattern.)
+
+**Pre-build checklist (new agent):**
+1. Does a privileged-info boundary or distinct principal justify this agent? If not, use a tool on an existing agent.
+2. What is its EXACT input contract and output contract? (Schema, not prose.)
+3. Every handoff to/from it: defined shape, validated at the boundary?
+4. Who verifies its output? Is that verify step real?
+5. Cycle check: can it (directly or transitively) trigger a spawn loop? Prove not.
+6. Least privilege: minimal tool set, everything else denied by group?
+7. Context: does it get a fresh context for distinct sub-tasks, or accumulate and drift?
+
+---
+
+## PHASE THEME 2 — Egress control (deferred, but the real gate for sensitive use)
+
+**This is the most important deferred item and the literature is unusually clear on it.**
+
+**Load-bearing source:** "Silent Egress: When Implicit Prompt Injection Makes LLM Agents Leak Without a Trace" (arXiv:2602.22450, Feb 2026). Uses observed network traffic as ground truth. Findings:
+- Prompt-layer defenses offer **limited protection** against exfiltration.
+- **Domain allowlisting blocks ~all attempted egress** (P(egress)≈0 with allowlist vs ≈0.89 without). Because the check runs at **tool-execution time**, it does NOT depend on the model resisting injection. This is the whole point — it's a control that works even when the model is fully compromised.
+- 95% of successful exfiltration evades output-based safety checks.
+- **Sharded exfiltration**: attackers split data across multiple requests to beat single-request DLP. So per-request content inspection is insufficient; you need the network boundary.
+
+**Directly relevant to your platform:** "Caging the Agents: A Zero Trust Security Architecture for Autonomous AI" (arXiv:2603.17419, Feb 2026) — its hardening progression literally starts from an `openclaw-base` VM image. Four containment layers, in order of value:
+1. **Kernel-level workload isolation** (gVisor / container).
+2. **Credential proxy sidecar** (agent never holds raw credentials — relevant to your keyring exposure tradeoff).
+3. **Network egress policy enforcement** (the allowlist).
+4. **Prompt integrity framework** (trusted metadata envelopes + untrusted-content labeling + anti-injection rules — you already have the labeling via gog's `<<<EXTERNAL_UNTRUSTED_CONTENT>>>`).
+
+**The five highest-ROI controls** (Schneider, "From LLM to agentic AI," Apr 2026), in priority order:
+1. Outbound network allowlist (most exfil prevented by this one control).
+2. Human approval for all write/delete/external-state changes. (You have this for send.)
+3. Prompt-injection classifier on external inputs.
+4. Audit MCP/tool permissions (list every tool, what it accesses, blast radius if compromised).
+5. (defense-in-depth beyond these.)
+
+**Implication for your roadmap:** your current loop is correctly gated "supervised, non-sensitive until egress control exists." This brief confirms that gate is not conservatism — it's the documented requirement. The egress phase (macOS `pf` allowlist → container isolation) is what unlocks unattended and sensitive use. Until then the loop stays supervised. Order of build when you get there: network allowlist FIRST (highest ROI), then workload isolation, then credential proxy.
+
+**Pre-build checklist (egress phase):**
+1. What is the COMPLETE list of domains each tool legitimately needs? (Default deny, no wildcards.)
+2. Is the allowlist enforced at tool-execution/network layer, not prompt layer?
+3. Does the research agent's web_search route through the allowlist? (Search is an egress channel.)
+4. Sharded exfil: does the boundary catch slow/split leakage, or only single requests?
+5. Is there a credential proxy so a compromised agent can't read raw secrets?
+6. Workload isolation: is the agent in a container/VM, not just a user account?
+
+---
+
+## PHASE THEME 3 — Observability, audit trail & the V1 trust gate
+
+**Your V1 milestone (30 days daily use, trustworthy audit trails, zero silent failures) IS an observability problem.** The literature gives you the standard.
+
+**The framing (JetBrains/PyCharm eval+observability guide, May 2026):** evaluation determines if the agent CAN work; observability determines if it IS working. You need both. Your 8 behavioral tests = evaluation. Your audit-trail/zero-silent-failure requirement = observability. Don't let one substitute for the other.
+
+**What "trustworthy audit trail" actually requires (consensus across sources):**
+- **Structured logging with correlation IDs** on every message, plan, and tool call, so an end-to-end trace can be reconstructed. (This is how Anthropic does centralized token/trace collection.) Your silent-FAIL-notification bug from the OpenClaw v5 work is exactly the failure this prevents — a tool call whose result wasn't traced.
+- **Record per step:** the agent's reasoning, which tool was called with what params, what data came back, how the decision was made. Start-to-finish.
+- **Immutable logs / full lineage** for the trail to be trustworthy (can't be silently rewritten).
+- **Conversation/run replay** — store complete runs so you can rewind, fork with a modified input, and verify a fix. This is how you debug non-deterministic multi-agent failures, where a stack trace is useless.
+
+**"Zero silent failures" is a specific, achievable spec:** every tool call has a traced result; every FAIL produces a delivered notification (your Tiger silent-FAIL bug was a violation); every run is reconstructable from logs. Make "did anything fail without notifying?" a queryable property of the log, not a hope.
+
+**Offline eval methodology (for your 8 tests — Towards Data Science, Mar 2026):**
+- Start with the highest-signal metrics (routing accuracy, factual accuracy), easiest to implement.
+- Small dataset (50–100 samples) run manually first to calibrate expectations.
+- Every run creates a record (which version, which dataset, what scores, thresholds met y/n) — these accumulate into the audit trail that demonstrates systematic QA over time.
+- Define acceptance criteria BEFORE the first run. (Your 8 tests should each have a pre-defined pass threshold, not a judgment call after the fact.)
+
+**Pre-build checklist (any capability, observability side):**
+1. Does every tool call this capability makes get logged with a correlation ID?
+2. Can a full run be reconstructed from logs alone?
+3. Does every failure path produce a DELIVERED notification (no silent FAIL)?
+4. Are logs immutable / append-only enough to be trustworthy?
+5. For the 8-test gate: does each test have a pre-defined pass threshold and a recorded result?
+6. Can you query "did anything fail silently in the last 30 days?" and get a real answer?
+
+---
+
+## PHASE THEME 4 — Command Center (P2, hard-held behind 8 tests)
+
+**Why the hold is correct, in the literature's terms:** a Command Center is a control surface that can trigger many capabilities. That makes it a high-blast-radius node. MAST says the largest failure category is specification/coordination; a central controller multiplies coordination surface. The 8-test gate is your verification-gap defense — don't relax it.
+
+**When you build it, treat it as an orchestration node** and run the Theme-1 checklist on it, plus:
+- It must not become a path that bypasses per-capability trust boundaries (e.g. a Command Center "send" button that skips the draft-only discipline).
+- Every action it can trigger inherits that capability's own confirmation/egress gates — the Command Center doesn't get to be an exception.
+- Cycle check is critical here: a controller that can trigger agents that can trigger the controller is a loop generator.
+
+**Pre-build checklist:** Theme-1 checklist + "does any Command Center action bypass an existing trust boundary? (must be no)."
+
+---
+
+## PHASE THEME 5 — Secrets / credentials at scale
+
+As capabilities grow you'll hold more tokens (Gmail today; calendar, others later). Current state: file keyring, password injected into the safe binary's child env, same-user exposure accepted.
+
+**The pattern to move toward (from "Caging the Agents" layer 2):** a **credential proxy sidecar** — the agent calls a broker that holds the credential and makes the authenticated call; the agent never sees the raw secret. This is the same principle as your draft-safe wrapper (the wrapper holds Gmail capability, the reader never gets the token), generalized to all secrets.
+
+**Rules (OWASP AI Agent Security cheat sheet + LLM Top 10):**
+- Least-privilege, **short-lived tokens**, narrow scopes per tool. (Your gmail.compose-only is this.)
+- Human approval for high-risk methods (write/delete/transfer) — never delegated to the model.
+- Tenant/context isolation between capabilities (Gmail creds never reachable from the calendar agent, etc.).
+
+**Pre-build checklist (new credential):**
+1. Narrowest possible scope? Short-lived if possible?
+2. Held by a broker/wrapper, not the agent? (Generalize the draft-safe pattern.)
+3. Reachable ONLY by the one capability that needs it (group-denied everywhere else)?
+4. Is the high-risk action behind human approval, structurally?
+
+---
+
+## The cross-cutting principles (true for every phase)
+
+1. **Application-specific, not general** — every capability is a bounded job with a trust boundary (security standard §0).
+2. **Controls at the system/network layer beat controls at the prompt layer** — because they hold even when the model is compromised. Allowlists, wrappers, validators > "the prompt tells it not to." (Silent Egress; your deterministic research-request validator is a textbook instance.)
+3. **Every handoff is a validated contract** — schema, not prose (MAST specification failures).
+4. **Every consequential action is human-confirmed** — structurally, not by model choice.
+5. **Every run is fully traced; no silent failures** — observability is the V1 gate.
+6. **Prove it, don't design it** — each capability ships only when a test PROVES its boundary holds (your no-send proof and injection test are the model for this).
+
+---
+
+## Primary sources
+
+- Cemri et al., "Why Do Multi-Agent LLM Systems Fail?" (MAST taxonomy), arXiv:2503.13657, NeurIPS 2025. — orchestration failure modes.
+- "Silent Egress: When Implicit Prompt Injection Makes LLM Agents Leak Without a Trace," arXiv:2602.22450, 2026. — egress is the real control.
+- "Caging the Agents: A Zero Trust Security Architecture for Autonomous AI," arXiv:2603.17419, 2026. — four-layer containment, built on OpenClaw VMs.
+- Schneider, "From LLM to agentic AI: prompt injection got worse," 2026. — five highest-ROI controls.
+- OWASP "AI Agent Security Cheat Sheet" + LLM Top 10 (LLM01). — capability/credential discipline.
+- Beurer-Kellner et al., arXiv:2506.08837 (the six patterns) — see security standard.
+- Google DeepMind, "Towards a Science of Scaling Agent Systems," Dec 2025. — when multi-agent helps vs hurts.
+- JetBrains, "LLM Evaluation and AI Observability for Agent Monitoring," 2026; "Production-Ready LLM Agents: Offline Evaluation," 2026. — eval + audit methodology.
+- Anthropic long-running-agent guidance — context reset + structured handoff.
+```
 
 ---
 _To request a decision: tell Claude which CONTROL.md NEXT or which doc section you need a call on._
