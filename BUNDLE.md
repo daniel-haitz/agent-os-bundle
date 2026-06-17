@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-16T22:08:04Z · commit: 2bfba54_
+_Generated: 2026-06-17T01:16:27Z · commit: b1ee06b_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -231,6 +231,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 2bfba54 audit(F-A1): close exit gate — 25/25 PASS, broker live and contained
 8ee8a7b build(F-A1): exit-gate test suite 24/24 PASS; broker fix and results
 138dd54 build(F-A1): broker code complete, deploy list, and state handoff
@@ -250,7 +251,6 @@ a6ae107 [codex] reconcile Path B state and platform references
 2124365 gmail discovery: correct compose-scope analysis + send-path reachability audit
 6d11758 [codex] 2.A: scope Phase 2 email assistant; Gmail connector read-only discovery + go/no-go
 49d5f8e [codex] H.2: push verified work; record deferred plan items (egress, instruction-file drift, three-wall SSN gate)
-614fbf6 [codex] 1.5b: verified panic button (kickstart-kill + auto-recover); EPERM root cause diagnosed
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
