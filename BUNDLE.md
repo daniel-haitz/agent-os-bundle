@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T14:24:41Z · commit: 512aaf3_
+_Generated: 2026-06-17T18:36:38Z · commit: 3d3de4d_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -38,6 +38,7 @@ Current drift state: agent-os at 1fbc3a1; ~/.openclaw at 20857ba (F-A2 Part 1 �
 > F-B: observability design complete, Q1–Q5 query scripts written and live-validated against broker audit log (38f02f0 / 3041a01).
 > Deny block added to settings.json; standing `openclaw security audit` check wired (7642d70).
 > Publish pipeline FIXED: `wrap-up` command ships; bundle now includes all four canonical docs inline; end-session false-positive eliminated; verification uses git ls-remote not CDN (CDN ?v= does not bypass server-side cache) (1fbc3a1).
+> Front door FIXED: `start.sh` ships; one SSH command from MacBook, tmux/screen session, correct model preselected, reconnect-safe; `00_START_HERE.md` replaces `01_PICK_UP_WORK.md` as primary runbook.
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
@@ -131,6 +132,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-17 | claude-code | Front door: start.sh + 00_START_HERE.md; tmux/screen session, correct model, reconnect-safe | this commit
 - 2026-06-17 | claude-code | Publish pipeline fixed: wrap-up.sh ships; inline docs; ls-remote verification; dry-run mode | 1fbc3a1
 - 2026-06-16 | claude-code | Deny block added to settings.json; standing `openclaw security audit` check wired | 7642d70
 - 2026-06-16 | claude-code | F-B observability: Q1–Q5 live-validated against broker audit log | 3041a01
@@ -243,6 +245,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+3d3de4d [claude-code] build(ops): add start.sh front door + 00_START_HERE.md operator runbook
 512aaf3 [claude-code] build(publish): wrap-up keystone complete — pipeline proven, CONTROL.md closed
 1fbc3a1 [claude-code] build(publish): verify via git ls-remote not CDN; CDN ?v= does not bypass server cache
 6b6475a [claude-code] build(publish): use cache-busted URL in verifier; push once, read confirms
@@ -262,12 +265,12 @@ b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 cbc4087 audit: record F-A0 qwen web-browser remediation
 e47e91c audit: close F-A0 deep-audit findings and remediation scope
 6b818db audit: complete F-A0 platform hardening inspection
-a33d031 control: expand PARKED publish-hygiene — end-session guard false-positive + bundle missing canonical docs
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
 ```
 .gitignore
+00_START_HERE.md
 00_TEARDOWN.md
 01_PICK_UP_WORK.md
 BUILD_STATE.md
@@ -310,6 +313,7 @@ scripts/observability/q4-egress-denials.mjs
 scripts/observability/q5-out-of-band-drafts.mjs
 scripts/secret-scan.sh
 scripts/start-session.sh
+scripts/start.sh
 scripts/wrap-up.sh
 src/gmail-broker/f-a1-test-suite.mjs
 src/gmail-broker/gmail-broker.mjs
