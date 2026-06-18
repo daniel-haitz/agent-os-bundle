@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-17T22:13:02Z · commit: 7bc2c36_
+_Generated: 2026-06-18T02:32:07Z · commit: c6c75c3_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -24,7 +24,7 @@ Read these at the start of any build session. Architecture and phase ordering de
 
 ## System state (where the built system actually is)
 The PLAN lives here (agent-os, pushed to origin). The BUILT SYSTEM lives in ~/.openclaw on the mini — LOCAL-ONLY, no remote, never pushed. A fresh session must read ~/.openclaw directly on the mini; it is not in any remote.
-Current drift state: agent-os at 1fbc3a1; ~/.openclaw at 20857ba (F-A2 Part 1 — broker config active, old credential paths intact pending proof loop).
+Current drift state: agent-os at 1fbc3a1; ~/.openclaw at c9dcb2c (F-A2 CLOSED — agent-side Gmail credential originals deleted; legacy direct wrapper retired).
 
 **This is the ONLY state file. Every worker reads this first and updates it last.**
 **If it's not in this file, it didn't happen. The repo is truth, not any prompt or any brain's memory.**
@@ -34,14 +34,14 @@ Current drift state: agent-os at 1fbc3a1; ~/.openclaw at 20857ba (F-A2 Part 1 �
 ## NOW (where we are this exact moment)
 
 > F-A1 CLOSED: Gmail capability broker live, 25/25 exit-gate PASS, ~/.openclaw committed (2bfba54).
-> F-A2 Part 1 WIRED: broker config active; proof loop pending — blocked on Codex budget until tonight (b1ee06b / ~/.openclaw 20857ba).
+> F-A2 CLOSED: reader credential containment complete. Broker proof loop passed; agent-side Gmail credential originals deleted after verified encrypted backup; legacy direct wrapper retired (`~/.openclaw` c9dcb2c).
 > F-B: observability design complete, Q1–Q5 query scripts written and live-validated against broker audit log (38f02f0 / 3041a01).
 > Deny block added to settings.json; standing `openclaw security audit` check wired (7642d70).
 > Publish pipeline FIXED: `wrap-up` command ships; bundle now includes all four canonical docs inline; end-session false-positive eliminated; verification uses git ls-remote not CDN (CDN ?v= does not bypass server-side cache) (1fbc3a1).
 > Front door FIXED: `start.sh` ships; one SSH command from MacBook, tmux/screen session, correct model preselected, reconnect-safe; `00_START_HERE.md` replaces `01_PICK_UP_WORK.md` as primary runbook.
 > Doctrine WIRED: `CLAUDE.md` + `doctrine/` created; communication standard and session-close protocol (git-protocol-is-truth rule, ls-remote residual, corrected CDN principle) are now binding on all workers across all threads.
 > Doctrine TEXT REPAIRED: wording in `CLAUDE.md` and `doctrine/COMMUNICATION_STANDARD.md` aligned to canonical verbatim spec; self-verification rule added to `SESSION_CLOSE_PROTOCOL.md`.
-> F-A2 proof loop STAGED (revised): runbook updated to restore-to-live-captured modes (not hardcoded), explicit two-actor Codex→operator→Codex sequence with verbatim sudo commands, audit query flagged as logic-verified-not-yet-live. Live config untouched. Part 2 LOCKED.
+> F-A2 proof loop + Part 2 COMPLETE: broker enforcement re-proven with originals absent; operator audit/UI checks PASS; direct Gmail wrapper retired. F-A2 exit claim remains credential-theft containment only, not exfiltration containment.
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
@@ -77,7 +77,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 **FLAG:** Gmail uses `gmail.compose`; never-send is a three-layer software guarantee, not a scope boundary. The operator reviews and sends every draft manually.
 **FLAG:** Gmail is on-demand pull. Pub/Sub, gcloud, webhook delivery, and real-time push are DEFERRED.
 **FLAG:** Draft deletion is not exposed by the safe wrapper; test and unwanted drafts are removed manually in Gmail UI.
-**FLAG:** Headless Gmail auth uses gog's file keyring; the password is stored under ignored `~/.openclaw/secrets/` and is visible to same-user processes only while injected into the safe child environment. This exposure is accepted.
+**FLAG:** Headless Gmail auth uses gog's file keyring inside the broker-owned `gmailbroker` tree. Agent-side Gmail credential originals have been deleted; the reader reaches Gmail only through the capability broker. This does NOT provide exfiltration containment.
 **FLAG:** Email instruction/data separation follows the CaMeL dual-plane pattern: paired Telegram operator instructions are commands; email content is inert untrusted data.
 **FLAG:** Agent separation is containment, not formal DLP. Research-question smuggling remains a residual injection risk; the loop is supervised-use and non-sensitive ONLY until the full sensitive-data gate passes.
 **FLAG:** KNOWN ISSUE — sub-agent completion delivery: parent `main` session yields before the delegated reader's result surfaces, causing a recovery re-run and, in Part C Test 2, a duplicate draft. Benign under supervision; must be fixed before unsupervised operation. The same yield-before-child-result behavior occurred in the earlier failed run.
@@ -91,8 +91,8 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > **LOCKED SEQUENCE (frozen — do not reorder, do not research the next phase mid-build):**
 > F-A0  Platform hardening audit        ← CLOSED (e47e91c)
 > F-A1  Gmail capability broker         ← CLOSED (2bfba54)
-> F-A2  Reader CREDENTIAL containment   ← Part 1 wired (b1ee06b); proof loop = NEXT EXECUTION STEP
-> F-A3  Typed reader → researcher handoff
+> F-A2  Reader CREDENTIAL containment   ← CLOSED (`~/.openclaw` c9dcb2c)
+> F-A3  Typed reader → researcher handoff ← NEXT
 > F-A4  Egress allowlist
 > F-B   Observability substrate         ← design + Q1–Q5 live-validated (3041a01)
 > F-C   Action policy registry
@@ -104,14 +104,9 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > **Exfiltration containment is NOT achieved until BOTH F-A3 (Typed Handoff) AND F-A4 (Egress Allowlist) pass.**
 > F-A2's exit gate must NOT claim the reader is contained against leakage — only against credential theft.
 >
-> **IMMEDIATE NEXT: Run F-A2 proof loop — confirm broker enforcement end-to-end, then lock Part 2.**
-> 1. Blind both old credential paths in the reader config (do NOT delete — restore after test).
-> 2. Delegate the reader loop to exercise search + read + draft via the broker.
-> 3. Confirm broker audit log shows `search_threads`, `read_thread`, `create_draft` (no raw calls).
-> 4. Verify draft recipient is correct (operator address, not a test address).
-> 5. Restore blinded paths (undo step 1).
-> **F-A2 Part 2 (credential deletion) is LOCKED until proof loop passes.** Do not delete credentials
-> or restructure the reader config before proof is confirmed in the audit log.
+> **IMMEDIATE NEXT: Build F-A3 typed reader → researcher handoff.**
+> Goal: replace free-form reader-to-researcher delegation with a schema-constrained handoff so untrusted email content cannot be smuggled into research prompts as arbitrary prose.
+> Constraints: F-A3 does NOT claim exfiltration containment by itself; F-A4 egress allowlist is still required before that claim. Preserve the broker-only Gmail path; do not reintroduce direct Gmail credentials or wrappers.
 
 **PARKED (publish-pipeline hardening) — RESOLVED 2026-06-17 (1fbc3a1):**
 > Both defects fixed via `scripts/wrap-up.sh` (replaces `end-session.sh` as the session-close command):
@@ -135,6 +130,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-17 | codex | F-A2 CLOSED: verified encrypted backup, deleted agent-side Gmail credential originals, re-proved broker reader loop, retired legacy direct wrapper | ~/.openclaw c9dcb2c
 - 2026-06-17 | claude-code | F-A2-STAGE-R: runbook revised — restore-to-captured, two-actor flow, audit query flag | this commit
 - 2026-06-17 | claude-code | F-A2-STAGE: proof loop runbook written; restore dry-run proven clean; broker confirmed live; live config untouched | a1c17c2
 - 2026-06-17 | claude-code | DROP 4-FIX: doctrine text aligned to canonical spec; self-verification rule added to SESSION_CLOSE_PROTOCOL | 6b317f0
@@ -252,6 +248,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+c6c75c3 Close F-A2 reader credential containment
 7bc2c36 [claude-code] F-A2-STAGE-R: runbook revised — restore-to-captured modes, two-actor flow, audit query honestly flagged
 a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run clean; broker live; live config untouched
 6b317f0 [claude-code] DROP 4-FIX: doctrine text aligned to canonical spec; self-verification rule added to SESSION_CLOSE_PROTOCOL
@@ -271,7 +268,6 @@ b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 2bfba54 audit(F-A1): close exit gate — 25/25 PASS, broker live and contained
 8ee8a7b build(F-A1): exit-gate test suite 24/24 PASS; broker fix and results
 138dd54 build(F-A1): broker code complete, deploy list, and state handoff
-835ce50 docs: propose F-A1 Gmail capability broker design
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
