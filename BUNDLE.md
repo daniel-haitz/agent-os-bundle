@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-18T03:07:47Z · commit: cc50884_
+_Generated: 2026-06-18T13:32:02Z · commit: e8e8fcb_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -24,7 +24,7 @@ Read these at the start of any build session. Architecture and phase ordering de
 
 ## System state (where the built system actually is)
 The PLAN lives here (agent-os, pushed to origin). The BUILT SYSTEM lives in ~/.openclaw on the mini — LOCAL-ONLY, no remote, never pushed. A fresh session must read ~/.openclaw directly on the mini; it is not in any remote.
-Current drift state: agent-os at 0a97513; ~/.openclaw at 67004c9 (F-A3 Drop 2 proven — handoff gate adversarial tests pass; not wired live).
+Current drift state: agent-os at this commit; ~/.openclaw at c5e15e5 (F-A3 closed — handoff gate wired live and proven; F-A4 egress still required).
 
 **This is the ONLY state file. Every worker reads this first and updates it last.**
 **If it's not in this file, it didn't happen. The repo is truth, not any prompt or any brain's memory.**
@@ -45,6 +45,7 @@ Current drift state: agent-os at 0a97513; ~/.openclaw at 67004c9 (F-A3 Drop 2 pr
 > F-A2 proof loop + Part 2 COMPLETE: broker enforcement re-proven with originals absent; operator audit/UI checks PASS; direct Gmail wrapper retired. F-A2 exit claim remains credential-theft containment only, not exfiltration containment.
 > F-A3 DROP 1 COMPLETE: standalone research handoff enforcement wrapper built and tested (`~/.openclaw/scripts/research-handoff-gate.mjs`, `~/.openclaw` 3fd0b89). It extracts only `research_request`, canonicalizes null/missing to `{"kind":"none"}`, validates through the existing schema, emits only canonical JSON on pass, and hard-fails with sanitized dedicated logging on reject. Not wired into live main→researcher path yet.
 > F-A3 DROP 2 COMPLETE: adversarial proof suite added and passed (`~/.openclaw/scripts/test-research-handoff-gate.mjs`, `~/.openclaw` 67004c9). Valid cases emit canonical JSON; injected prose, unsupported kinds, extra injected fields, malformed input, URLs, and email addresses hard-fail with no researcher payload and sanitized logs. Extra fields hard-fail rather than strip. Case 10 found no schema-content gap: enum fields and noun constraints catch URL/email/prose smuggling.
+> F-A3 CLOSED: live main→researcher path now routes through `research-handoff-gate` (`~/.openclaw` c5e15e5). Main can no longer spawn `email-researcher` directly and no longer has shell/web extras; only the gate can spawn the researcher after validating canonical `research_request` JSON. Clean run spawned first live researcher session with canonical JSON only. Injection run hard-failed at the gate with sanitized reject log and no researcher session. F-A3 is handoff containment only; exfiltration containment still requires F-A4 egress allowlist.
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
@@ -95,8 +96,8 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > F-A0  Platform hardening audit        ← CLOSED (e47e91c)
 > F-A1  Gmail capability broker         ← CLOSED (2bfba54)
 > F-A2  Reader CREDENTIAL containment   ← CLOSED (`~/.openclaw` c9dcb2c)
-> F-A3  Typed reader → researcher handoff ← NEXT
-> F-A4  Egress allowlist
+> F-A3  Typed reader → researcher handoff ← CLOSED (`~/.openclaw` c5e15e5)
+> F-A4  Egress allowlist                  ← NEXT
 > F-B   Observability substrate         ← design + Q1–Q5 live-validated (3041a01)
 > F-C   Action policy registry
 > F-D   Generalized dispatch / confirm split
@@ -107,9 +108,9 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > **Exfiltration containment is NOT achieved until BOTH F-A3 (Typed Handoff) AND F-A4 (Egress Allowlist) pass.**
 > F-A2's exit gate must NOT claim the reader is contained against leakage — only against credential theft.
 >
-> **IMMEDIATE NEXT: F-A3 Drop 3 — wire the proven handoff gate into the live main→researcher path.**
-> Goal: make `research-handoff-gate.mjs` the mandatory boundary before any `email-researcher` spawn, so only canonical validated `research_request` JSON can reach the researcher.
-> Constraints: preserve broker-only Gmail path; do not pass reader prose, summaries, thread IDs, addresses, URLs, or email-supplied instructions to the researcher. F-A3 still does NOT claim exfiltration containment by itself; F-A4 egress allowlist remains required.
+> **IMMEDIATE NEXT: F-A4 — egress allowlist.**
+> Goal: add the outbound network containment layer so researcher/web-capable paths are constrained by an allowlist instead of relying only on handoff shaping and tool doctrine.
+> Constraints: preserve F-A1 broker-only Gmail and F-A3 typed handoff; do not treat F-A3 as exfiltration containment. F-A4 must be proven against outbound leakage attempts before any sensitive-data gate can advance.
 
 **PARKED (publish-pipeline hardening) — RESOLVED 2026-06-17 (1fbc3a1):**
 > Both defects fixed via `scripts/wrap-up.sh` (replaces `end-session.sh` as the session-close command):
@@ -133,6 +134,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-18 | codex | F-A3 CLOSED: live main→gate→researcher path wired; clean researcher run canonical-only; injection hard-failed at gate with no researcher spawn | ~/.openclaw c5e15e5
 - 2026-06-17 | codex | F-A3 Drop 2: adversarial handoff-gate tests pass; injection/URL/email/extra-field/malformed cases hard-fail with sanitized logs | ~/.openclaw 67004c9
 - 2026-06-17 | codex | F-A3 Drop 1: standalone research handoff gate built/tested; validates existing schema and logs sanitized hard-fail rejects | ~/.openclaw 3fd0b89
 - 2026-06-17 | codex | F-A2 CLOSED: verified encrypted backup, deleted agent-side Gmail credential originals, re-proved broker reader loop, retired legacy direct wrapper | ~/.openclaw c9dcb2c
@@ -254,6 +256,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+e8e8fcb Record F-A3 closure
 cc50884 [claude-code] F-A3 Drop 2 adversarial gate proof
 0a97513 [claude-code] F-A3 Drop 1 handoff gate
 839e67d Record F-A2 recovery backup
@@ -273,7 +276,6 @@ eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B v
 3041a01 obs(F-B): record live validation of Q1-Q5 against broker audit log
 7642d70 security: add deny block to settings + standing audit check
 38f02f0 obs(F-B): add observability design and Q1-Q5 query scripts
-b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
