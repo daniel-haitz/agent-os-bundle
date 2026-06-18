@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-18T02:32:07Z · commit: c6c75c3_
+_Generated: 2026-06-18T02:35:55Z · commit: 839e67d_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -35,6 +35,7 @@ Current drift state: agent-os at 1fbc3a1; ~/.openclaw at c9dcb2c (F-A2 CLOSED �
 
 > F-A1 CLOSED: Gmail capability broker live, 25/25 exit-gate PASS, ~/.openclaw committed (2bfba54).
 > F-A2 CLOSED: reader credential containment complete. Broker proof loop passed; agent-side Gmail credential originals deleted after verified encrypted backup; legacy direct wrapper retired (`~/.openclaw` c9dcb2c).
+> F-A2 RECOVERY: encrypted backup is `/Users/agent/.openclaw/credential-backups/fa2-p2-agent-gmail-originals-20260618T021538Z.tar.age`. Encryption is age passphrase mode; passphrase is operator-held only (not in any file, not in keychain) and is the SOLE recovery key — if lost, the backup is unrecoverable. Restore per F-A2 Part 2 runbook Step 7: decrypt with passphrase, restore both paths as `agent:staff`, re-apply modes `0600`/`0755`, then re-run broker health + reader loop. Retain indefinitely; do not delete except by deliberate operator decision after F-A2 is permanently settled.
 > F-B: observability design complete, Q1–Q5 query scripts written and live-validated against broker audit log (38f02f0 / 3041a01).
 > Deny block added to settings.json; standing `openclaw security audit` check wired (7642d70).
 > Publish pipeline FIXED: `wrap-up` command ships; bundle now includes all four canonical docs inline; end-session false-positive eliminated; verification uses git ls-remote not CDN (CDN ?v= does not bypass server-side cache) (1fbc3a1).
@@ -170,6 +171,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-18 | Gmail broker forbidden-method audit scans must be scoped to the run date | Unscoped scans surface historical F-A1 rejection tests such as legitimate `unknown_method` errors and create false positives; use `grep '"ts":"YYYY-MM-DD'` before forbidden-method grep.
 - 2026-06-17 | GitHub raw CDN verification requires git ls-remote, not ?v= cache-buster | CDN ?v= query param does NOT bypass GitHub's server-side cache (lag can exceed 5 min); git ls-remote queries the git protocol layer directly and is authoritative and immediate. Confirmed live: plain URL and ?v=HASH both served stale content while ls-remote showed the correct new HEAD.
 - 2026-06-16 | Settings deny block chosen over per-path allowlist for tool restriction | Deny block is fail-closed and applies uniformly; allowlist requires enumerating every safe path, leaving gaps on miss — deny is the right default for tools that should never be reached by the reader.
 - 2026-06-16 | Spine of record = locked F-A0→F-D sequence; reviews converged, operator-accepted | Two independent model reviews reached the same architecture; churn was doc-vs-working-state drift, not a flawed plan. Spine is now frozen and not re-litigated phase-by-phase.
@@ -248,6 +250,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+839e67d Record F-A2 recovery backup
 c6c75c3 Close F-A2 reader credential containment
 7bc2c36 [claude-code] F-A2-STAGE-R: runbook revised — restore-to-captured modes, two-actor flow, audit query honestly flagged
 a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run clean; broker live; live config untouched
@@ -267,7 +270,6 @@ eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B v
 b1ee06b state(F-A2): Part 1 wired — proof loop pending, state locked
 2bfba54 audit(F-A1): close exit gate — 25/25 PASS, broker live and contained
 8ee8a7b build(F-A1): exit-gate test suite 24/24 PASS; broker fix and results
-138dd54 build(F-A1): broker code complete, deploy list, and state handoff
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
