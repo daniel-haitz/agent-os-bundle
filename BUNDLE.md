@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-18T13:32:02Z · commit: e8e8fcb_
+_Generated: 2026-06-19T23:49:37Z · commit: e8e8fcb_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -24,7 +24,7 @@ Read these at the start of any build session. Architecture and phase ordering de
 
 ## System state (where the built system actually is)
 The PLAN lives here (agent-os, pushed to origin). The BUILT SYSTEM lives in ~/.openclaw on the mini — LOCAL-ONLY, no remote, never pushed. A fresh session must read ~/.openclaw directly on the mini; it is not in any remote.
-Current drift state: agent-os at this commit; ~/.openclaw at c5e15e5 (F-A3 closed — handoff gate wired live and proven; F-A4 egress still required).
+Current drift state: agent-os at this commit; ~/.openclaw at c5e15e5 (F-A3 closed — handoff gate wired live and proven). F-A4 is IN BUILD as documentation/state plus live proxy proof only; no persistent OpenClaw config/proxy changes are installed yet.
 
 **This is the ONLY state file. Every worker reads this first and updates it last.**
 **If it's not in this file, it didn't happen. The repo is truth, not any prompt or any brain's memory.**
@@ -46,15 +46,22 @@ Current drift state: agent-os at this commit; ~/.openclaw at c5e15e5 (F-A3 close
 > F-A3 DROP 1 COMPLETE: standalone research handoff enforcement wrapper built and tested (`~/.openclaw/scripts/research-handoff-gate.mjs`, `~/.openclaw` 3fd0b89). It extracts only `research_request`, canonicalizes null/missing to `{"kind":"none"}`, validates through the existing schema, emits only canonical JSON on pass, and hard-fails with sanitized dedicated logging on reject. Not wired into live main→researcher path yet.
 > F-A3 DROP 2 COMPLETE: adversarial proof suite added and passed (`~/.openclaw/scripts/test-research-handoff-gate.mjs`, `~/.openclaw` 67004c9). Valid cases emit canonical JSON; injected prose, unsupported kinds, extra injected fields, malformed input, URLs, and email addresses hard-fail with no researcher payload and sanitized logs. Extra fields hard-fail rather than strip. Case 10 found no schema-content gap: enum fields and noun constraints catch URL/email/prose smuggling.
 > F-A3 CLOSED: live main→researcher path now routes through `research-handoff-gate` (`~/.openclaw` c5e15e5). Main can no longer spawn `email-researcher` directly and no longer has shell/web extras; only the gate can spawn the researcher after validating canonical `research_request` JSON. Clean run spawned first live researcher session with canonical JSON only. Injection run hard-failed at the gate with sanitized reject log and no researcher session. F-A3 is handoff containment only; exfiltration containment still requires F-A4 egress allowlist.
+> F-A4 IN BUILD: approach settled on native managed proxy + tool-policy denial of `web_search` except for `email-researcher`, with a root/operator-owned filtering proxy as the enforcement point. Native container sandbox / default-deny was DISPROVED as the F-A4 answer in F-A4-1/1b and reverted: web_search runs in the host gateway process outside the container path, and enabling the Docker sandbox broke F-A1/F-A2/F-A3 load-bearing paths.
+> F-A4 LIVE PROXY CAPTURE PROVEN (DROP_F-A4-2, 2026-06-19, OpenClaw 2026.6.5 / 5181e4f): throwaway loopback CONNECT proxy + temporary foreground gateway proved the managed proxy is the chokepoint. Allow run succeeded with forced `email-researcher` web_search (`toolSummary.calls=1`, real source returned). Deny-all run failed closed with no result and repeated denied CONNECTs. Proof log retained at `/tmp/fa4-proxy-20260619.jsonl`.
+> F-A4 ENDPOINT CORRECTION FROM LIVE TEST: this install did NOT hit `api.openai.com` for the Codex/web_search proof. Captured runtime/search hosts were `chatgpt.com` (Codex Responses backend), `search.parallel.ai` (web_search provider), and `html.duckduckgo.com` (fallback/probe). Earlier source-analysis allowlists that centered `api.openai.com` are stale for this machine.
+> F-A4 HARD BLOCKER: trust-boundary hole remains. `~/.openclaw/openclaw.json` is `agent:staff` `0600` and the gateway LaunchAgent runs as `agent`; therefore a compromised agent can edit `proxy.proxyUrl` if the proxy is controlled only through that file. OpenClaw managed proxy capture is real, but openclaw.json-only enforcement is theater against a compromised agent. The enforcement point and the proxy URL/config lock must be root/operator-owned, following the gmail broker reference pattern (`gmailbroker` UID 503, root LaunchDaemon, 0700-owned custody).
+> F-A4 MINIMUM EGRESS ALLOWLIST (corrected by DROP_F-A4-2): gateway/runtime allow `chatgpt.com`, `search.parallel.ai`, `html.duckduckgo.com`, `api.telegram.org`, and loopback Ollama (`127.0.0.1:11434` / local only as needed). Broker is separate from gateway and needs its own handling for Google: `gmail.googleapis.com`, `oauth2.googleapis.com`, `accounts.google.com`, `www.googleapis.com`. Maintenance/bootstrap may need `registry.npmjs.org` / npm registry only when intentionally upgrading/installing. `openclaw proxy validate` defaults to `example.com`; either allow `example.com` for validation or use validator options for explicit allowed/denied URLs.
+> NATIVE FEATURE SCOPE CHANGE: F-B is cut to about 25% of the original custom scope because OpenClaw already has native JSONL logs with agent/session/trace context, OpenTelemetry hooks, and redaction primitives. Build only zero-silent-failures alerting and move operational logs off `/tmp`. F-C/F-D are reframed to configuring native `exec-approvals.json` and dispatch/confirm policy, not building a new approval registry. Caveat: exec approvals are an intent guardrail, not hostile containment; `flip-to-full` skips them.
+> UPGRADE SAFETY: banked until AFTER F-A4 closes. Do not upgrade OpenClaw mid-foundation. Version truth is on-machine `OpenClaw 2026.6.5 (5181e4f)`. Reconcile `update-check.json` reports such as 2026.6.8 versus GitHub/latest-page inconsistencies with on-machine commands, not the flaky web page.
 
 VERIFIED (vendor security doc, 2026-06-15):
 - Reader-agent pattern (read-only/tool-disabled agent summarizes untrusted content → passes summary to main) is the VENDOR-RECOMMENDED mitigation for untrusted-content injection. Current Path B design matches it. Not over-built.
 - Prompt injection does not require public DMs — untrusted CONTENT (email/web/docs) is the vector even with single-operator DMs. Confirms the email reader is the live injection surface.
 - Native `openclaw security audit` (`--deep`/`--fix`/`--json`) exists and checks tool blast radius, exec/approval drift, network exposure, and "sandbox docker configured but sandbox mode off" (= current state). Adopt for drift detection.
-- Native sandbox default-deny: `agents.defaults.sandbox.workspaceAccess:"none"` (default) + openshell `network:"none"` (default) = egress-off out of the box; connectivity is opt-in.
-- Native Docker egress enforcement is documented: DOCKER-USER iptables allowlist (evaluated before Docker's accept rules) = the forced-routing layer that makes Plan C a real wall, not cooperative proxying.
+- SUPERSEDED 2026-06-19: Native sandbox default-deny is documented, but F-A4-1/1b proved it is not the F-A4 answer for this system because web_search egress runs in the host gateway process and the sandbox broke broker/gate paths.
+- SUPERSEDED 2026-06-19: Native Docker DOCKER-USER enforcement is documented, but agent-owned Colima makes it an invalid hostile-agent enforcement point here because `agent` can modify/flush its own VM rules.
 
-VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE):
+VERIFIED 2026-06-15 (sandbox runtime — agent-owned instance LIVE; later F-A4 finding says this is build substrate, NOT the egress trust boundary):
 - agent runs its OWN Colima instance (Option B), using admin-installed binaries (`/opt/homebrew`, read-only shared) — NO agent install, NO admin-socket sharing, NO permission changes. Boundary held.
 - agent socket: `unix:///Users/agent/.colima/default/docker.sock`, perms `srw-------` owner agent. Separate daemon from admin's. `docker info` healthy: Ubuntu 24.04 aarch64, overlayfs, iptables firewall backend present.
 - OPERATIONAL NOTE: agent's Colima MUST be started from a plain agent SSH session, NOT via Codex — Codex's session sandbox blocks the `~/.colima` home writes Colima needs.
@@ -67,13 +74,13 @@ read/search/draft only), not merely a credential proxy that hides the key. Crede
 is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 **FLAG:** A full Mac reboot was not tested (only a controlled daemon restart) — verify auto-start on next reboot.
-**FLAG:** Sandbox remains off; do not add untrusted inbound paths before later Phase 1 hardening.
+**FLAG:** OpenClaw native container sandbox remains off. F-A4-1/1b proved it is not the correct F-A4 egress wall for this system: it broke broker/gate paths and did not contain the host-gateway web_search path.
 **FLAG:** Phase 1.4 must isolate `~/.ssh`, `~/.aws`, and secrets paths; OpenClaw 2026.6.5 has no exec/tool path-deny control.
 **FLAG:** Heartbeat agent replied `NO_REPLY` instead of `HEARTBEAT_OK` on its first restricted run — verify the output is interpretable as a health signal in a later check.
 **FLAG:** `EPERM: chmod ~/.openclaw/state` is caused by OpenClaw 2026.6.5 unconditionally chmodding an already-correct `agent:staff` 0700 directory inside a repo-only managed sandbox; pending fix is an OpenClaw code/version fix, not chmod/chown.
 **FLAG:** VERIFIED emergency stop: first stop any attached CLI/supervisor retry source, then run `launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway`; do not use `openclaw gateway stop`/`restart` on this Mac. Telegram `/stop` remains reasoning-halt only.
-**FLAG:** Container runtime prep is DONE via agent-owned Colima, but OpenClaw sandbox mode is still off; do not treat runtime availability as containment.
-**FLAG:** Egress allowlist is DEFERRED until F-A4. Outbound network access is currently unrestricted; egress alone does not unlock sensitive data.
+**FLAG:** Container runtime prep is DONE via agent-owned Colima, but agent-owned Colima/DOCKER-USER is not a valid hostile-agent wall: the agent has enough control inside that VM to edit/flush its own rules. Enforcement point cannot be owned by the contained party.
+**FLAG:** Egress allowlist is IN BUILD under F-A4. Outbound gateway egress is currently unrestricted in persistent service state because no permanent root/operator-owned proxy is installed yet. Egress alone does not unlock sensitive data.
 **FLAG:** Instruction/memory-file drift detection is DEFERRED: add `HEARTBEAT.md` and all SOUL/AGENTS-equivalent files to the `~/.openclaw` baseline so persistent instruction edits trip the drift check.
 **SENSITIVE-DATA GATE:** Sensitive data stays HELD until ALL are PASS: Platform hardening (F-A0) | Gmail capability broker (F-A1) | Reader credential containment (F-A2) | Typed handoff (F-A3) | Egress allowlist (F-A4) | Observability (F-B) | Action policy (F-C) | Dispatch/confirm template (F-D) | Negative injection tests | Secret/log redaction tests. NOTE: broker alone does NOT lift the hold.
 **FLAG:** Notify-tier build (`1.2b-build`) is DEFERRED and non-urgent; the hooks mechanism audit and safe design constraints are recorded.
@@ -86,7 +93,21 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 **FLAG:** Agent separation is containment, not formal DLP. Research-question smuggling remains a residual injection risk; the loop is supervised-use and non-sensitive ONLY until the full sensitive-data gate passes.
 **FLAG:** KNOWN ISSUE — sub-agent completion delivery: parent `main` session yields before the delegated reader's result surfaces, causing a recovery re-run and, in Part C Test 2, a duplicate draft. Benign under supervision; must be fixed before unsupervised operation. The same yield-before-child-result behavior occurred in the earlier failed run.
 **FLAG (NEW, verify read-only):** Confirm `hooks.gmail.allowUnsafeExternalContent` is unset/false and external-content wrapping (untrusted-content markers) is intact on the live Gmail path. Vendor audit tracks this flag as insecure/dangerous; if accidentally enabled it bypasses the CaMeL dual-plane separation at the PLATFORM layer regardless of agent design. Fast read-only check via `openclaw security audit`.
-**FLAG (NEW, plan-correction):** §4 of PLATFORM_MECHANICS_REFERENCE understates native Plan-C capability. Vendor docs confirm native sandbox default-deny networking + documented DOCKER-USER egress enforcement. §4 should be reconciled to reflect that Plan C is "configure native sandbox + re-home credential chain," not "build bespoke Docker egress rig." Re-verify before §4 is treated as settled. (Per operating rule: recorded as correction-to-verify, not enacted.)
+**FLAG (SUPERSEDED 2026-06-19):** Older Plan C / native-sandbox notes are stale. F-A4 sweep found agent-owned DOCKER-USER enforcement is theater because the agent can modify the enforcement point. F-A4-1/1b found Docker sandbox default-deny is not the web_search containment path because web_search egress lives in the host gateway process and the sandbox broke F-A1/F-A2/F-A3.
+
+## F-A4 pre-flight checks before permanent build
+
+- Run `openclaw security audit --deep` and require 0 critical findings; last audit-era work had no critical blocker, but verify on the day of build.
+- Verify `gateway.bind` remains loopback and Control UI is not exposed beyond localhost.
+- Verify `hooks.gmail.allowUnsafeExternalContent` is unset/false and Gmail external-content wrapping remains intact.
+- Verify sensitive config/secrets permissions remain 0700/0600, especially `~/.openclaw`, SecretRef files, and broker-owned trees.
+- Verify permanent proxy config and `proxy.proxyUrl` are not writable/repointable by `agent`; root/operator-owned placement is required before F-A4 can close.
+
+## Doctrine additions from F-A4
+
+- Native-first → sweep → build. Prefer a native OpenClaw mechanism only after source/docs and live behavior prove it covers this install's actual path.
+- Enforcement point cannot be owned by the contained party. This killed both agent-owned Colima/DOCKER-USER Plan C and openclaw.json-only proxy enforcement for the same reason.
+- Do not equate process-level proxying with OS sandboxing. Managed proxy is sufficient for well-behaved gateway HTTP/WebSocket clients once operator-owned/fail-closed, but it is not a raw-socket containment mechanism.
 
 ---
 
@@ -97,10 +118,10 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > F-A1  Gmail capability broker         ← CLOSED (2bfba54)
 > F-A2  Reader CREDENTIAL containment   ← CLOSED (`~/.openclaw` c9dcb2c)
 > F-A3  Typed reader → researcher handoff ← CLOSED (`~/.openclaw` c5e15e5)
-> F-A4  Egress allowlist                  ← NEXT
-> F-B   Observability substrate         ← design + Q1–Q5 live-validated (3041a01)
-> F-C   Action policy registry
-> F-D   Generalized dispatch / confirm split
+> F-A4  Egress allowlist                  ← IN BUILD (managed proxy capture proven; root/operator trust boundary still open)
+> F-B   Observability substrate         ← RESCOPED: native logs/OTel/redaction exist; build alerting + log placement
+> F-C   Action policy registry          ← RESCOPED: configure native exec approvals/policy; do not build a registry first
+> F-D   Generalized dispatch / confirm split ← RESCOPED around native policy + typed handoff patterns
 > THEN: capability expansion → Command Center → browser/form-fill → sensitive-data workflows LAST.
 >
 > **F-A2 RELABEL (operator-locked 2026-06-16):** F-A2 achieves **Reader Credential Containment ONLY** —
@@ -108,9 +129,10 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > **Exfiltration containment is NOT achieved until BOTH F-A3 (Typed Handoff) AND F-A4 (Egress Allowlist) pass.**
 > F-A2's exit gate must NOT claim the reader is contained against leakage — only against credential theft.
 >
-> **IMMEDIATE NEXT: F-A4 — egress allowlist.**
-> Goal: add the outbound network containment layer so researcher/web-capable paths are constrained by an allowlist instead of relying only on handoff shaping and tool doctrine.
-> Constraints: preserve F-A1 broker-only Gmail and F-A3 typed handoff; do not treat F-A3 as exfiltration containment. F-A4 must be proven against outbound leakage attempts before any sensitive-data gate can advance.
+> **IMMEDIATE NEXT: F-A4 — permanent operator-owned proxy/trust-boundary build.**
+> Goal: install/configure a root/operator-owned filtering proxy and lock the managed-proxy URL/config so a compromised `agent` user cannot repoint, disable, or edit the enforcement point.
+> Known-good mechanism: OpenClaw managed proxy captures gateway/web_search egress and fails closed when the proxy denies. Known blocker: current `openclaw.json`/LaunchAgent ownership makes proxy config agent-repointable.
+> Constraints: preserve F-A1 broker-only Gmail and F-A3 typed handoff; do not touch the gmail broker except to account for its separate Google egress. F-A4 must be proven against outbound leakage attempts before any sensitive-data gate can advance.
 
 **PARKED (publish-pipeline hardening) — RESOLVED 2026-06-17 (1fbc3a1):**
 > Both defects fixed via `scripts/wrap-up.sh` (replaces `end-session.sh` as the session-close command):
@@ -134,6 +156,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-19 | codex | F-A4 Drop 2 CLOSED: live throwaway proxy proved managed proxy captures/fails closed for gateway/web_search egress; endpoint allowlist corrected to chatgpt.com + search.parallel.ai + html.duckduckgo.com | no persistent config change; proof log /tmp/fa4-proxy-20260619.jsonl
 - 2026-06-18 | codex | F-A3 CLOSED: live main→gate→researcher path wired; clean researcher run canonical-only; injection hard-failed at gate with no researcher spawn | ~/.openclaw c5e15e5
 - 2026-06-17 | codex | F-A3 Drop 2: adversarial handoff-gate tests pass; injection/URL/email/extra-field/malformed cases hard-fail with sanitized logs | ~/.openclaw 67004c9
 - 2026-06-17 | codex | F-A3 Drop 1: standalone research handoff gate built/tested; validates existing schema and logs sanitized hard-fail rejects | ~/.openclaw 3fd0b89
@@ -177,6 +200,11 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-19 | Native managed proxy is the F-A4 gateway egress mechanism, but only with an operator-owned trust boundary | Live proof showed gateway/model/web_search traffic routes through the managed proxy and fails closed; `agent`-writable `openclaw.json` means permanent enforcement must lock proxy URL/config outside agent control.
+- 2026-06-19 | Correct F-A4 gateway allowlist to live-observed hosts: `chatgpt.com`, `search.parallel.ai`, `html.duckduckgo.com` | DROP_F-A4_2 showed this install uses `chatgpt.com` for Codex Responses and `search.parallel.ai` for web_search; `api.openai.com` was not hit in the proof.
+- 2026-06-19 | Native container sandbox is not the F-A4 solution on this system | F-A4-1/1b reverted because Docker sandbox broke F-A1/F-A2/F-A3 paths and did not contain host-gateway web_search egress.
+- 2026-06-19 | Enforcement point cannot be owned by the contained party | Agent-owned Colima/DOCKER-USER and agent-writable openclaw.json-only proxy enforcement both fail the same trust-boundary test.
+- 2026-06-19 | F-B/F-C/F-D are audit-rescoped around native OpenClaw features | Native logging/OTel/redaction and exec-approvals reduce custom build scope; remaining work is alerting/log placement and correct policy configuration.
 - 2026-06-18 | Gmail broker forbidden-method audit scans must be scoped to the run date | Unscoped scans surface historical F-A1 rejection tests such as legitimate `unknown_method` errors and create false positives; use `grep '"ts":"YYYY-MM-DD'` before forbidden-method grep.
 - 2026-06-17 | GitHub raw CDN verification requires git ls-remote, not ?v= cache-buster | CDN ?v= query param does NOT bypass GitHub's server-side cache (lag can exceed 5 min); git ls-remote queries the git protocol layer directly and is authoritative and immediate. Confirmed live: plain URL and ?v=HASH both served stale content while ls-remote showed the correct new HEAD.
 - 2026-06-16 | Settings deny block chosen over per-path allowlist for tool restriction | Deny block is fail-closed and applies uniformly; allowlist requires enumerating every safe path, leaving gaps on miss — deny is the right default for tools that should never be reached by the reader.
@@ -185,9 +213,9 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 - 2026-06-16 | Sensitive-data hold lifts ONLY when the full gate table passes (not broker alone) | Broker prevents credential theft; it does NOT prevent poisoned summaries, search/web exfiltration, or malicious drafts. Multiple required conditions, no single keystone.
 - 2026-06-15 | Sandbox runtime = agent-owned Colima using shared read-only admin binaries; agent-owned VM+socket | Option B (full daemon/socket separation), zero install/socket-sharing/permission-change. Shared read-only BINARIES safe; shared SOCKET avoided as escalation risk. Launch from plain agent SSH (Codex sandbox blocks home writes).
 - 2026-06-15 | Sensitive-data integration HELD until containment proven; reader stays supervised + non-sensitive | Prompt-injection→exfil is unsolved field-wide (vendor security doc states it explicitly); native process-level proxy is not an OS sandbox; removing the consequence leg (no sensitive data) is the only currently-sound posture. Aligns with vendor "model last / limit blast radius" stance.
-- 2026-06-15 | Plan B (separate egress box) ELIMINATED by operator — no new hardware | If a forced-routing egress wall is needed, it is Plan C (Docker/openshell internal network + DOCKER-USER allowlist, both vendor-documented). Native managed proxy is interim defense-in-depth only.
-- 2026-06-15 | NEXT reframed egress-decision → sandbox-first (operator-approved) | Vendor native sandbox (`agents.defaults.sandbox`, openshell `network:"none"` default) closes ISOLATION and most of EGRESS in one native config tree; doing egress as a standalone wall duplicates work the sandbox already provides. Foundations-first order preserved; this resequences within foundations, not across them.
-- 2026-06-15 | Plan A (host-pf UID-keyed proxy) eliminated for egress | pf-viability verify resolved NO: route-to≠proxy-redirect, rdr can't match UID, translation precedes filtering, no per-agent UID in one gateway. Egress decision now open: Plan B separate-box vs Plan C Docker (needs install).
+- 2026-06-15 | SUPERSEDED 2026-06-19: Plan B separate-box eliminated; Plan C Docker/DOCKER-USER was then considered | Later F-A4 sweep killed Plan C on trust-boundary grounds because agent-owned Colima lets the contained party control the rules. Native managed proxy is now the F-A4 mechanism, with operator-owned placement required.
+- 2026-06-15 | SUPERSEDED 2026-06-19: NEXT reframed egress-decision → sandbox-first | Later F-A4-1/1b disproved sandbox-first for this system: host-gateway web_search was outside container containment and broker/gate paths broke.
+- 2026-06-15 | Plan A (host-pf UID-keyed proxy) eliminated for egress | pf-viability verify resolved NO: route-to≠proxy-redirect, rdr can't match UID, translation precedes filtering, no per-agent UID in one gateway.
 - 2026-06-14 | Confined reader runs Path B: default Codex runtime with `tools.exec.mode="auto"`; OS-level exec allowlisting is not enforced | Live testing proved `auto` does not preserve the approvals-layer allowlist and embedded runtime requires a separate OpenAI API key. Accepted confinement is OAuth scope + three-layer no-send + research validator + coming egress; the reader remains supervised/non-sensitive until egress and isolation close the temporary host-shell gap. Reconsider Path A if sensitive unsupervised use is needed first.
 - 2026-06-14 | Phase order changed to foundations-first per end-state architecture; egress/containment moved ahead of new capabilities | Containment is the unlock for unattended use; capability-first leaves capabilities stuck in supervised-mode and risks per-capability rebuild
 - 2026-06-13 | Gmail draft-only uses `gmail.readonly` + `gmail.compose` with a three-layer software no-send barrier | Readonly cannot create Gmail drafts; wrapper allowlisting, a policy-compiled gog v0.25.0 binary, and `gmail_no_send` all independently block send paths
