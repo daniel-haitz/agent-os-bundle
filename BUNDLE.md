@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-19T23:49:37Z · commit: e8e8fcb_
+_Generated: 2026-06-19T23:49:57Z · commit: 7120829_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -284,6 +284,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+7120829 docs: sync post-audit F-A4 state
 e8e8fcb Record F-A3 closure
 cc50884 [claude-code] F-A3 Drop 2 adversarial gate proof
 0a97513 [claude-code] F-A3 Drop 1 handoff gate
@@ -303,7 +304,6 @@ d47bea0 [claude-code] build(publish): add wrap-up close command, inline canonica
 eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B validated
 3041a01 obs(F-B): record live validation of Q1-Q5 against broker audit log
 7642d70 security: add deny block to settings + standing audit check
-38f02f0 obs(F-B): add observability design and Q1-Q5 query scripts
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
