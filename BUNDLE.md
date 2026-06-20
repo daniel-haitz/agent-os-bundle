@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-20T17:49:19Z · commit: 85a2403_
+_Generated: 2026-06-20T19:06:20Z · commit: b37299d_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -285,6 +285,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+b37299d docs: draft F-A4 egress wall artifacts
 85a2403 docs: draft F-A4 gateway LaunchDaemon plist
 ec771af docs: verify F-A4 credential custody
 d588532 docs: verify F-A4 egress lock design
@@ -304,7 +305,6 @@ a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run cl
 512aaf3 [claude-code] build(publish): wrap-up keystone complete — pipeline proven, CONTROL.md closed
 1fbc3a1 [claude-code] build(publish): verify via git ls-remote not CDN; CDN ?v= does not bypass server cache
 6b6475a [claude-code] build(publish): use cache-busted URL in verifier; push once, read confirms
-89d8363 [claude-code] build(publish): fix SIGPIPE in wrap-up verifier; use bash built-ins for hash parse
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -341,6 +341,7 @@ docs/F-A4_LOCK_2A_OWNERSHIP_MAP.md
 docs/F-A4_LOCK_2A_VERIFY_EGRESS_LOCK.md
 docs/F-A4_LOCK_2B_0READ_CREDENTIAL_CUSTODY.md
 docs/F-A4_LOCK_2B_LAUNCHDAEMON_PLIST_DRAFT.md
+docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md
 docs/F-B_OBSERVABILITY_DESIGN.md
 docs/OPENCLAW_BUILD_PLAN.md
 docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
@@ -352,6 +353,13 @@ docs/PHASE_2_EMAIL_ASSISTANT.md
 docs/PRIOR_BUILD_LEARNINGS.md
 doctrine/COMMUNICATION_STANDARD.md
 doctrine/SESSION_CLOSE_PROTOCOL.md
+drafts/fa4-phase5/agent-os-egress-proxy.mjs
+drafts/fa4-phase5/agent-os-egress.anchor
+drafts/fa4-phase5/ai.agent-os-egress-pf.plist
+drafts/fa4-phase5/ai.agent-os-egress-proxy.plist
+drafts/fa4-phase5/allowlist.txt
+drafts/fa4-phase5/pf.conf.fragment
+drafts/fa4-phase5/phase5-proof-commands.sh
 scripts/bundle-for-claude.sh
 scripts/end-session.sh
 scripts/observability/q1-silent-failures.mjs
