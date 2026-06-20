@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-19T23:49:57Z · commit: 7120829_
+_Generated: 2026-06-20T14:17:54Z · commit: bbd2839_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -200,6 +200,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-19 | CONTROL.md is the sole state doc; RUNWAY_TO_V1.md + master-state Google Doc retired; readable write-ups generated on demand, not maintained as parallel copies | Three parallel "state" artifacts drifted on every update (FA4_3 demonstrated it); one source of truth + on-demand views eliminates the drift class.
 - 2026-06-19 | Native managed proxy is the F-A4 gateway egress mechanism, but only with an operator-owned trust boundary | Live proof showed gateway/model/web_search traffic routes through the managed proxy and fails closed; `agent`-writable `openclaw.json` means permanent enforcement must lock proxy URL/config outside agent control.
 - 2026-06-19 | Correct F-A4 gateway allowlist to live-observed hosts: `chatgpt.com`, `search.parallel.ai`, `html.duckduckgo.com` | DROP_F-A4_2 showed this install uses `chatgpt.com` for Codex Responses and `search.parallel.ai` for web_search; `api.openai.com` was not hit in the proof.
 - 2026-06-19 | Native container sandbox is not the F-A4 solution on this system | F-A4-1/1b reverted because Docker sandbox broke F-A1/F-A2/F-A3 paths and did not contain host-gateway web_search egress.
@@ -284,6 +285,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+bbd2839 docs: retire parallel state docs
 7120829 docs: sync post-audit F-A4 state
 e8e8fcb Record F-A3 closure
 cc50884 [claude-code] F-A3 Drop 2 adversarial gate proof
@@ -303,7 +305,6 @@ d47bea0 [claude-code] build(publish): add wrap-up close command, inline canonica
 5d025e3 [claude-code] test session
 eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B validated
 3041a01 obs(F-B): record live validation of Q1-Q5 against broker audit log
-7642d70 security: add deny block to settings + standing audit check
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
