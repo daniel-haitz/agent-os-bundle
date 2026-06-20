@@ -81,6 +81,18 @@ sudo chmod 0644 /Library/LaunchDaemons/ai.agent-os-egress-proxy.plist
 The `egressproxy` role user is operator-created by hand. It must be non-admin and
 non-login. It does not need access to OpenClaw state or the Gmail broker.
 
+Certificate env pre-flight before installing the proxy LaunchDaemon:
+
+```sh
+ls -l /etc/ssl/cert.pem
+```
+
+If `/etc/ssl/cert.pem` does not exist, remove `NODE_EXTRA_CA_CERTS` and
+`NODE_USE_SYSTEM_CA` from `ai.agent-os-egress-proxy.plist` before installing it. The
+proxy is a pure CONNECT tunnel and does not terminate TLS, so it does not need a CA
+bundle to proxy OpenClaw traffic. If the file exists, leaving those environment
+variables is acceptable.
+
 ## Allowlist
 
 Draft allowlist:
@@ -209,6 +221,17 @@ not as an unattended automation script. It covers:
 
 ## Acceptance Criteria
 
+Gate-zero before installing anything:
+
+```sh
+ps -o user,pid,comm -p $(pgrep -f gmailbroker)
+```
+
+Pass condition: the broker process user is not `openclawgw`; expected user is
+`gmailbroker` or its dedicated broker UID. If the broker is running as `openclawgw`,
+STOP. The openclawgw-scoped pf rule would break broker Google egress, and the re-home
+design needs review before Phase 5.
+
 F-A4 Phase 5 accepts only when all are true:
 
 - Forced researcher web_search succeeds and proxy log shows allowed CONNECTs to
@@ -219,6 +242,22 @@ F-A4 Phase 5 accepts only when all are true:
 - `openclawgw` cannot edit `openclaw.json`, the allowlist, or the pf anchor.
 - `openclaw proxy validate --proxy-url http://127.0.0.1:13128 --allowed-url https://chatgpt.com/ --denied-url https://example.com/` passes.
 - F-A1 broker read, F-A3 gate, Telegram, and broker Google egress still work.
+  Broker acceptance requires a real delegated Gmail read through the broker after pf is
+  loaded, returning mail/data rather than an egress error, plus a broker audit-log entry.
+  Do not accept this on the assumption that an openclawgw-scoped pf rule leaves broker
+  traffic alone; prove it.
+
+## Close-Out Wording
+
+Use this wording when updating `CONTROL.md` after acceptance:
+
+F-A4 CLOSED — gateway egress is allowlist-confined (`chatgpt.com`,
+`search.parallel.ai`, `html.duckduckgo.com`, `api.telegram.org`) and fails closed;
+`openclawgw` has no direct egress or DNS; proxy/allowlist/anchor are root-owned and
+`openclawgw`-unwritable (lock-confirmed). RESIDUAL: allowlisted bidirectional hosts
+(Telegram, model backend) remain theoretical exfil channels — F-A4 is egress-allowlist
+containment, not full exfiltration containment. Broker Google egress is separate and
+not yet walled.
 
 ## Recovery Notes
 

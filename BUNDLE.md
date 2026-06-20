@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-20T19:06:20Z · commit: b37299d_
+_Generated: 2026-06-20T19:11:24Z · commit: 5269c64_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -285,6 +285,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+5269c64 docs: patch F-A4 Phase 5 — broker UID gate, broker-read proof, cert check, honest close-out
 b37299d docs: draft F-A4 egress wall artifacts
 85a2403 docs: draft F-A4 gateway LaunchDaemon plist
 ec771af docs: verify F-A4 credential custody
@@ -304,7 +305,6 @@ a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run cl
 3d3de4d [claude-code] build(ops): add start.sh front door + 00_START_HERE.md operator runbook
 512aaf3 [claude-code] build(publish): wrap-up keystone complete — pipeline proven, CONTROL.md closed
 1fbc3a1 [claude-code] build(publish): verify via git ls-remote not CDN; CDN ?v= does not bypass server cache
-6b6475a [claude-code] build(publish): use cache-busted URL in verifier; push once, read confirms
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
