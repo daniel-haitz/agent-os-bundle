@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-20T14:17:54Z · commit: bbd2839_
+_Generated: 2026-06-20T15:14:02Z · commit: 3f10cf6_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -285,6 +285,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+3f10cf6 docs: map F-A4 gateway rehome ownership
 bbd2839 docs: retire parallel state docs
 7120829 docs: sync post-audit F-A4 state
 e8e8fcb Record F-A3 closure
@@ -304,7 +305,6 @@ a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run cl
 d47bea0 [claude-code] build(publish): add wrap-up close command, inline canonical docs in bundle
 5d025e3 [claude-code] test session
 eebe794 control: session-close — F-A0/F-A1 closed, F-A2 proof loop next, F-B validated
-3041a01 obs(F-B): record live validation of Q1-Q5 against broker audit log
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -337,6 +337,7 @@ docs/F-A1_DEPLOY_LIST.md
 docs/F-A1_GMAIL_BROKER_DESIGN.md
 docs/F-A1_GMAIL_BROKER_DESIGN_ADDENDUM.md
 docs/F-A2_PROOF_RUNBOOK.md
+docs/F-A4_LOCK_2A_OWNERSHIP_MAP.md
 docs/F-B_OBSERVABILITY_DESIGN.md
 docs/OPENCLAW_BUILD_PLAN.md
 docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
