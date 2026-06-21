@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-21T23:31:32Z · commit: 551aa14_
+_Generated: 2026-06-21T23:47:09Z · commit: 0b973f6_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -297,6 +297,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+0b973f6 [codex] publish: print bundle freshness reference
 551aa14 [codex] F-A4: record recovery state in CONTROL
 929e2e0 docs: patch cutover runbook — rollback ownership integrity, cert preflight, inline foundation proofs
 191b40c docs: assemble F-A4 gateway re-home cutover runbook (draft, operator-by-hand)
@@ -316,7 +317,6 @@ c6c75c3 Close F-A2 reader credential containment
 7bc2c36 [claude-code] F-A2-STAGE-R: runbook revised — restore-to-captured modes, two-actor flow, audit query honestly flagged
 a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run clean; broker live; live config untouched
 6b317f0 [claude-code] DROP 4-FIX: doctrine text aligned to canonical spec; self-verification rule added to SESSION_CLOSE_PROTOCOL
-35a01ee [claude-code] DROP 4: CLAUDE.md + doctrine/ wired; communication standard and session-close protocol binding on all workers
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
