@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-20T19:11:24Z · commit: 5269c64_
+_Generated: 2026-06-21T14:41:25Z · commit: 191b40c_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -285,6 +285,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+191b40c docs: assemble F-A4 gateway re-home cutover runbook (draft, operator-by-hand)
 5269c64 docs: patch F-A4 Phase 5 — broker UID gate, broker-read proof, cert check, honest close-out
 b37299d docs: draft F-A4 egress wall artifacts
 85a2403 docs: draft F-A4 gateway LaunchDaemon plist
@@ -304,7 +305,6 @@ a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run cl
 35a01ee [claude-code] DROP 4: CLAUDE.md + doctrine/ wired; communication standard and session-close protocol binding on all workers
 3d3de4d [claude-code] build(ops): add start.sh front door + 00_START_HERE.md operator runbook
 512aaf3 [claude-code] build(publish): wrap-up keystone complete — pipeline proven, CONTROL.md closed
-1fbc3a1 [claude-code] build(publish): verify via git ls-remote not CDN; CDN ?v= does not bypass server cache
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -337,6 +337,7 @@ docs/F-A1_DEPLOY_LIST.md
 docs/F-A1_GMAIL_BROKER_DESIGN.md
 docs/F-A1_GMAIL_BROKER_DESIGN_ADDENDUM.md
 docs/F-A2_PROOF_RUNBOOK.md
+docs/F-A4_CUTOVER_RUNBOOK.md
 docs/F-A4_LOCK_2A_OWNERSHIP_MAP.md
 docs/F-A4_LOCK_2A_VERIFY_EGRESS_LOCK.md
 docs/F-A4_LOCK_2B_0READ_CREDENTIAL_CUSTODY.md
