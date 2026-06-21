@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-06-21T14:58:28Z · commit: 929e2e0_
+_Generated: 2026-06-21T23:31:32Z · commit: 551aa14_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -24,7 +24,7 @@ Read these at the start of any build session. Architecture and phase ordering de
 
 ## System state (where the built system actually is)
 The PLAN lives here (agent-os, pushed to origin). The BUILT SYSTEM lives in ~/.openclaw on the mini — LOCAL-ONLY, no remote, never pushed. A fresh session must read ~/.openclaw directly on the mini; it is not in any remote.
-Current drift state: agent-os at this commit; ~/.openclaw at c5e15e5 (F-A3 closed — handoff gate wired live and proven). F-A4 is IN BUILD as documentation/state plus live proxy proof only; no persistent OpenClaw config/proxy changes are installed yet.
+Current drift state: agent-os at this commit; ~/.openclaw has been re-homed under the F-A4 cutover. Gateway now runs as `openclawgw` (UID 555) under root LaunchDaemon `/Library/LaunchDaemons/ai.openclaw.gateway.plist`; the three-tier tamper lock is re-asserted and proven after the 2026-06-21 recovery. F-A4 Phase 5 egress wall (operator-owned CONNECT proxy + pf backstop) is still PENDING, so F-A4 is not fully closed.
 
 **This is the ONLY state file. Every worker reads this first and updates it last.**
 **If it's not in this file, it didn't happen. The repo is truth, not any prompt or any brain's memory.**
@@ -46,11 +46,15 @@ Current drift state: agent-os at this commit; ~/.openclaw at c5e15e5 (F-A3 close
 > F-A3 DROP 1 COMPLETE: standalone research handoff enforcement wrapper built and tested (`~/.openclaw/scripts/research-handoff-gate.mjs`, `~/.openclaw` 3fd0b89). It extracts only `research_request`, canonicalizes null/missing to `{"kind":"none"}`, validates through the existing schema, emits only canonical JSON on pass, and hard-fails with sanitized dedicated logging on reject. Not wired into live main→researcher path yet.
 > F-A3 DROP 2 COMPLETE: adversarial proof suite added and passed (`~/.openclaw/scripts/test-research-handoff-gate.mjs`, `~/.openclaw` 67004c9). Valid cases emit canonical JSON; injected prose, unsupported kinds, extra injected fields, malformed input, URLs, and email addresses hard-fail with no researcher payload and sanitized logs. Extra fields hard-fail rather than strip. Case 10 found no schema-content gap: enum fields and noun constraints catch URL/email/prose smuggling.
 > F-A3 CLOSED: live main→researcher path now routes through `research-handoff-gate` (`~/.openclaw` c5e15e5). Main can no longer spawn `email-researcher` directly and no longer has shell/web extras; only the gate can spawn the researcher after validating canonical `research_request` JSON. Clean run spawned first live researcher session with canonical JSON only. Injection run hard-failed at the gate with sanitized reject log and no researcher session. F-A3 is handoff containment only; exfiltration containment still requires F-A4 egress allowlist.
-> F-A4 IN BUILD: approach settled on native managed proxy + tool-policy denial of `web_search` except for `email-researcher`, with a root/operator-owned filtering proxy as the enforcement point. Native container sandbox / default-deny was DISPROVED as the F-A4 answer in F-A4-1/1b and reverted: web_search runs in the host gateway process outside the container path, and enabling the Docker sandbox broke F-A1/F-A2/F-A3 load-bearing paths.
+> F-A4 IN BUILD: gateway re-home and tamper-lock are EXECUTED and PROVEN; Phase 5 egress wall is still pending. Approach remains native managed proxy + root/operator-owned filtering proxy + pf backstop. Native container sandbox / default-deny was DISPROVED as the F-A4 answer in F-A4-1/1b and reverted: web_search runs in the host gateway process outside the container path, and enabling the Docker sandbox broke F-A1/F-A2/F-A3 load-bearing paths.
 > F-A4 LIVE PROXY CAPTURE PROVEN (DROP_F-A4-2, 2026-06-19, OpenClaw 2026.6.5 / 5181e4f): throwaway loopback CONNECT proxy + temporary foreground gateway proved the managed proxy is the chokepoint. Allow run succeeded with forced `email-researcher` web_search (`toolSummary.calls=1`, real source returned). Deny-all run failed closed with no result and repeated denied CONNECTs. Proof log retained at `/tmp/fa4-proxy-20260619.jsonl`.
 > F-A4 ENDPOINT CORRECTION FROM LIVE TEST: this install did NOT hit `api.openai.com` for the Codex/web_search proof. Captured runtime/search hosts were `chatgpt.com` (Codex Responses backend), `search.parallel.ai` (web_search provider), and `html.duckduckgo.com` (fallback/probe). Earlier source-analysis allowlists that centered `api.openai.com` are stale for this machine.
-> F-A4 HARD BLOCKER: trust-boundary hole remains. `~/.openclaw/openclaw.json` is `agent:staff` `0600` and the gateway LaunchAgent runs as `agent`; therefore a compromised agent can edit `proxy.proxyUrl` if the proxy is controlled only through that file. OpenClaw managed proxy capture is real, but openclaw.json-only enforcement is theater against a compromised agent. The enforcement point and the proxy URL/config lock must be root/operator-owned, following the gmail broker reference pattern (`gmailbroker` UID 503, root LaunchDaemon, 0700-owned custody).
+> F-A4 CUTOVER EXECUTED AND PROVEN (2026-06-21): gateway re-homed to dedicated service user `openclawgw` (UID 555) under root LaunchDaemon `/Library/LaunchDaemons/ai.openclaw.gateway.plist`. Three-tier ownership built; 5-point tamper-lock proof passed. F-A1 Gmail broker, F-A3 handoff gate, and Telegram were re-verified under the new user.
+> F-A4 TAMPER-LOCK REVERTED THEN RE-ASSERTED (2026-06-21): during a later OpenAI-auth fix, `sudo chown -R openclawgw:staff /Users/agent/.openclaw` flattened the three-tier ownership and `.openclaw` 0550 lock. Recovery re-ran runbook §4.1-4.3, restoring controls (`openclaw.json`, `exec-approvals.json`) to `root:openclawgw 0440`; runtime dirs to `openclawgw:openclawgw`; secrets to `0600` owner-only; `.openclaw` itself to `root:openclawgw 0550` with the `agent` read-only directory ACL; `.git` back to `agent:staff`. The 5-point lock proof was re-run and all five conditions were GOOD: `agent` cannot append/unlink/create/write-service-env; `agent` has no file-read on the config, matching the runbook because only the directory is ACL'd for read/search. Tamper protection is back in force.
+> F-A4 TRUST BOUNDARY STATUS: the old `agent`-owned config/LaunchAgent blocker is resolved. `openclawgw` cannot write the root-owned controls, and `agent` cannot replace them via directory-write attack. Remaining F-A4 blocker is Phase 5: no permanent root/operator-owned CONNECT proxy + pf backstop is installed yet, so gateway egress is not fully allowlist-confined.
 > F-A4 MINIMUM EGRESS ALLOWLIST (corrected by DROP_F-A4-2): gateway/runtime allow `chatgpt.com`, `search.parallel.ai`, `html.duckduckgo.com`, `api.telegram.org`, and loopback Ollama (`127.0.0.1:11434` / local only as needed). Broker is separate from gateway and needs its own handling for Google: `gmail.googleapis.com`, `oauth2.googleapis.com`, `accounts.google.com`, `www.googleapis.com`. Maintenance/bootstrap may need `registry.npmjs.org` / npm registry only when intentionally upgrading/installing. `openclaw proxy validate` defaults to `example.com`; either allow `example.com` for validation or use validator options for explicit allowed/denied URLs.
+> OPENAI API KEY ROTATED (2026-06-21): prior key was plaintext-exposed during the auth detour and is revoked. New key was set in `models.providers.openai.apiKey` the custody-preserving way: written as gateway user with config briefly opened, then re-locked to `0440`; key was never echoed to shell/history. Current key lives inline in config as plaintext; future cleanup is to migrate it to a file SecretRef like the Telegram bot token.
+> MODEL REF FIXED (2026-06-21): default model migrated `openai/gpt-4o` -> `openai/gpt-5.5`. `gpt-4o` is retired/not in OpenClaw 2026.6.5 bundled catalogs; this dead ref, set during the auth detour, was the actual cause of Lloyd's "Something went wrong" failures, not the key. `openclaw doctor --fix` flagged and partially upgraded it; recovery completed the fix by setting `default model.primary` to `gpt-5.5` and removing the dead `gpt-4o` map key. Gateway restarted via `launchctl kickstart -k system/ai.openclaw.gateway`; Lloyd confirmed responding end-to-end on the new key + model.
 > NATIVE FEATURE SCOPE CHANGE: F-B is cut to about 25% of the original custom scope because OpenClaw already has native JSONL logs with agent/session/trace context, OpenTelemetry hooks, and redaction primitives. Build only zero-silent-failures alerting and move operational logs off `/tmp`. F-C/F-D are reframed to configuring native `exec-approvals.json` and dispatch/confirm policy, not building a new approval registry. Caveat: exec approvals are an intent guardrail, not hostile containment; `flip-to-full` skips them.
 > UPGRADE SAFETY: banked until AFTER F-A4 closes. Do not upgrade OpenClaw mid-foundation. Version truth is on-machine `OpenClaw 2026.6.5 (5181e4f)`. Reconcile `update-check.json` reports such as 2026.6.8 versus GitHub/latest-page inconsistencies with on-machine commands, not the flaky web page.
 
@@ -77,10 +81,12 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 **FLAG:** OpenClaw native container sandbox remains off. F-A4-1/1b proved it is not the correct F-A4 egress wall for this system: it broke broker/gate paths and did not contain the host-gateway web_search path.
 **FLAG:** Phase 1.4 must isolate `~/.ssh`, `~/.aws`, and secrets paths; OpenClaw 2026.6.5 has no exec/tool path-deny control.
 **FLAG:** Heartbeat agent replied `NO_REPLY` instead of `HEARTBEAT_OK` on its first restricted run — verify the output is interpretable as a health signal in a later check.
-**FLAG:** `EPERM: chmod ~/.openclaw/state` is caused by OpenClaw 2026.6.5 unconditionally chmodding an already-correct `agent:staff` 0700 directory inside a repo-only managed sandbox; pending fix is an OpenClaw code/version fix, not chmod/chown.
-**FLAG:** VERIFIED emergency stop: first stop any attached CLI/supervisor retry source, then run `launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway`; do not use `openclaw gateway stop`/`restart` on this Mac. Telegram `/stop` remains reasoning-halt only.
+**FLAG:** Historical pre-cutover `EPERM: chmod ~/.openclaw/state` was caused by OpenClaw 2026.6.5 unconditionally chmodding state inside a repo-only managed sandbox. Post-cutover, active runtime state is under `openclawgw`; if this reappears, diagnose against the new ownership rather than applying broad recursive chown.
+**FLAG:** VERIFIED emergency restart path after F-A4 cutover: first stop any attached CLI/supervisor retry source, then run `sudo launchctl kickstart -k system/ai.openclaw.gateway`; do not use `openclaw gateway stop`/`restart` on this Mac. Telegram `/stop` remains reasoning-halt only.
 **FLAG:** Container runtime prep is DONE via agent-owned Colima, but agent-owned Colima/DOCKER-USER is not a valid hostile-agent wall: the agent has enough control inside that VM to edit/flush its own rules. Enforcement point cannot be owned by the contained party.
-**FLAG:** Egress allowlist is IN BUILD under F-A4. Outbound gateway egress is currently unrestricted in persistent service state because no permanent root/operator-owned proxy is installed yet. Egress alone does not unlock sensitive data.
+**FLAG:** Egress allowlist is IN BUILD under F-A4. Gateway identity/config custody is locked, but outbound gateway egress is not fully contained until Phase 5 installs the permanent root/operator-owned CONNECT proxy plus pf backstop. Egress alone does not unlock sensitive data.
+**FLAG:** OpenAI API key currently lives inline in `openclaw.json` as plaintext after the 2026-06-21 recovery. Future cleanup: migrate to file SecretRef custody like `secrets/telegram.json`.
+**FLAG:** Doctor flagged stray state dir `/Users/dannybigdeals/.openclaw`; active state correctly remains `~/.openclaw/state`. Cleanup deferred.
 **FLAG:** Instruction/memory-file drift detection is DEFERRED: add `HEARTBEAT.md` and all SOUL/AGENTS-equivalent files to the `~/.openclaw` baseline so persistent instruction edits trip the drift check.
 **SENSITIVE-DATA GATE:** Sensitive data stays HELD until ALL are PASS: Platform hardening (F-A0) | Gmail capability broker (F-A1) | Reader credential containment (F-A2) | Typed handoff (F-A3) | Egress allowlist (F-A4) | Observability (F-B) | Action policy (F-C) | Dispatch/confirm template (F-D) | Negative injection tests | Secret/log redaction tests. NOTE: broker alone does NOT lift the hold.
 **FLAG:** Notify-tier build (`1.2b-build`) is DEFERRED and non-urgent; the hooks mechanism audit and safe design constraints are recorded.
@@ -94,6 +100,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 **FLAG:** KNOWN ISSUE — sub-agent completion delivery: parent `main` session yields before the delegated reader's result surfaces, causing a recovery re-run and, in Part C Test 2, a duplicate draft. Benign under supervision; must be fixed before unsupervised operation. The same yield-before-child-result behavior occurred in the earlier failed run.
 **FLAG (NEW, verify read-only):** Confirm `hooks.gmail.allowUnsafeExternalContent` is unset/false and external-content wrapping (untrusted-content markers) is intact on the live Gmail path. Vendor audit tracks this flag as insecure/dangerous; if accidentally enabled it bypasses the CaMeL dual-plane separation at the PLATFORM layer regardless of agent design. Fast read-only check via `openclaw security audit`.
 **FLAG (SUPERSEDED 2026-06-19):** Older Plan C / native-sandbox notes are stale. F-A4 sweep found agent-owned DOCKER-USER enforcement is theater because the agent can modify the enforcement point. F-A4-1/1b found Docker sandbox default-deny is not the web_search containment path because web_search egress lives in the host gateway process and the sandbox broke F-A1/F-A2/F-A3.
+**FLAG (RUNBOOK GAP, 2026-06-21):** Fold recovery findings into `docs/F-A4_CUTOVER_RUNBOOK.md`: secrets must be `0600` owner-only (`0440` is a trap for runtime secrets), and any recursive `chown -R` over the whole `.openclaw` tree destroys the lock. Post-cutover ownership changes must be surgical, never recursive.
 
 ## F-A4 pre-flight checks before permanent build
 
@@ -101,7 +108,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 - Verify `gateway.bind` remains loopback and Control UI is not exposed beyond localhost.
 - Verify `hooks.gmail.allowUnsafeExternalContent` is unset/false and Gmail external-content wrapping remains intact.
 - Verify sensitive config/secrets permissions remain 0700/0600, especially `~/.openclaw`, SecretRef files, and broker-owned trees.
-- Verify permanent proxy config and `proxy.proxyUrl` are not writable/repointable by `agent`; root/operator-owned placement is required before F-A4 can close.
+- Verify permanent proxy config and `proxy.proxyUrl` remain non-writable/non-repointable by `agent` and `openclawgw`; root/operator-owned placement is required before F-A4 can close.
 
 ## Doctrine additions from F-A4
 
@@ -118,7 +125,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > F-A1  Gmail capability broker         ← CLOSED (2bfba54)
 > F-A2  Reader CREDENTIAL containment   ← CLOSED (`~/.openclaw` c9dcb2c)
 > F-A3  Typed reader → researcher handoff ← CLOSED (`~/.openclaw` c5e15e5)
-> F-A4  Egress allowlist                  ← IN BUILD (managed proxy capture proven; root/operator trust boundary still open)
+> F-A4  Egress allowlist                  ← IN BUILD (gateway re-home/tamper-lock proven; Phase 5 proxy+pf still pending)
 > F-B   Observability substrate         ← RESCOPED: native logs/OTel/redaction exist; build alerting + log placement
 > F-C   Action policy registry          ← RESCOPED: configure native exec approvals/policy; do not build a registry first
 > F-D   Generalized dispatch / confirm split ← RESCOPED around native policy + typed handoff patterns
@@ -129,9 +136,9 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 > **Exfiltration containment is NOT achieved until BOTH F-A3 (Typed Handoff) AND F-A4 (Egress Allowlist) pass.**
 > F-A2's exit gate must NOT claim the reader is contained against leakage — only against credential theft.
 >
-> **IMMEDIATE NEXT: F-A4 — permanent operator-owned proxy/trust-boundary build.**
-> Goal: install/configure a root/operator-owned filtering proxy and lock the managed-proxy URL/config so a compromised `agent` user cannot repoint, disable, or edit the enforcement point.
-> Known-good mechanism: OpenClaw managed proxy captures gateway/web_search egress and fails closed when the proxy denies. Known blocker: current `openclaw.json`/LaunchAgent ownership makes proxy config agent-repointable.
+> **IMMEDIATE NEXT: F-A4 Phase 5 — permanent operator-owned proxy + pf backstop.**
+> Goal: install/configure the root/operator-owned CONNECT filtering proxy, set the already-locked managed-proxy config, and load the root-owned pf rule that forces `openclawgw` egress through the proxy and drops everything else.
+> Known-good mechanism: OpenClaw managed proxy captures gateway/web_search egress and fails closed when the proxy denies. Known-good trust boundary: gateway now runs as `openclawgw` with root-owned `0440` controls and `.openclaw` `root:openclawgw 0550`; Phase 5 still needs the actual proxy+pf wall.
 > Constraints: preserve F-A1 broker-only Gmail and F-A3 typed handoff; do not touch the gmail broker except to account for its separate Google egress. F-A4 must be proven against outbound leakage attempts before any sensitive-data gate can advance.
 
 **PARKED (publish-pipeline hardening) — RESOLVED 2026-06-17 (1fbc3a1):**
@@ -156,6 +163,8 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DONE (reverse chronological — newest first, one line each)
 
 <!-- Workers append here. Format: YYYY-MM-DD | worker | what shipped | commit -->
+- 2026-06-21 | codex/operator | F-A4 recovery: gateway tamper-lock re-asserted after recursive chown regression; 5-point proof re-passed; OpenAI key rotated; default model fixed `gpt-4o` -> `gpt-5.5`; Lloyd live | this commit
+- 2026-06-21 | operator | F-A4 cutover executed and proven: gateway re-homed to `openclawgw` UID 555 under root LaunchDaemon; three-tier ownership built; F-A1 broker, F-A3 gate, and Telegram re-verified | machine state
 - 2026-06-19 | codex | F-A4 Drop 2 CLOSED: live throwaway proxy proved managed proxy captures/fails closed for gateway/web_search egress; endpoint allowlist corrected to chatgpt.com + search.parallel.ai + html.duckduckgo.com | no persistent config change; proof log /tmp/fa4-proxy-20260619.jsonl
 - 2026-06-18 | codex | F-A3 CLOSED: live main→gate→researcher path wired; clean researcher run canonical-only; injection hard-failed at gate with no researcher spawn | ~/.openclaw c5e15e5
 - 2026-06-17 | codex | F-A3 Drop 2: adversarial handoff-gate tests pass; injection/URL/email/extra-field/malformed cases hard-fail with sanitized logs | ~/.openclaw 67004c9
@@ -200,6 +209,9 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 ## DECISIONS LOG (only real decisions / direction changes — not routine progress)
 
 <!-- Format: YYYY-MM-DD | decision | one-line why -->
+- 2026-06-21 | OpenAI auth method is static API key, not OAuth/Codex login | OAuth login failed with EACCES during the reverted-ownership auth detour; API-key auth is the chosen method going forward and should not be re-litigated without a new build decision.
+- 2026-06-21 | Default OpenAI model is `openai/gpt-5.5`; `openai/gpt-4o` is dead on this install | `gpt-4o` is retired/not in OpenClaw 2026.6.5 catalogs and caused Lloyd's "Something went wrong" failures; `openclaw doctor --fix` identified the stale ref and recovery completed the migration.
+- 2026-06-21 | Post-cutover ownership changes must be surgical, never recursive over `.openclaw` | `sudo chown -R openclawgw:staff /Users/agent/.openclaw` flattened the three-tier lock; recovery proved recursive ownership changes can silently destroy the enforcement boundary.
 - 2026-06-19 | CONTROL.md is the sole state doc; RUNWAY_TO_V1.md + master-state Google Doc retired; readable write-ups generated on demand, not maintained as parallel copies | Three parallel "state" artifacts drifted on every update (FA4_3 demonstrated it); one source of truth + on-demand views eliminates the drift class.
 - 2026-06-19 | Native managed proxy is the F-A4 gateway egress mechanism, but only with an operator-owned trust boundary | Live proof showed gateway/model/web_search traffic routes through the managed proxy and fails closed; `agent`-writable `openclaw.json` means permanent enforcement must lock proxy URL/config outside agent control.
 - 2026-06-19 | Correct F-A4 gateway allowlist to live-observed hosts: `chatgpt.com`, `search.parallel.ai`, `html.duckduckgo.com` | DROP_F-A4_2 showed this install uses `chatgpt.com` for Codex Responses and `search.parallel.ai` for web_search; `api.openai.com` was not hit in the proof.
@@ -227,7 +239,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 - 2026-06-12 | SUPERSEDED 2026-06-13: stock webhook Gmail setup was rejected | It wrote plaintext hook secrets and introduced unnecessary push ingress; the implemented design uses on-demand pull through the confined wrapper
 - 2026-06-12 | SUPERSEDED 2026-06-13: read-only OAuth and macOS Keychain were the initial target | Real Gmail drafts require compose scope, and headless Keychain access proved unreliable; the live design uses three-layer software no-send plus a protected file keyring
 - 2026-06-12 | SUPERSEDED 2026-06-13: dedicated webhook routing was the initial reader plan | The implemented on-demand design delegates from the paired Telegram main agent to restricted reader and research agents
-- 2026-06-12 | Emergency panic sequence is stop any initiating retry/fallback client, then `launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway`; do not use OpenClaw gateway stop/restart on this Mac | Live proof showed the original gateway-owned counter halted at 18, PID changed `57469` to `65509`, launchd recovered immediately, and an attached CLI separately replayed through embedded fallback
+- 2026-06-12 | SUPERSEDED 2026-06-21: old emergency panic sequence targeted `gui/501`; new gateway is system LaunchDaemon | Original proof used `launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway`; after F-A4 cutover use `sudo launchctl kickstart -k system/ai.openclaw.gateway` instead.
 - 2026-06-12 | Fix the state-dir EPERM in OpenClaw code/version, not with chown/chmod | State dir is already owned by runtime UID 501 at 0700; 2026.6.5 unconditionally chmods it during CLI bootstrap and the repo-only managed sandbox rejects that metadata write
 - 2026-06-12 | Phase 1.4 is blocked pending an operator decision to install a Docker-compatible runtime | Docker binary and `/var/run/docker.sock` are absent, so neither OpenClaw sandboxing nor container-kill proof can run
 - 2026-06-12 | Daily panic command is standalone `/stop` in the affected Telegram chat, but it is only a run/future-step stop until process-group kill enforcement exists | Live `sessions.abort` returned in about 1s while the inert shell continued for about 109s; `/stop` and queue interrupt share the same embedded-run abort primitive
@@ -285,6 +297,7 @@ is insufficient because `gmail.compose` is adjacent to send-capable surfaces.
 
 ## Recent git log (20)
 ```
+551aa14 [codex] F-A4: record recovery state in CONTROL
 929e2e0 docs: patch cutover runbook — rollback ownership integrity, cert preflight, inline foundation proofs
 191b40c docs: assemble F-A4 gateway re-home cutover runbook (draft, operator-by-hand)
 5269c64 docs: patch F-A4 Phase 5 — broker UID gate, broker-read proof, cert check, honest close-out
@@ -304,7 +317,6 @@ c6c75c3 Close F-A2 reader credential containment
 a1c17c2 [claude-code] F-A2-STAGE: proof loop runbook written; restore dry-run clean; broker live; live config untouched
 6b317f0 [claude-code] DROP 4-FIX: doctrine text aligned to canonical spec; self-verification rule added to SESSION_CLOSE_PROTOCOL
 35a01ee [claude-code] DROP 4: CLAUDE.md + doctrine/ wired; communication standard and session-close protocol binding on all workers
-3d3de4d [claude-code] build(ops): add start.sh front door + 00_START_HERE.md operator runbook
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
