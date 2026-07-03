@@ -81,17 +81,12 @@ sudo chmod 0644 /Library/LaunchDaemons/ai.agent-os-egress-proxy.plist
 The `egressproxy` role user is operator-created by hand. It must be non-admin and
 non-login. It does not need access to OpenClaw state or the Gmail broker.
 
-Certificate env pre-flight before installing the proxy LaunchDaemon:
+Node path:
 
-```sh
-ls -l /etc/ssl/cert.pem
-```
-
-If `/etc/ssl/cert.pem` does not exist, remove `NODE_EXTRA_CA_CERTS` and
-`NODE_USE_SYSTEM_CA` from `ai.agent-os-egress-proxy.plist` before installing it. The
-proxy is a pure CONNECT tunnel and does not terminate TLS, so it does not need a CA
-bundle to proxy OpenClaw traffic. If the file exists, leaving those environment
-variables is acceptable.
+- Use `/opt/homebrew/bin/node` in the LaunchDaemon. Do not point the proxy at the
+  agent-home OpenClaw-bundled Node path.
+- Do not set `NODE_EXTRA_CA_CERTS` or `NODE_USE_SYSTEM_CA`; the proxy is a pure
+  CONNECT tunnel and does not terminate TLS.
 
 ## Allowlist
 
@@ -148,6 +143,8 @@ Rules:
 ```pf
 pass quick on lo0 all
 pass out quick proto tcp from any to 127.0.0.1 port 13128 user openclawgw
+pass out quick proto udp from any to any port 53 user openclawgw
+pass out quick proto { tcp udp } from any to any user egressproxy
 block drop out quick proto { tcp udp } from any to any user openclawgw
 ```
 
@@ -156,8 +153,12 @@ Rationale:
 - Loopback remains intact for the gateway control plane, proxy port, Ollama, and other
   local IPC-adjacent use.
 - `openclawgw` may connect to the proxy port only.
-- `openclawgw` gets no direct DNS, because CONNECT carries the hostname and the proxy
-  resolves it.
+- `openclawgw` may use UDP/53. Live proof found the initial no-DNS rule also blocked
+  the gateway's required lookup path to the Tailscale resolver and silenced the gateway.
+  This rule is intentionally broad for now and must be tightened to the system resolver
+  only in the next session.
+- `egressproxy` is explicitly allowed to connect out so it can resolve and tunnel the
+  approved destinations.
 - Other users/processes are not restricted by this anchor.
 
 Critical pf persistence note:
@@ -215,7 +216,7 @@ not as an unattended automation script. It covers:
 - pf dry-run command;
 - non-`openclawgw` connectivity check;
 - direct egress denial as `openclawgw`;
-- DNS-denial as `openclawgw`;
+- DNS reachability as `openclawgw` under the current broad UDP/53 pass rule;
 - lock confirmation for `openclaw.json`, allowlist, and pf anchor;
 - native `openclaw proxy validate` using explicit allowed/denied URLs.
 
@@ -238,7 +239,9 @@ F-A4 Phase 5 accepts only when all are true:
   `chatgpt.com` and `search.parallel.ai` as needed.
 - Direct `curl` as `openclawgw` to both `example.com` and `chatgpt.com` fails without
   using the proxy.
-- Direct DNS as `openclawgw` fails.
+- Current DNS rule is explicitly accounted for: direct UDP/53 as `openclawgw` may work
+  only under the temporary broad pass rule, and must be tightened to the system resolver
+  only before final close.
 - `openclawgw` cannot edit `openclaw.json`, the allowlist, or the pf anchor.
 - `openclaw proxy validate --proxy-url http://127.0.0.1:13128 --allowed-url https://chatgpt.com/ --denied-url https://example.com/` passes.
 - F-A1 broker read, F-A3 gate, Telegram, and broker Google egress still work.
@@ -253,11 +256,11 @@ Use this wording when updating `CONTROL.md` after acceptance:
 
 F-A4 CLOSED — gateway egress is allowlist-confined (`chatgpt.com`,
 `search.parallel.ai`, `html.duckduckgo.com`, `api.telegram.org`) and fails closed;
-`openclawgw` has no direct egress or DNS; proxy/allowlist/anchor are root-owned and
-`openclawgw`-unwritable (lock-confirmed). RESIDUAL: allowlisted bidirectional hosts
-(Telegram, model backend) remain theoretical exfil channels — F-A4 is egress-allowlist
-containment, not full exfiltration containment. Broker Google egress is separate and
-not yet walled.
+`openclawgw` has no direct egress except the reviewed DNS resolver path;
+proxy/allowlist/anchor are root-owned and `openclawgw`-unwritable (lock-confirmed).
+RESIDUAL: allowlisted bidirectional hosts (Telegram, model backend) remain theoretical
+exfil channels — F-A4 is egress-allowlist containment, not full exfiltration
+containment. Broker Google egress is separate and not yet walled.
 
 ## Recovery Notes
 
