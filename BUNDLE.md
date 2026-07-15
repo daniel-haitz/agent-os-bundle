@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
+private source repository commit: 90c77bf71e18f0b498bc25ff51bbd75349e015a2
 private source repository branch: main
-generated timestamp: 2026-07-15T18:59:27Z
+generated timestamp: 2026-07-15T19:10:32Z
 publication manifest governance commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+90c77bf validation: harden F-A4 secrets audit check
 faf3d90 validation: prepare F-A4 OpenClaw containment remediation
 b8bce39 validation: fix F-A4 runtime identity validation harness
 1d974e6 [claude-code] harden F-A4 egress proxy launchd reload
@@ -779,7 +780,6 @@ c52ef32 docs: refine agent governance boundaries and F-C scope
 e39d896 [claude-code] Gmail re-auth DONE (token was dead, re-authed Gmail-scoped, verified live mail); keyring-backend gotcha documented; confined-reader allowlist drift root-caused (real fix next session)
 57f7656 [claude-code] F-A4: proxy proven innocent + integrates clean; Gmail root cause = missing refresh token (re-auth needed); Lloyd direct-Gmail bypass found; socket-dir race open
 49e8801 [codex] F-A4.5: record proxy relock trap
-fd5ccba [codex] F-A4.5: correct Gmail broker root cause
 ```
 
 ## Repository Tree
@@ -877,7 +877,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
-last validation timestamp: 2026-07-15T18:59:27Z
+last validation timestamp: 2026-07-15T19:10:32Z
 ```
 
 ---
@@ -12168,6 +12168,8 @@ PLAN_FILE="$OUT_DIR/openclaw-secretref-plan.json"
 ROLLBACK="$OUT_DIR/rollback.sh"
 LOG="$OUT_DIR/remediation.log"
 BACKUP_MANIFEST="$OUT_DIR/backup-manifest.tsv"
+SECRETS_AUDIT_JSON="$OUT_DIR/secrets-audit-post.json"
+MUTATION_STARTED=0
 
 mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
@@ -12176,6 +12178,16 @@ printf 'source\tbackup\n' > "$BACKUP_MANIFEST"
 
 echo "F-A4 OpenClaw containment remediation started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Output: $OUT_DIR"
+
+on_error() {
+  local status=$?
+  echo "ERROR: F-A4 OpenClaw containment remediation failed with status $status." >&2
+  if [ "$MUTATION_STARTED" -eq 1 ]; then
+    echo "ROLLBACK AVAILABLE: sudo $ROLLBACK" >&2
+  fi
+  exit "$status"
+}
+trap on_error ERR
 
 backup_file() {
   local src="$1"
@@ -12409,6 +12421,7 @@ echo "Validating config patch..."
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model --dry-run
 
 echo "Applying config patch..."
+MUTATION_STARTED=1
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model
 
 echo "Validating SecretRef migration plan..."
@@ -12437,8 +12450,26 @@ echo "Post-remediation validation commands:"
 "$OPENCLAW_BIN" security audit --json
 "$OPENCLAW_BIN" security audit --deep --json
 "$OPENCLAW_BIN" doctor --lint --json
-"$OPENCLAW_BIN" secrets audit --json
-"$OPENCLAW_BIN" secrets audit --check --json
+"$OPENCLAW_BIN" secrets audit --json | tee "$SECRETS_AUDIT_JSON"
+"$NODE_BIN" --input-type=module - "$SECRETS_AUDIT_JSON" <<'NODE'
+import fs from "node:fs";
+
+const [auditPath] = process.argv.slice(2);
+const report = JSON.parse(fs.readFileSync(auditPath, "utf8"));
+const summary = report.summary ?? {};
+const plaintextCount = Number(summary.plaintextCount ?? -1);
+const unresolvedRefCount = Number(summary.unresolvedRefCount ?? -1);
+const shadowedRefCount = Number(summary.shadowedRefCount ?? -1);
+
+if (plaintextCount !== 0 || unresolvedRefCount !== 0 || shadowedRefCount !== 0) {
+  console.error(
+    `Secrets audit acceptance failed: plaintextCount=${plaintextCount}, unresolvedRefCount=${unresolvedRefCount}, shadowedRefCount=${shadowedRefCount}`,
+  );
+  process.exit(1);
+}
+
+console.log("Secrets audit acceptance passed: plaintextCount=0, unresolvedRefCount=0, shadowedRefCount=0.");
+NODE
 "$OPENCLAW_BIN" sandbox explain --agent main --json
 "$OPENCLAW_BIN" sandbox explain --agent gmail-reader --json
 "$OPENCLAW_BIN" sandbox explain --agent email-researcher --json

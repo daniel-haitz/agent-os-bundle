@@ -29,6 +29,8 @@ PLAN_FILE="$OUT_DIR/openclaw-secretref-plan.json"
 ROLLBACK="$OUT_DIR/rollback.sh"
 LOG="$OUT_DIR/remediation.log"
 BACKUP_MANIFEST="$OUT_DIR/backup-manifest.tsv"
+SECRETS_AUDIT_JSON="$OUT_DIR/secrets-audit-post.json"
+MUTATION_STARTED=0
 
 mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
@@ -37,6 +39,16 @@ printf 'source\tbackup\n' > "$BACKUP_MANIFEST"
 
 echo "F-A4 OpenClaw containment remediation started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Output: $OUT_DIR"
+
+on_error() {
+  local status=$?
+  echo "ERROR: F-A4 OpenClaw containment remediation failed with status $status." >&2
+  if [ "$MUTATION_STARTED" -eq 1 ]; then
+    echo "ROLLBACK AVAILABLE: sudo $ROLLBACK" >&2
+  fi
+  exit "$status"
+}
+trap on_error ERR
 
 backup_file() {
   local src="$1"
@@ -270,6 +282,7 @@ echo "Validating config patch..."
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model --dry-run
 
 echo "Applying config patch..."
+MUTATION_STARTED=1
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model
 
 echo "Validating SecretRef migration plan..."
@@ -298,8 +311,26 @@ echo "Post-remediation validation commands:"
 "$OPENCLAW_BIN" security audit --json
 "$OPENCLAW_BIN" security audit --deep --json
 "$OPENCLAW_BIN" doctor --lint --json
-"$OPENCLAW_BIN" secrets audit --json
-"$OPENCLAW_BIN" secrets audit --check --json
+"$OPENCLAW_BIN" secrets audit --json | tee "$SECRETS_AUDIT_JSON"
+"$NODE_BIN" --input-type=module - "$SECRETS_AUDIT_JSON" <<'NODE'
+import fs from "node:fs";
+
+const [auditPath] = process.argv.slice(2);
+const report = JSON.parse(fs.readFileSync(auditPath, "utf8"));
+const summary = report.summary ?? {};
+const plaintextCount = Number(summary.plaintextCount ?? -1);
+const unresolvedRefCount = Number(summary.unresolvedRefCount ?? -1);
+const shadowedRefCount = Number(summary.shadowedRefCount ?? -1);
+
+if (plaintextCount !== 0 || unresolvedRefCount !== 0 || shadowedRefCount !== 0) {
+  console.error(
+    `Secrets audit acceptance failed: plaintextCount=${plaintextCount}, unresolvedRefCount=${unresolvedRefCount}, shadowedRefCount=${shadowedRefCount}`,
+  );
+  process.exit(1);
+}
+
+console.log("Secrets audit acceptance passed: plaintextCount=0, unresolvedRefCount=0, shadowedRefCount=0.");
+NODE
 "$OPENCLAW_BIN" sandbox explain --agent main --json
 "$OPENCLAW_BIN" sandbox explain --agent gmail-reader --json
 "$OPENCLAW_BIN" sandbox explain --agent email-researcher --json
