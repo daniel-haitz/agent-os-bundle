@@ -91,6 +91,7 @@ CRITICAL_PUBLICATION_PATHS=(
   "scripts/fa4-operator-readonly-validation.sh"
   "scripts/fa4-openclawgw-readonly-wrapper.mjs"
   "scripts/fa4-operator-openclaw-containment-remediate.sh"
+  "scripts/fa4-operator-openclaw-containment-readiness.sh"
   "scripts/fa4-operator-egress-proxy-repair.sh"
 )
 

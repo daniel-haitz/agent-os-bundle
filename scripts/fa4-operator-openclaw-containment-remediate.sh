@@ -24,12 +24,17 @@ STATE_DIR="$OPENCLAW_HOME/state"
 SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
+GATEWAY_LABEL="system/ai.openclaw.gateway"
+GATEWAY_PLIST="/Library/LaunchDaemons/ai.openclaw.gateway.plist"
 PATCH_FILE="$OUT_DIR/openclaw-containment.patch.json"
 PLAN_FILE="$OUT_DIR/openclaw-secretref-plan.json"
 ROLLBACK="$OUT_DIR/rollback.sh"
 LOG="$OUT_DIR/remediation.log"
 BACKUP_MANIFEST="$OUT_DIR/backup-manifest.tsv"
 SECRETS_AUDIT_JSON="$OUT_DIR/secrets-audit-post.json"
+SECURITY_AUDIT_JSON="$OUT_DIR/security-audit-post.json"
+SECURITY_AUDIT_DEEP_JSON="$OUT_DIR/security-audit-deep-post.json"
+DOCTOR_LINT_JSON="$OUT_DIR/doctor-lint-post.json"
 MUTATION_STARTED=0
 
 mkdir -p "$OUT_DIR"
@@ -79,6 +84,7 @@ if [ "\$(id -u)" -ne 0 ]; then
   echo "ERROR: run rollback as root." >&2
   exit 1
 fi
+launchctl bootout "$GATEWAY_LABEL" 2>/dev/null || true
 cp -p "$OUT_DIR/openclaw.json.before" "$CONFIG"
 if [ -f "$OUT_DIR/exec-approvals.json.before" ]; then
   cp -p "$OUT_DIR/exec-approvals.json.before" "$OPENCLAW_HOME/exec-approvals.json"
@@ -93,10 +99,25 @@ done
 if ! grep -Fq "$SECRET_FILE" "$BACKUP_MANIFEST"; then
   rm -f "$SECRET_FILE"
 fi
-launchctl kickstart -k system/ai.openclaw.gateway
+if [ -f "$GATEWAY_PLIST" ]; then
+  launchctl bootstrap system "$GATEWAY_PLIST" 2>/dev/null || true
+fi
+launchctl kickstart -k "$GATEWAY_LABEL"
 echo "Rollback restored saved config/auth/secret artifacts and kickstarted gateway."
 EOF
 chmod 0700 "$ROLLBACK"
+
+run_json_capture_allow_exit() {
+  local name="$1"
+  local output="$2"
+  shift 2
+  echo "$name..."
+  set +e
+  "$@" > "$output"
+  local status=$?
+  set -e
+  echo "$name exit status: $status"
+}
 
 "$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRET_FILE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
@@ -239,19 +260,43 @@ function stripQwenFallback(modelConfig) {
   return next;
 }
 
+function isSecretRef(value) {
+  return value && typeof value === "object" && !Array.isArray(value) && typeof value.source === "string" && typeof value.provider === "string" && typeof value.id === "string";
+}
+
+function setNested(target, pathSegments, value) {
+  let current = target;
+  for (const segment of pathSegments.slice(0, -1)) {
+    current[segment] = asObject(current[segment]);
+    current = current[segment];
+  }
+  current[pathSegments[pathSegments.length - 1]] = value;
+}
+
 const defaults = asObject(asObject(cfg.agents).defaults);
 const agents = Array.isArray(asObject(cfg.agents).list) ? cfg.agents.list.map((agent) => ({ ...agent })) : [];
 const gmailIndex = agents.findIndex((agent) => agent && agent.id === "gmail-reader");
 if (gmailIndex === -1) throw new Error("gmail-reader not found in agents.list");
 validateGmailReaderExecApproval();
 
+const secretPayload = {};
+const planTargets = [];
 const providerApiKey = asObject(asObject(cfg.models).providers).openai?.apiKey;
-if (typeof providerApiKey !== "string" || providerApiKey.length < 8) {
-  throw new Error("models.providers.openai.apiKey is not a plaintext string; refusing to infer secret source");
+if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
+  setNested(secretPayload, ["models", "providers", "openai", "apiKey"], providerApiKey);
+  planTargets.push({
+    type: "models.providers.apiKey",
+    path: "models.providers.openai.apiKey",
+    pathSegments: ["models", "providers", "openai", "apiKey"],
+    providerId: "openai",
+    ref: { source: "file", provider: "agent_os_openai", id: "/models/providers/openai/apiKey" },
+  });
+} else if (!isSecretRef(providerApiKey)) {
+  throw new Error("models.providers.openai.apiKey is neither plaintext nor a SecretRef; refusing to infer secret source");
 }
 
 const agentRoot = path.join(openclawHome, "agents");
-const manualProfile = { agentId: null, key: null };
+const manualProfiles = [];
 for (const entry of fs.readdirSync(agentRoot, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue;
   const agentId = entry.name;
@@ -264,24 +309,38 @@ for (const entry of fs.readdirSync(agentRoot, { withFileTypes: true })) {
     const store = JSON.parse(row.store_json);
     const profile = store?.profiles?.["openai:manual"];
     if (profile?.type === "api_key" && typeof profile.key === "string" && profile.key.length >= 8) {
-      manualProfile.agentId = agentId;
-      manualProfile.key = profile.key;
-      break;
+      manualProfiles.push({ agentId, key: profile.key, keyRef: null });
+    } else if (profile?.type === "api_key" && isSecretRef(profile.keyRef)) {
+      manualProfiles.push({ agentId, key: null, keyRef: profile.keyRef });
     }
   } finally {
     db.close();
   }
 }
 
-if (!manualProfile.key) {
-  throw new Error("profiles.openai:manual.key plaintext was not found in an auth-profile store; stop and use OpenClaw secrets configure/apply rather than editing SQLite directly");
+if (manualProfiles.length === 0) {
+  throw new Error("profiles.openai:manual was not found in exactly one auth-profile store; stop and inspect OpenClaw auth state");
+}
+if (manualProfiles.length > 1) {
+  throw new Error(`profiles.openai:manual appeared in ${manualProfiles.length} auth-profile stores; refusing ambiguous SecretRef migration`);
 }
 
-const secretPayload = {
-  models: { providers: { openai: { apiKey: providerApiKey } } },
-  profiles: { "openai:manual": { key: manualProfile.key } },
-};
-fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o440 });
+const manualProfile = manualProfiles[0];
+if (manualProfile.key) {
+  setNested(secretPayload, ["profiles", "openai:manual", "key"], manualProfile.key);
+  planTargets.push({
+    type: "auth-profiles.api_key.key",
+    path: "profiles.openai:manual.key",
+    pathSegments: ["profiles", "openai:manual", "key"],
+    agentId: manualProfile.agentId,
+    authProfileProvider: "openai",
+    ref: { source: "file", provider: "agent_os_openai", id: "/profiles/openai:manual/key" },
+  });
+}
+
+if (planTargets.length > 0) {
+  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o440 });
+}
 
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
 agents[gmailIndex].sandbox = {
@@ -311,32 +370,20 @@ const plan = {
       maxBytes: 4096,
     },
   },
-  targets: [
-    {
-      type: "models.providers.apiKey",
-      path: "models.providers.openai.apiKey",
-      pathSegments: ["models", "providers", "openai", "apiKey"],
-      providerId: "openai",
-      ref: { source: "file", provider: "agent_os_openai", id: "/models/providers/openai/apiKey" },
-    },
-    {
-      type: "auth-profiles.api_key.key",
-      path: "profiles.openai:manual.key",
-      pathSegments: ["profiles", "openai:manual", "key"],
-      agentId: manualProfile.agentId,
-      authProfileProvider: "openai",
-      ref: { source: "file", provider: "agent_os_openai", id: "/profiles/openai:manual/key" },
-    },
-  ],
+  targets: planTargets,
 };
 fs.writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}\n`, { mode: 0o600 });
 
-console.log(`Prepared config patch and SecretRef plan for manual profile agent: ${manualProfile.agentId}`);
+console.log(`Prepared config patch and SecretRef plan for manual profile agent: ${manualProfile.agentId}; targets=${planTargets.length}`);
 NODE
 
-chown root:openclawgw "$SECRET_FILE"
-chmod 0440 "$SECRET_FILE"
-echo "Created SecretRef backing file at $SECRET_FILE with root:openclawgw 0440."
+if [ -f "$SECRET_FILE" ]; then
+  chown root:openclawgw "$SECRET_FILE"
+  chmod 0440 "$SECRET_FILE"
+  echo "Created SecretRef backing file at $SECRET_FILE with root:openclawgw 0440."
+else
+  echo "SecretRef backing file already represented by existing refs; no new secret file created."
+fi
 
 export HOME=/Users/agent
 export OPENCLAW_CONFIG_PATH="$CONFIG"
@@ -351,16 +398,24 @@ MUTATION_STARTED=1
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model
 
 echo "Validating SecretRef migration plan..."
-"$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run
+if "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"; then
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run
+else
+  echo "No SecretRef migration targets; skipping secrets apply dry-run."
+fi
 
 echo "Applying SecretRef migration plan..."
-"$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE"
+if "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"; then
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE"
+else
+  echo "No SecretRef migration targets; skipping secrets apply."
+fi
 
 echo "Removing unsafe qwen fallback through models command for compatibility..."
 "$OPENCLAW_BIN" models fallbacks remove ollama/qwen3-coder:30b || true
 
 echo "Validating updated config..."
-"$OPENCLAW_BIN" config validate
+"$OPENCLAW_BIN" config validate --json
 
 echo "Reloading SecretRef runtime snapshot..."
 "$OPENCLAW_BIN" secrets reload --json || {
@@ -373,10 +428,50 @@ sleep 3
 
 echo "Post-remediation validation commands:"
 "$OPENCLAW_BIN" --version
-"$OPENCLAW_BIN" security audit --json
-"$OPENCLAW_BIN" security audit --deep --json
-"$OPENCLAW_BIN" doctor --lint --json
-"$OPENCLAW_BIN" secrets audit --json | tee "$SECRETS_AUDIT_JSON"
+run_json_capture_allow_exit "security audit" "$SECURITY_AUDIT_JSON" "$OPENCLAW_BIN" security audit --json
+run_json_capture_allow_exit "security audit deep" "$SECURITY_AUDIT_DEEP_JSON" "$OPENCLAW_BIN" security audit --deep --json
+run_json_capture_allow_exit "doctor lint" "$DOCTOR_LINT_JSON" "$OPENCLAW_BIN" doctor --lint --json
+run_json_capture_allow_exit "secrets audit" "$SECRETS_AUDIT_JSON" "$OPENCLAW_BIN" secrets audit --json
+"$NODE_BIN" --input-type=module - "$SECURITY_AUDIT_JSON" "$SECURITY_AUDIT_DEEP_JSON" "$DOCTOR_LINT_JSON" <<'NODE'
+import fs from "node:fs";
+
+const [securityPath, securityDeepPath, doctorPath] = process.argv.slice(2);
+
+function readJson(path) {
+  return JSON.parse(fs.readFileSync(path, "utf8"));
+}
+
+function securityFindings(report) {
+  return Array.isArray(report.findings) ? report.findings : [];
+}
+
+function assertSecurityAudit(path, label) {
+  const report = readJson(path);
+  const findings = securityFindings(report);
+  const critical = findings.filter((finding) => finding.severity === "critical");
+  const smallModelCritical = critical.filter((finding) => JSON.stringify(finding).includes("ollama/qwen3-coder:30b") || JSON.stringify(finding).includes("small-model"));
+  if (smallModelCritical.length > 0) {
+    console.error(`${label} acceptance failed: unsafe small-model critical finding remains.`);
+    process.exit(1);
+  }
+  console.log(`${label} acceptance passed: critical=${critical.length}, smallModelCritical=0.`);
+}
+
+function assertDoctorLint(path) {
+  const report = readJson(path);
+  const findings = Array.isArray(report.findings) ? report.findings : [];
+  const errors = findings.filter((finding) => finding.severity === "error");
+  if (errors.length > 0) {
+    console.error(`doctor lint acceptance failed: error findings=${errors.length}.`);
+    process.exit(1);
+  }
+  console.log(`doctor lint acceptance passed: warnings/info accepted, errors=0.`);
+}
+
+assertSecurityAudit(securityPath, "security audit");
+assertSecurityAudit(securityDeepPath, "security audit deep");
+assertDoctorLint(doctorPath);
+NODE
 "$NODE_BIN" --input-type=module - "$SECRETS_AUDIT_JSON" <<'NODE'
 import fs from "node:fs";
 
