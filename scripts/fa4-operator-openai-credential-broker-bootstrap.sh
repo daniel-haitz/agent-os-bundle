@@ -86,8 +86,34 @@ ds_read() {
   local record="$1"
   local attribute="$2"
   "$DSCL" . -read "$record" "$attribute" 2>/dev/null | awk -v attr="$attribute" '
-    $0 == attr ":" { capture=1; next }
-    index($0, attr ": ") == 1 { print substr($0, length(attr) + 3); next }
+    function value_colon(line, i, prefix) {
+      for (i = length(line); i >= 1; i--) {
+        if (substr(line, i, 1) != ":") continue
+        prefix = substr(line, 1, i - 1)
+        if (prefix == attr || prefix ~ (":" attr "$")) return i
+      }
+      return 0
+    }
+    function label_matches(label, parts) {
+      n = split(label, parts, ":")
+      return parts[n] == attr
+    }
+    {
+      line = $0
+      colon = value_colon(line)
+      if (colon > 0) {
+        label = substr(line, 1, colon - 1)
+        rest = substr(line, colon + 1)
+        if (label_matches(label)) {
+          capture=1
+          if (rest ~ /^ /) {
+            sub(/^ /, "", rest)
+            print rest
+          }
+          next
+        }
+      }
+    }
     capture && /^ / { sub(/^ /, ""); print; next }
     capture { exit }
   '
@@ -639,10 +665,14 @@ case "$op" in
     [ -d "$dir" ] || exit 1
     if [ -n "$attr" ]; then
       [ -f "$dir/$attr" ] || exit 1
+      label="$attr"
+      if [ "${AGENT_OS_FIXTURE_NATIVE_PREFIX:-0}" = "1" ]; then
+        label="dsAttrTypeNative:$attr"
+      fi
       if [ "${AGENT_OS_FIXTURE_MULTILINE_REALNAME:-0}" = "1" ] && [ "$attr" = "RealName" ]; then
-        printf '%s:\n %s\n' "$attr" "$(cat "$dir/$attr")"
+        printf '%s:\n %s\n' "$label" "$(cat "$dir/$attr")"
       else
-        printf '%s: %s\n' "$attr" "$(cat "$dir/$attr")"
+        printf '%s: %s\n' "$label" "$(cat "$dir/$attr")"
       fi
     else
       [ -d "$dir" ] && exit 0
@@ -787,8 +817,34 @@ FAKE
   parse_literal_attr() {
     local attr="$1"
     awk -v attr="$attr" '
-      $0 == attr ":" { capture=1; next }
-      index($0, attr ": ") == 1 { print substr($0, length(attr) + 3); next }
+      function value_colon(line, i, prefix) {
+        for (i = length(line); i >= 1; i--) {
+          if (substr(line, i, 1) != ":") continue
+          prefix = substr(line, 1, i - 1)
+          if (prefix == attr || prefix ~ (":" attr "$")) return i
+        }
+        return 0
+      }
+      function label_matches(label, parts) {
+        n = split(label, parts, ":")
+        return parts[n] == attr
+      }
+      {
+        line = $0
+        colon = value_colon(line)
+        if (colon > 0) {
+          label = substr(line, 1, colon - 1)
+          rest = substr(line, colon + 1)
+          if (label_matches(label)) {
+            capture=1
+            if (rest ~ /^ /) {
+              sub(/^ /, "", rest)
+              print rest
+            }
+            next
+          }
+        }
+      }
       capture && /^ / { sub(/^ /, ""); print; next }
       capture { exit }
     '
@@ -798,6 +854,14 @@ FAKE
   [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: multiline parser literal" >&2; exit 1; }
   printf 'RealName: Agent OS OpenAI credential broker\n' | parse_literal_attr RealName > "$test_root/parser.out"
   [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: single-line parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeNative:IsHidden: 1\n' | parse_literal_attr IsHidden > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "1" ] || { echo "SELF TEST assertion failed: native IsHidden parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeNative:RealName:\n Agent OS OpenAI credential broker\n' | parse_literal_attr RealName > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: native multiline RealName parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeStandard:GeneratedUID: 204EB339-8AD8-45F6-8A06-ED50833DB376\n' | parse_literal_attr GeneratedUID > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "204EB339-8AD8-45F6-8A06-ED50833DB376" ] || { echo "SELF TEST assertion failed: standard GeneratedUID parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeNative:NotIsHidden: bad\n' | parse_literal_attr IsHidden > "$test_root/parser.out"
+  [ ! -s "$test_root/parser.out" ] || { echo "SELF TEST assertion failed: parser matched nonterminal attribute component" >&2; exit 1; }
   printf 'GroupMembership:\n everyone\n localaccounts\n _lpoperator\n' | parse_literal_attr GroupMembership > "$test_root/parser.out"
   [ "$(wc -l < "$test_root/parser.out" | tr -d ' ')" = "3" ] || { echo "SELF TEST assertion failed: multivalue parser literal" >&2; exit 1; }
   echo "SELF TEST dscl-attribute-parser-literals: PASS"
@@ -828,6 +892,11 @@ FAKE
   set +e; AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
   [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: multiline RealName rejected" >&2; cat "$test_root/output" >&2; exit 1; }
   echo "SELF TEST multiline-realname-parser: PASS"
+
+  set +e; AGENT_OS_FIXTURE_NATIVE_PREFIX=1 AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
+  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: native-prefixed canonical account rejected" >&2; cat "$test_root/output" >&2; exit 1; }
+  assert_grep "IDENTITY BOOTSTRAP DRY RUN: GO" "$test_root/output"
+  echo "SELF TEST native-prefixed-existing-account-dry-run: PASS"
 
   reset_fixture
   mkdir -p "$test_root/users/openai-credential-broker"

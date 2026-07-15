@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 8aa5796148918e1a6d25381de56daa1a5e8c53a7
+private source repository commit: 0567efad9381a6f0b109670e289b0a9764543520
 private source repository branch: main
-generated timestamp: 2026-07-15T22:08:20Z
+generated timestamp: 2026-07-15T22:12:31Z
 publication manifest governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+0567efa fa4: accept namespaced Directory Services attributes
 8aa5796 fa4: fix credential broker bootstrap validation parser
 d018823 fa4: remove unsupported GeneratedUID bootstrap write
 5020c96 fa4: make credential broker bootstrap rollback transactional
@@ -779,7 +780,6 @@ b8bce39 validation: fix F-A4 runtime identity validation harness
 c09e866 governance: harden F-A4 operator validation pattern
 3c65ffc validation: prepare F-A4 remediation and operator validation path
 3daa583 validation: complete F-A4 foundation hardening evidence
-d2f5b1a architecture: reconcile Agent OS with OpenClaw native capabilities
 ```
 
 ## Repository Tree
@@ -882,7 +882,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
-last validation timestamp: 2026-07-15T22:08:20Z
+last validation timestamp: 2026-07-15T22:12:31Z
 ```
 
 ---
@@ -4305,6 +4305,8 @@ Canonical account model:
 The script now provides a no-mutation `--dry-run` that resolves the proposed UID/GID, reports conflicts, and prints the proposed manifest without `dscl`, `mkdir`, `chown`, or `chmod` mutation. The mutating path records a baseline manifest, creates only missing canonical objects, generates rollback, refuses partial pre-existing state, and verifies no credential store, broker plist, runtime socket, OpenClaw config/auth mutation, pf, or proxy policy change occurred.
 
 Live bootstrap evidence from `/Users/dannybigdeals/fa4-openai-credential-broker-bootstrap-20260715T220329Z` shows the identity and custody roots were created successfully, but final validation misparsed multiline `dscl` `RealName` output and incorrectly reported a RealName mismatch. The live records are canonical: user UID `540`, group GID `740`, home `/Users/openai-credential-broker`, shell `/usr/bin/false`, password marker `*`, `IsHidden: 1`, auto-generated user/group `GeneratedUID` values, and custody roots owned by `openai-credential-broker:openai-credential-broker` with modes `0750/0750/0750/0700`. Normal implicit macOS memberships (`everyone`, `localaccounts`, `_lpoperator`, and `com.apple.sharepoint.group.1`) are accepted; `admin`, `wheel`, and `staff` remain forbidden.
+
+Subsequent dry-run evidence showed `dscl` may render requested attributes with namespace labels such as `dsAttrTypeNative:IsHidden: 1`. The bootstrap parser now accepts exact terminal attribute labels in bare, `dsAttrTypeNative:`, and `dsAttrTypeStandard:` forms while preserving single-line, multiline, and multi-value parsing.
 
 ### Closure Impact
 
@@ -12454,8 +12456,34 @@ ds_read() {
   local record="$1"
   local attribute="$2"
   "$DSCL" . -read "$record" "$attribute" 2>/dev/null | awk -v attr="$attribute" '
-    $0 == attr ":" { capture=1; next }
-    index($0, attr ": ") == 1 { print substr($0, length(attr) + 3); next }
+    function value_colon(line, i, prefix) {
+      for (i = length(line); i >= 1; i--) {
+        if (substr(line, i, 1) != ":") continue
+        prefix = substr(line, 1, i - 1)
+        if (prefix == attr || prefix ~ (":" attr "$")) return i
+      }
+      return 0
+    }
+    function label_matches(label, parts) {
+      n = split(label, parts, ":")
+      return parts[n] == attr
+    }
+    {
+      line = $0
+      colon = value_colon(line)
+      if (colon > 0) {
+        label = substr(line, 1, colon - 1)
+        rest = substr(line, colon + 1)
+        if (label_matches(label)) {
+          capture=1
+          if (rest ~ /^ /) {
+            sub(/^ /, "", rest)
+            print rest
+          }
+          next
+        }
+      }
+    }
     capture && /^ / { sub(/^ /, ""); print; next }
     capture { exit }
   '
@@ -13007,10 +13035,14 @@ case "$op" in
     [ -d "$dir" ] || exit 1
     if [ -n "$attr" ]; then
       [ -f "$dir/$attr" ] || exit 1
+      label="$attr"
+      if [ "${AGENT_OS_FIXTURE_NATIVE_PREFIX:-0}" = "1" ]; then
+        label="dsAttrTypeNative:$attr"
+      fi
       if [ "${AGENT_OS_FIXTURE_MULTILINE_REALNAME:-0}" = "1" ] && [ "$attr" = "RealName" ]; then
-        printf '%s:\n %s\n' "$attr" "$(cat "$dir/$attr")"
+        printf '%s:\n %s\n' "$label" "$(cat "$dir/$attr")"
       else
-        printf '%s: %s\n' "$attr" "$(cat "$dir/$attr")"
+        printf '%s: %s\n' "$label" "$(cat "$dir/$attr")"
       fi
     else
       [ -d "$dir" ] && exit 0
@@ -13155,8 +13187,34 @@ FAKE
   parse_literal_attr() {
     local attr="$1"
     awk -v attr="$attr" '
-      $0 == attr ":" { capture=1; next }
-      index($0, attr ": ") == 1 { print substr($0, length(attr) + 3); next }
+      function value_colon(line, i, prefix) {
+        for (i = length(line); i >= 1; i--) {
+          if (substr(line, i, 1) != ":") continue
+          prefix = substr(line, 1, i - 1)
+          if (prefix == attr || prefix ~ (":" attr "$")) return i
+        }
+        return 0
+      }
+      function label_matches(label, parts) {
+        n = split(label, parts, ":")
+        return parts[n] == attr
+      }
+      {
+        line = $0
+        colon = value_colon(line)
+        if (colon > 0) {
+          label = substr(line, 1, colon - 1)
+          rest = substr(line, colon + 1)
+          if (label_matches(label)) {
+            capture=1
+            if (rest ~ /^ /) {
+              sub(/^ /, "", rest)
+              print rest
+            }
+            next
+          }
+        }
+      }
       capture && /^ / { sub(/^ /, ""); print; next }
       capture { exit }
     '
@@ -13166,6 +13224,14 @@ FAKE
   [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: multiline parser literal" >&2; exit 1; }
   printf 'RealName: Agent OS OpenAI credential broker\n' | parse_literal_attr RealName > "$test_root/parser.out"
   [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: single-line parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeNative:IsHidden: 1\n' | parse_literal_attr IsHidden > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "1" ] || { echo "SELF TEST assertion failed: native IsHidden parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeNative:RealName:\n Agent OS OpenAI credential broker\n' | parse_literal_attr RealName > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: native multiline RealName parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeStandard:GeneratedUID: 204EB339-8AD8-45F6-8A06-ED50833DB376\n' | parse_literal_attr GeneratedUID > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "204EB339-8AD8-45F6-8A06-ED50833DB376" ] || { echo "SELF TEST assertion failed: standard GeneratedUID parser literal" >&2; exit 1; }
+  printf 'dsAttrTypeNative:NotIsHidden: bad\n' | parse_literal_attr IsHidden > "$test_root/parser.out"
+  [ ! -s "$test_root/parser.out" ] || { echo "SELF TEST assertion failed: parser matched nonterminal attribute component" >&2; exit 1; }
   printf 'GroupMembership:\n everyone\n localaccounts\n _lpoperator\n' | parse_literal_attr GroupMembership > "$test_root/parser.out"
   [ "$(wc -l < "$test_root/parser.out" | tr -d ' ')" = "3" ] || { echo "SELF TEST assertion failed: multivalue parser literal" >&2; exit 1; }
   echo "SELF TEST dscl-attribute-parser-literals: PASS"
@@ -13196,6 +13262,11 @@ FAKE
   set +e; AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
   [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: multiline RealName rejected" >&2; cat "$test_root/output" >&2; exit 1; }
   echo "SELF TEST multiline-realname-parser: PASS"
+
+  set +e; AGENT_OS_FIXTURE_NATIVE_PREFIX=1 AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
+  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: native-prefixed canonical account rejected" >&2; cat "$test_root/output" >&2; exit 1; }
+  assert_grep "IDENTITY BOOTSTRAP DRY RUN: GO" "$test_root/output"
+  echo "SELF TEST native-prefixed-existing-account-dry-run: PASS"
 
   reset_fixture
   mkdir -p "$test_root/users/openai-credential-broker"

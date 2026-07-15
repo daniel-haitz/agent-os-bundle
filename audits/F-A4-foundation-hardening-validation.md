@@ -519,6 +519,8 @@ The script now provides a no-mutation `--dry-run` that resolves the proposed UID
 
 Live bootstrap evidence from `/Users/dannybigdeals/fa4-openai-credential-broker-bootstrap-20260715T220329Z` shows the identity and custody roots were created successfully, but final validation misparsed multiline `dscl` `RealName` output and incorrectly reported a RealName mismatch. The live records are canonical: user UID `540`, group GID `740`, home `/Users/openai-credential-broker`, shell `/usr/bin/false`, password marker `*`, `IsHidden: 1`, auto-generated user/group `GeneratedUID` values, and custody roots owned by `openai-credential-broker:openai-credential-broker` with modes `0750/0750/0750/0700`. Normal implicit macOS memberships (`everyone`, `localaccounts`, `_lpoperator`, and `com.apple.sharepoint.group.1`) are accepted; `admin`, `wheel`, and `staff` remain forbidden.
 
+Subsequent dry-run evidence showed `dscl` may render requested attributes with namespace labels such as `dsAttrTypeNative:IsHidden: 1`. The bootstrap parser now accepts exact terminal attribute labels in bare, `dsAttrTypeNative:`, and `dsAttrTypeStandard:` forms while preserving single-line, multiline, and multi-value parsing.
+
 ### Closure Impact
 
 F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the previous runtime-identity validation defect, but OpenClaw containment findings, pf activation, stale launchd metadata, persistence/reboot validation, and durable evidence gates remain open until operator remediation and validation evidence pass.
