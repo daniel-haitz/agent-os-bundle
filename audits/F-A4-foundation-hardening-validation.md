@@ -452,3 +452,53 @@ The harness also replaces full process-table capture with a narrowly filtered se
 ### Closure Impact
 
 F-A4 remains **not closed**. The corrected read-only validation path is prepared and syntax/static-tested, but it still requires an interactive operator run to capture accepted runtime evidence. pf remains disabled and full F-A4 containment validation remains pending.
+
+## Corrected Read-Only Validation Evidence — 2026-07-15T184542Z
+
+### Operator Runtime Evidence
+
+The operator ran the corrected read-only validation harness and reported evidence under:
+
+- `/Users/dannybigdeals/fa4-readonly-validation-20260715T184542Z`
+
+The directory is not readable by the non-privileged `agent` account, but the operator reported these confirmed passes:
+
+- OpenClaw live version: `2026.6.11 (e085fa1)`.
+- Gateway running as `openclawgw:openclawgw`.
+- Gmail broker running as `gmailbroker`.
+- Egress proxy running as `egressproxy:egressproxy`.
+- Protected OpenClaw path permissions intact.
+- Broker socket permissions intact.
+- Gmail broker `health_check` passed.
+- Bounded Gmail `search_threads` passed.
+- F-A3 clean handoff passed.
+- F-A3 adversarial suite passed.
+- Prior proxy allow/deny enforcement passed.
+
+The same validation reported these blockers:
+
+- `openclaw security audit --json` reported one critical finding: small-model fallback `ollama/qwen3-coder:30b` at `agents.defaults.model.fallbacks` had `sandbox=off` and web access including `web_fetch`.
+- `gmail-reader` retained exec capability while filesystem write/edit/apply_patch tools were disabled, `sandbox.mode=off`, and `workspaceAccess=none`. OpenClaw documentation confirms `exec` remains a shell and is not structurally read-only.
+- `openclaw secrets audit --json` found plaintext OpenAI credentials at `models.providers.openai.apiKey` and `profiles.openai:manual.key`.
+- pf remained disabled and no Agent OS anchor was loaded.
+- Launchd metadata still reported `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reported `2026.6.11`.
+- Legacy config health JSON remained alongside shared SQLite state.
+- OpenClaw warned that `openclaw.json` is group-readable at mode `0440`. This is an intentional `root:openclawgw` service-readability design unless source evidence proves a supported narrower read path.
+
+### Tooling Correction Prepared
+
+`scripts/fa4-operator-openclaw-containment-remediate.sh` is prepared as the next bounded operator-owned correction. It:
+
+- backs up `openclaw.json`, `exec-approvals.json`, auth-profile SQLite sidecars, and any prior OpenAI SecretRef backing file;
+- removes `ollama/qwen3-coder:30b` from `agents.defaults.model.fallbacks`;
+- hardens `gmail-reader` tool policy by denying `process`, filesystem write tools, `browser`, and `group:web`, while preserving only an explicitly validated fixed broker path if present;
+- moves `models.providers.openai.apiKey` to a file-backed SecretRef;
+- moves `profiles.openai:manual.key` to `keyRef` through `openclaw secrets apply`, rather than editing SQLite directly;
+- leaves OAuth profile material untouched;
+- reloads SecretRefs and kickstarts the Gateway;
+- runs post-remediation security, secrets, sandbox, broker, and F-A3 validation commands;
+- does not enable pf or change proxy policy.
+
+### Closure Impact
+
+F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the previous runtime-identity validation defect, but OpenClaw containment findings, pf activation, stale launchd metadata, persistence/reboot validation, and durable evidence gates remain open until operator remediation and validation evidence pass.
