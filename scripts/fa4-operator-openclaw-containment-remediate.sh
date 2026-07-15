@@ -163,7 +163,14 @@ function validateGmailReaderExecApproval() {
   }
   let brokerPathMatch = true;
   let boundedMethodPattern = true;
-  let newlineExclusion = true;
+  let regexCompiled = true;
+  let approvedMethodsAccepted = true;
+  let bareMethodDenied = true;
+  let lfInjectionDenied = true;
+  let crInjectionDenied = true;
+  let crlfInjectionDenied = true;
+  let foreignMethodDenied = true;
+  let commandChainingDenied = true;
   for (const entry of allowlist) {
     const serialized = JSON.stringify(entry);
     if (!serialized.includes(brokerClientPath)) {
@@ -180,25 +187,47 @@ function validateGmailReaderExecApproval() {
     if (typeof entry.argPattern !== "string") {
       throw new Error("gmail-reader exec approval allowlist is missing bounded argPattern");
     }
-    const methods = [...entry.argPattern.matchAll(/[A-Za-z_][A-Za-z0-9_]*(?=[|)])/g)].map((match) => match[0]);
-    const uniqueMethods = [...new Set(methods.filter((method) => approvedBrokerMethods.has(method) || /_/.test(method)))];
-    const unapprovedMethods = uniqueMethods.filter((method) => !approvedBrokerMethods.has(method));
-    if (unapprovedMethods.length > 0) {
-      throw new Error(`gmail-reader exec approval allowlist includes unapproved broker method: ${unapprovedMethods.join(",")}`);
+    let argRegex;
+    try {
+      argRegex = new RegExp(entry.argPattern);
+    } catch (error) {
+      regexCompiled = false;
+      throw new Error(`gmail-reader exec approval argPattern failed to compile: ${error.message}`);
     }
     for (const method of approvedBrokerMethods) {
-      if (!entry.argPattern.includes(method)) {
+      if (!argRegex.test(`${method} {}`)) {
+        approvedMethodsAccepted = false;
         throw new Error(`gmail-reader exec approval allowlist is missing approved broker method: ${method}`);
       }
     }
-    if (/\\s|\\S|\[\^]|\.\*|\(\?:\.\|\n\)|\n/.test(entry.argPattern) || !entry.argPattern.includes("[^\\n")) {
-      newlineExclusion = false;
-      throw new Error("gmail-reader exec approval allowlist does not exclude newline injection");
+    const rejectionCases = [
+      ["bareMethodDenied", "health_check"],
+      ["lfInjectionDenied", "health_check {}\n/bin/sh"],
+      ["lfInjectionDenied", "health_check {\n}"],
+      ["crInjectionDenied", "health_check {}\r/bin/sh"],
+      ["crInjectionDenied", "health_check {\r}"],
+      ["crlfInjectionDenied", "health_check {}\r\n/bin/sh"],
+      ["crlfInjectionDenied", "health_check {\r\n}"],
+      ["commandChainingDenied", "health_check {}; /bin/sh"],
+      ["foreignMethodDenied", "unapproved_method {}"],
+      ["foreignMethodDenied", "delete_thread {}"],
+      ["lfInjectionDenied", "create_draft {}\n/bin/sh"],
+      ["crInjectionDenied", "create_draft {}\r/bin/sh"],
+    ];
+    for (const [name, candidate] of rejectionCases) {
+      if (!argRegex.test(candidate)) continue;
+      if (name === "bareMethodDenied") bareMethodDenied = false;
+      if (name === "lfInjectionDenied") lfInjectionDenied = false;
+      if (name === "crInjectionDenied") crInjectionDenied = false;
+      if (name === "crlfInjectionDenied") crlfInjectionDenied = false;
+      if (name === "commandChainingDenied") commandChainingDenied = false;
+      if (name === "foreignMethodDenied") foreignMethodDenied = false;
+      throw new Error(`gmail-reader exec approval argPattern accepted unsafe invocation: ${name}`);
     }
-    boundedMethodPattern = boundedMethodPattern && unapprovedMethods.length === 0;
+    boundedMethodPattern = boundedMethodPattern && approvedMethodsAccepted && foreignMethodDenied;
   }
   const strictInlineEvalStatus = "default false; not security-relevant because broker path is not an interpreter allowlist";
-  console.log(`Exec approval preflight: autoAllowSkills=${autoAllowSkillsStatus}; strictInlineEval=${strictInlineEvalStatus}; allowlistEntries=${allowlist.length}; brokerPathMatch=${brokerPathMatch}; boundedMethodPattern=${boundedMethodPattern}; newlineExclusion=${newlineExclusion}`);
+  console.log(`Exec approval preflight: autoAllowSkills=${autoAllowSkillsStatus}; strictInlineEval=${strictInlineEvalStatus}; allowlistEntries=${allowlist.length}; brokerPathMatch=${brokerPathMatch}; boundedMethodPattern=${boundedMethodPattern}; regexCompiled=${regexCompiled}; approvedMethodsAccepted=${approvedMethodsAccepted}; bareMethodDenied=${bareMethodDenied}; lfInjectionDenied=${lfInjectionDenied}; crInjectionDenied=${crInjectionDenied}; crlfInjectionDenied=${crlfInjectionDenied}; foreignMethodDenied=${foreignMethodDenied}; commandChainingDenied=${commandChainingDenied}`);
 }
 
 function stripQwenFallback(modelConfig) {

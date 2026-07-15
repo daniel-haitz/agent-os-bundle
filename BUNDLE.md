@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 7c9e79d05020408a248ed676942300c415c0761a
+private source repository commit: a37cb6d32da9215d9192ace940237afe7d83e7af
 private source repository branch: main
-generated timestamp: 2026-07-15T19:16:28Z
+generated timestamp: 2026-07-15T19:22:05Z
 publication manifest governance commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+a37cb6d validation: use behavioral broker argPattern checks
 7c9e79d validation: accept safe exec approval defaults
 90c77bf validation: harden F-A4 secrets audit check
 faf3d90 validation: prepare F-A4 OpenClaw containment remediation
@@ -779,7 +780,6 @@ c52ef32 docs: refine agent governance boundaries and F-C scope
 351d51a docs: add Agent OS operating constitution
 69cab30 docs: reconcile Gmail broker and containment state
 e39d896 [claude-code] Gmail re-auth DONE (token was dead, re-authed Gmail-scoped, verified live mail); keyring-backend gotcha documented; confined-reader allowlist drift root-caused (real fix next session)
-57f7656 [claude-code] F-A4: proxy proven innocent + integrates clean; Gmail root cause = missing refresh token (re-auth needed); Lloyd direct-Gmail bypass found; socket-dir race open
 ```
 
 ## Repository Tree
@@ -877,7 +877,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
-last validation timestamp: 2026-07-15T19:16:28Z
+last validation timestamp: 2026-07-15T19:22:05Z
 ```
 
 ---
@@ -12302,7 +12302,14 @@ function validateGmailReaderExecApproval() {
   }
   let brokerPathMatch = true;
   let boundedMethodPattern = true;
-  let newlineExclusion = true;
+  let regexCompiled = true;
+  let approvedMethodsAccepted = true;
+  let bareMethodDenied = true;
+  let lfInjectionDenied = true;
+  let crInjectionDenied = true;
+  let crlfInjectionDenied = true;
+  let foreignMethodDenied = true;
+  let commandChainingDenied = true;
   for (const entry of allowlist) {
     const serialized = JSON.stringify(entry);
     if (!serialized.includes(brokerClientPath)) {
@@ -12319,25 +12326,47 @@ function validateGmailReaderExecApproval() {
     if (typeof entry.argPattern !== "string") {
       throw new Error("gmail-reader exec approval allowlist is missing bounded argPattern");
     }
-    const methods = [...entry.argPattern.matchAll(/[A-Za-z_][A-Za-z0-9_]*(?=[|)])/g)].map((match) => match[0]);
-    const uniqueMethods = [...new Set(methods.filter((method) => approvedBrokerMethods.has(method) || /_/.test(method)))];
-    const unapprovedMethods = uniqueMethods.filter((method) => !approvedBrokerMethods.has(method));
-    if (unapprovedMethods.length > 0) {
-      throw new Error(`gmail-reader exec approval allowlist includes unapproved broker method: ${unapprovedMethods.join(",")}`);
+    let argRegex;
+    try {
+      argRegex = new RegExp(entry.argPattern);
+    } catch (error) {
+      regexCompiled = false;
+      throw new Error(`gmail-reader exec approval argPattern failed to compile: ${error.message}`);
     }
     for (const method of approvedBrokerMethods) {
-      if (!entry.argPattern.includes(method)) {
+      if (!argRegex.test(`${method} {}`)) {
+        approvedMethodsAccepted = false;
         throw new Error(`gmail-reader exec approval allowlist is missing approved broker method: ${method}`);
       }
     }
-    if (/\\s|\\S|\[\^]|\.\*|\(\?:\.\|\n\)|\n/.test(entry.argPattern) || !entry.argPattern.includes("[^\\n")) {
-      newlineExclusion = false;
-      throw new Error("gmail-reader exec approval allowlist does not exclude newline injection");
+    const rejectionCases = [
+      ["bareMethodDenied", "health_check"],
+      ["lfInjectionDenied", "health_check {}\n/bin/sh"],
+      ["lfInjectionDenied", "health_check {\n}"],
+      ["crInjectionDenied", "health_check {}\r/bin/sh"],
+      ["crInjectionDenied", "health_check {\r}"],
+      ["crlfInjectionDenied", "health_check {}\r\n/bin/sh"],
+      ["crlfInjectionDenied", "health_check {\r\n}"],
+      ["commandChainingDenied", "health_check {}; /bin/sh"],
+      ["foreignMethodDenied", "unapproved_method {}"],
+      ["foreignMethodDenied", "delete_thread {}"],
+      ["lfInjectionDenied", "create_draft {}\n/bin/sh"],
+      ["crInjectionDenied", "create_draft {}\r/bin/sh"],
+    ];
+    for (const [name, candidate] of rejectionCases) {
+      if (!argRegex.test(candidate)) continue;
+      if (name === "bareMethodDenied") bareMethodDenied = false;
+      if (name === "lfInjectionDenied") lfInjectionDenied = false;
+      if (name === "crInjectionDenied") crInjectionDenied = false;
+      if (name === "crlfInjectionDenied") crlfInjectionDenied = false;
+      if (name === "commandChainingDenied") commandChainingDenied = false;
+      if (name === "foreignMethodDenied") foreignMethodDenied = false;
+      throw new Error(`gmail-reader exec approval argPattern accepted unsafe invocation: ${name}`);
     }
-    boundedMethodPattern = boundedMethodPattern && unapprovedMethods.length === 0;
+    boundedMethodPattern = boundedMethodPattern && approvedMethodsAccepted && foreignMethodDenied;
   }
   const strictInlineEvalStatus = "default false; not security-relevant because broker path is not an interpreter allowlist";
-  console.log(`Exec approval preflight: autoAllowSkills=${autoAllowSkillsStatus}; strictInlineEval=${strictInlineEvalStatus}; allowlistEntries=${allowlist.length}; brokerPathMatch=${brokerPathMatch}; boundedMethodPattern=${boundedMethodPattern}; newlineExclusion=${newlineExclusion}`);
+  console.log(`Exec approval preflight: autoAllowSkills=${autoAllowSkillsStatus}; strictInlineEval=${strictInlineEvalStatus}; allowlistEntries=${allowlist.length}; brokerPathMatch=${brokerPathMatch}; boundedMethodPattern=${boundedMethodPattern}; regexCompiled=${regexCompiled}; approvedMethodsAccepted=${approvedMethodsAccepted}; bareMethodDenied=${bareMethodDenied}; lfInjectionDenied=${lfInjectionDenied}; crInjectionDenied=${crInjectionDenied}; crlfInjectionDenied=${crlfInjectionDenied}; foreignMethodDenied=${foreignMethodDenied}; commandChainingDenied=${commandChainingDenied}`);
 }
 
 function stripQwenFallback(modelConfig) {
