@@ -148,11 +148,8 @@ function removeDangerousTools(tools) {
   }
   next.exec = {
     ...asObject(next.exec),
-    mode: "allowlist",
     security: "allowlist",
     ask: "off",
-    askFallback: "deny",
-    autoAllowSkills: false,
     strictInlineEval: true,
   };
   return next;

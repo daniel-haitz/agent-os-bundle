@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
+private source repository commit: 45bc9add09c45aa799cdd5ab0bcb840822b300f6
 private source repository branch: main
-generated timestamp: 2026-07-15T20:03:31Z
+generated timestamp: 2026-07-15T20:12:38Z
 publication manifest governance commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+45bc9ad validation: fix F-A4 tools exec schema patch
 ef7ebc0 validation: harden F-A4 containment readiness checks
 a37cb6d validation: use behavioral broker argPattern checks
 7c9e79d validation: accept safe exec approval defaults
@@ -779,7 +780,6 @@ bd1fbf3 docs: enforce governance reconciliation and publication controls
 c52ef32 docs: refine agent governance boundaries and F-C scope
 36bb173 docs: reconcile architecture decisions and operational controls
 351d51a docs: add Agent OS operating constitution
-69cab30 docs: reconcile Gmail broker and containment state
 ```
 
 ## Repository Tree
@@ -878,7 +878,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
-last validation timestamp: 2026-07-15T20:03:31Z
+last validation timestamp: 2026-07-15T20:12:38Z
 ```
 
 ---
@@ -12221,11 +12221,8 @@ function removeDangerousTools(tools) {
   }
   next.exec = {
     ...asObject(next.exec),
-    mode: "allowlist",
     security: "allowlist",
     ask: "off",
-    askFallback: "deny",
-    autoAllowSkills: false,
     strictInlineEval: true,
   };
   return next;
@@ -12479,11 +12476,8 @@ function removeDangerousTools(tools) {
   }
   next.exec = {
     ...asObject(next.exec),
-    mode: "allowlist",
     security: "allowlist",
     ask: "off",
-    askFallback: "deny",
-    autoAllowSkills: false,
     strictInlineEval: true,
   };
   return next;
