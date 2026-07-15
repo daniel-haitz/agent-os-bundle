@@ -45,6 +45,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The selected F-A4 remediation path is operator-owned repair and validation without weakening the root-owned OpenClaw tamper lock:
   - `scripts/fa4-operator-egress-proxy-repair.sh`
   - `scripts/fa4-operator-readonly-validation.sh`
+- 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.
@@ -166,6 +167,8 @@ F-A4 closure remains blocked until these gaps are remediated or validated throug
 1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
 2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
+
+The operator scripts follow the reusable Agent OS operator-action pattern: preflight checks, evidence output, rollback guidance, and validation output.
 
 ## Next actions
 

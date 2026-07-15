@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-07-15T03:20:15Z · commit: 3c65ffc_
+_Generated: 2026-07-15T13:22:01Z · commit: c09e866_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -53,6 +53,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The selected F-A4 remediation path is operator-owned repair and validation without weakening the root-owned OpenClaw tamper lock:
   - `scripts/fa4-operator-egress-proxy-repair.sh`
   - `scripts/fa4-operator-readonly-validation.sh`
+- 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.
@@ -175,6 +176,8 @@ F-A4 closure remains blocked until these gaps are remediated or validated throug
 2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
 
+The operator scripts follow the reusable Agent OS operator-action pattern: preflight checks, evidence output, rollback guidance, and validation output.
+
 ## Next actions
 
 ### Immediate bounded action
@@ -281,6 +284,7 @@ Do not reorder this sequence without explicit architecture approval.
 
 ## Recent git log (20)
 ```
+c09e866 governance: harden F-A4 operator validation pattern
 3c65ffc validation: prepare F-A4 remediation and operator validation path
 3daa583 validation: complete F-A4 foundation hardening evidence
 d2f5b1a architecture: reconcile Agent OS with OpenClaw native capabilities
@@ -300,7 +304,6 @@ a3d31c3 [codex] F-A4.5: record wall proof and Gmail blockers
 1f16a5c [codex] F-A4: record Phase 5 half-1 state
 0b973f6 [codex] publish: print bundle freshness reference
 551aa14 [codex] F-A4: record recovery state in CONTROL
-929e2e0 docs: patch cutover runbook — rollback ownership integrity, cert preflight, inline foundation proofs
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -414,7 +417,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: d2f5b1a5c6014a1ed94b9a92923a9d2bb8501003
 bundle-for-claude.sh commit: 3c65ffc0d9044516774b9b61b0b1b08796c0a6c5
-last validation timestamp: 2026-07-15T03:20:15Z
+last validation timestamp: 2026-07-15T13:22:01Z
 ```
 
 ---
@@ -513,6 +516,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The selected F-A4 remediation path is operator-owned repair and validation without weakening the root-owned OpenClaw tamper lock:
   - `scripts/fa4-operator-egress-proxy-repair.sh`
   - `scripts/fa4-operator-readonly-validation.sh`
+- 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.
@@ -634,6 +638,8 @@ F-A4 closure remains blocked until these gaps are remediated or validated throug
 1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
 2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
+
+The operator scripts follow the reusable Agent OS operator-action pattern: preflight checks, evidence output, rollback guidance, and validation output.
 
 ## Next actions
 
@@ -4059,6 +4065,41 @@ No runtime, credential, connector, launchd, socket, pf, or OpenClaw configuratio
 ### Status
 
 F-A4 remains **not closed**. The repository now contains the selected repair and validation path, but closure still requires operator execution of the prepared scripts, evidence reconciliation, successful containment proof, and publication.
+
+## Build Lead Pass — 2026-07-15
+
+### Runtime Evidence
+
+- Private HEAD before this pass: `3c65ffc0d9044516774b9b61b0b1b08796c0a6c5`.
+- Live OpenClaw version: `OpenClaw 2026.6.11 (e085fa1)`.
+- `launchctl print system/ai.agent-os-egress-proxy` still showed `active count = 0` and `last exit code = 78: EX_CONFIG`.
+
+### Operator Execution Attempt
+
+Command attempted:
+
+```sh
+sudo ./scripts/fa4-operator-egress-proxy-repair.sh
+```
+
+Result:
+
+```text
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+```
+
+Classification: environment/execution-context issue. The repair harness was not executed, and no runtime, credential, connector, launchd, socket, pf, or OpenClaw configuration change was made.
+
+### Debt Resolution Applied In Repository
+
+- `scripts/fa4-operator-egress-proxy-repair.sh` now records an execution log, backs up replaced proxy artifacts, and emits a rollback script.
+- `scripts/fa4-operator-readonly-validation.sh` now writes `summary.tsv` with each check, exit status, and command.
+- `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md` now codifies reusable phase completion, privileged operator action, and evidence record patterns.
+
+### Closure Impact
+
+F-A4 remains **not closed**. The next closure step is an interactive operator run of the prepared repair and validation harnesses, followed by evidence reconciliation.
 ```
 
 ### docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md
@@ -4801,6 +4842,42 @@ Evidence must distinguish:
 - historical proof;
 - inferred status;
 - proposed future validation.
+
+## Phase Completion Pattern
+
+Every phase closure or closure-ready claim must have:
+
+- architecture decision or explicit inheritance from an existing decision;
+- implementation path;
+- validation script or exact validation command block;
+- evidence artifact;
+- `CONTROL.md` status update;
+- publication checkpoint.
+
+Partial validation may be recorded, but it must not be described as closure.
+
+## Operator Action Pattern
+
+Privileged operator actions must be repeatable and reviewable. They require:
+
+- idempotent script or exact guarded command block;
+- preflight checks;
+- evidence output location;
+- rollback guidance or rollback script proportional to risk;
+- post-change validation output.
+
+Operator actions must not rely on undocumented manual repairs when the same step is expected to recur.
+
+## Evidence Record Pattern
+
+Evidence for phase gates and runtime changes must include:
+
+- exact command;
+- timestamp;
+- identity used;
+- result or exit status;
+- interpretation;
+- closure impact.
 
 ## Runtime Authority Rule
 
@@ -11616,10 +11693,35 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TS="$(date -u +%Y%m%dT%H%M%SZ)"
+OUT_DIR="${1:-/Users/dannybigdeals/fa4-egress-proxy-repair-${TS}}"
+BACKUP_DIR="$OUT_DIR/backup"
 DRAFT_DIR="$REPO_ROOT/drafts/fa4-phase5"
 SUPPORT_DIR="/Library/Application Support/agent-os-egress-proxy"
 LOG_DIR="/Library/Logs/agent-os-egress-proxy"
 PLIST="/Library/LaunchDaemons/ai.agent-os-egress-proxy.plist"
+SOURCE="$SUPPORT_DIR/agent-os-egress-proxy.mjs"
+ALLOWLIST="$SUPPORT_DIR/allowlist.txt"
+ANCHOR="$SUPPORT_DIR/agent-os-egress.anchor"
+
+mkdir -p "$OUT_DIR" "$BACKUP_DIR"
+chmod 0700 "$OUT_DIR" "$BACKUP_DIR"
+exec > >(tee "$OUT_DIR/repair.log") 2>&1
+
+echo "F-A4 egress proxy repair started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "repo: $REPO_ROOT"
+echo "evidence: $OUT_DIR"
+
+backup_path() {
+  local path="$1"
+  if [ -e "$path" ]; then
+    mkdir -p "$BACKUP_DIR$(dirname "$path")"
+    cp -p "$path" "$BACKUP_DIR$path"
+    printf '%s\n' "$path" >> "$BACKUP_DIR/present-paths.txt"
+  else
+    printf '%s\n' "$path" >> "$BACKUP_DIR/absent-paths.txt"
+  fi
+}
 
 if ! id -u egressproxy >/dev/null 2>&1; then
   echo "ERROR: egressproxy user does not exist. Create it through the reviewed F-A4 operator process first." >&2
@@ -11632,11 +11734,50 @@ plutil -lint "$DRAFT_DIR/ai.agent-os-egress-pf.plist"
 sh -n "$DRAFT_DIR/phase5-proof-commands.sh"
 pfctl -nf "$DRAFT_DIR/agent-os-egress.anchor"
 
+backup_path "$SOURCE"
+backup_path "$ALLOWLIST"
+backup_path "$ANCHOR"
+backup_path "$PLIST"
+
+cat > "$OUT_DIR/rollback.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+BACKUP_DIR="$BACKUP_DIR"
+
+restore_path() {
+  local path="\$1"
+  if [ -e "\$BACKUP_DIR\$path" ]; then
+    mkdir -p "\$(dirname "\$path")"
+    cp -p "\$BACKUP_DIR\$path" "\$path"
+    echo "restored \$path"
+  elif [ -f "\$BACKUP_DIR/absent-paths.txt" ] && grep -Fxq "\$path" "\$BACKUP_DIR/absent-paths.txt"; then
+    rm -f "\$path"
+    echo "removed newly-created file \$path"
+  else
+    echo "no rollback record for \$path"
+  fi
+}
+
+restore_path "$SOURCE"
+restore_path "$ALLOWLIST"
+restore_path "$ANCHOR"
+restore_path "$PLIST"
+
+launchctl bootout system/ai.agent-os-egress-proxy 2>/dev/null || true
+if [ -f "$PLIST" ]; then
+  launchctl bootstrap system "$PLIST"
+  launchctl kickstart -k system/ai.agent-os-egress-proxy
+fi
+launchctl print system/ai.agent-os-egress-proxy || true
+EOF
+chmod 0700 "$OUT_DIR/rollback.sh"
+
 install -d -o root -g egressproxy -m 0750 "$SUPPORT_DIR"
 install -d -o egressproxy -g egressproxy -m 0750 "$LOG_DIR"
-install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress-proxy.mjs" "$SUPPORT_DIR/agent-os-egress-proxy.mjs"
-install -o root -g egressproxy -m 0440 "$DRAFT_DIR/allowlist.txt" "$SUPPORT_DIR/allowlist.txt"
-install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress.anchor" "$SUPPORT_DIR/agent-os-egress.anchor"
+install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress-proxy.mjs" "$SOURCE"
+install -o root -g egressproxy -m 0440 "$DRAFT_DIR/allowlist.txt" "$ALLOWLIST"
+install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress.anchor" "$ANCHOR"
 install -o root -g wheel -m 0644 "$DRAFT_DIR/ai.agent-os-egress-proxy.plist" "$PLIST"
 
 launchctl bootout system/ai.agent-os-egress-proxy 2>/dev/null || true
@@ -11650,6 +11791,7 @@ echo "Proxy repair/install complete. Next operator steps:"
 echo "1. Run proxy allow/deny sanity checks from docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md."
 echo "2. Add the pf.conf fragment only after review, then dry-run /etc/pf.conf."
 echo "3. Re-run scripts/fa4-operator-readonly-validation.sh and reconcile evidence."
+echo "4. Rollback, if required: sudo $OUT_DIR/rollback.sh"
 ```
 
 ### scripts/fa4-operator-readonly-validation.sh
@@ -11671,6 +11813,7 @@ fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_DIR="${1:-/Users/dannybigdeals/fa4-readonly-validation-${TS}}"
+SUMMARY_FILE="$OUT_DIR/summary.tsv"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 BROKER_CLIENT="/Users/agent/.openclaw/scripts/gmail-broker-client.mjs"
@@ -11679,6 +11822,7 @@ GATE_TEST="/Users/agent/.openclaw/scripts/test-research-handoff-gate.mjs"
 
 mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
+printf 'check\texit_status\tcommand\n' > "$SUMMARY_FILE"
 
 redact() {
   sed -E \
@@ -11697,6 +11841,7 @@ run_capture() {
     local cmd_status=${PIPESTATUS[0]}
     set -e
     echo "exit status: $cmd_status"
+    printf '%s\t%s\t%s\n' "$name" "$cmd_status" "$*" >> "$SUMMARY_FILE"
     echo
   } | tee "$OUT_DIR/$name.txt"
 }
@@ -11750,6 +11895,7 @@ cat > "$OUT_DIR/README.txt" <<EOF
 F-A4 read-only validation completed.
 
 Review files in this directory for:
+- summary.tsv check index and exit statuses
 - OpenClaw audit/doctor/secrets status
 - sandbox explain output
 - pf and egress proxy state

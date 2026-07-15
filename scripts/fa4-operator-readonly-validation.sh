@@ -15,6 +15,7 @@ fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_DIR="${1:-/Users/dannybigdeals/fa4-readonly-validation-${TS}}"
+SUMMARY_FILE="$OUT_DIR/summary.tsv"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 BROKER_CLIENT="/Users/agent/.openclaw/scripts/gmail-broker-client.mjs"
@@ -23,6 +24,7 @@ GATE_TEST="/Users/agent/.openclaw/scripts/test-research-handoff-gate.mjs"
 
 mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
+printf 'check\texit_status\tcommand\n' > "$SUMMARY_FILE"
 
 redact() {
   sed -E \
@@ -41,6 +43,7 @@ run_capture() {
     local cmd_status=${PIPESTATUS[0]}
     set -e
     echo "exit status: $cmd_status"
+    printf '%s\t%s\t%s\n' "$name" "$cmd_status" "$*" >> "$SUMMARY_FILE"
     echo
   } | tee "$OUT_DIR/$name.txt"
 }
@@ -94,6 +97,7 @@ cat > "$OUT_DIR/README.txt" <<EOF
 F-A4 read-only validation completed.
 
 Review files in this directory for:
+- summary.tsv check index and exit statuses
 - OpenClaw audit/doctor/secrets status
 - sandbox explain output
 - pf and egress proxy state

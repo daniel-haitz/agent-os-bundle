@@ -131,6 +131,42 @@ Evidence must distinguish:
 - inferred status;
 - proposed future validation.
 
+## Phase Completion Pattern
+
+Every phase closure or closure-ready claim must have:
+
+- architecture decision or explicit inheritance from an existing decision;
+- implementation path;
+- validation script or exact validation command block;
+- evidence artifact;
+- `CONTROL.md` status update;
+- publication checkpoint.
+
+Partial validation may be recorded, but it must not be described as closure.
+
+## Operator Action Pattern
+
+Privileged operator actions must be repeatable and reviewable. They require:
+
+- idempotent script or exact guarded command block;
+- preflight checks;
+- evidence output location;
+- rollback guidance or rollback script proportional to risk;
+- post-change validation output.
+
+Operator actions must not rely on undocumented manual repairs when the same step is expected to recur.
+
+## Evidence Record Pattern
+
+Evidence for phase gates and runtime changes must include:
+
+- exact command;
+- timestamp;
+- identity used;
+- result or exit status;
+- interpretation;
+- closure impact.
+
 ## Runtime Authority Rule
 
 For live system state:

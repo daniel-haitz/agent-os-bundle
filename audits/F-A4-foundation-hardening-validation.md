@@ -315,3 +315,38 @@ No runtime, credential, connector, launchd, socket, pf, or OpenClaw configuratio
 ### Status
 
 F-A4 remains **not closed**. The repository now contains the selected repair and validation path, but closure still requires operator execution of the prepared scripts, evidence reconciliation, successful containment proof, and publication.
+
+## Build Lead Pass — 2026-07-15
+
+### Runtime Evidence
+
+- Private HEAD before this pass: `3c65ffc0d9044516774b9b61b0b1b08796c0a6c5`.
+- Live OpenClaw version: `OpenClaw 2026.6.11 (e085fa1)`.
+- `launchctl print system/ai.agent-os-egress-proxy` still showed `active count = 0` and `last exit code = 78: EX_CONFIG`.
+
+### Operator Execution Attempt
+
+Command attempted:
+
+```sh
+sudo ./scripts/fa4-operator-egress-proxy-repair.sh
+```
+
+Result:
+
+```text
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+```
+
+Classification: environment/execution-context issue. The repair harness was not executed, and no runtime, credential, connector, launchd, socket, pf, or OpenClaw configuration change was made.
+
+### Debt Resolution Applied In Repository
+
+- `scripts/fa4-operator-egress-proxy-repair.sh` now records an execution log, backs up replaced proxy artifacts, and emits a rollback script.
+- `scripts/fa4-operator-readonly-validation.sh` now writes `summary.tsv` with each check, exit status, and command.
+- `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md` now codifies reusable phase completion, privileged operator action, and evidence record patterns.
+
+### Closure Impact
+
+F-A4 remains **not closed**. The next closure step is an interactive operator run of the prepared repair and validation harnesses, followed by evidence reconciliation.
