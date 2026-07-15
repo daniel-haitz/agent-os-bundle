@@ -470,6 +470,16 @@ See `docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md`.
 - Wrap-up and publication tooling must check baseline drift, evidence linkage, open gates, publication manifest coverage, and obligation preservation.
 - Documentation changes cannot remove obligations, evidence, blockers, or phase gates without classification.
 
+## Security obligation register references
+
+The obligation register in `docs/AGENT_OS_OBLIGATION_REGISTER.md` is the canonical index for security-critical obligations that must not disappear during document refactoring. The following references preserve prior obligations without expanding current scope:
+
+- Aquaman source audit and native SecretRef comparison remain a Phase 6 secrets-governance obligation before any real SSN or equivalent sensitive secret touches Aquaman or a substitute secret-isolation layer.
+- ClawGuard source review remains an F-B observability-governance obligation before ClawGuard or an equivalent hash-chained audit component carries audit-integrity trust.
+- Browser fill tool-side SecretRef resolution remains a Phase 6 secrets-governance obligation before browser form-fill may handle real sensitive values.
+- OpenAI key plaintext custody remains an F-A4/F-B credential-custody obligation because gateway-readable model-provider credentials are not made safe by documentation or model assignment.
+- Gmail recovery passphrase escrow remains a Gmail recovery-governance backlog obligation. The current approved state is operator-held-only passphrase custody in `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md`; no operational escrow change is authorized by this record.
+
 ## Resulting roadmap
 
 ### KEEP

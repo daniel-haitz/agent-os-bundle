@@ -73,7 +73,7 @@ The paper analyzes THIS use case directly. For an email/calendar assistant it en
 | Research agent cannot see raw email | Dual LLM / least-privilege | ✓ BUILT + PROVEN (typed canonical handoff; no raw email) |
 | Sanitized structured research questions, raw email dropped | Context-Minimization (strong) | ✓ BUILT + PROVEN at handoff; semantic smuggling remains a residual risk until F-A4 egress closes |
 | Provenance tracking (input→action) | Code-Then-Execute / CaMeL | NOT BUILT — future, heavy |
-| Egress control (data can't leave) | — | NOT BUILT — explicitly deferred |
+| Egress control (data can't leave) | — | Deferred capability. Required F-A4 dependency; managed proxy and pf evidence is not accepted until connector bypass removal, transport coverage, persistence, reboot validation, and durable evidence gates pass. |
 
 ---
 
@@ -83,7 +83,7 @@ The paper analyzes THIS use case directly. For an email/calendar assistant it en
 
 2. **No provenance tracking.** Agent OS uses agent-separation (Dual LLM), not value-level provenance (Code-Then-Execute/CaMeL). This is a deliberate weight trade-off. It means the boundary is "the researcher never receives raw email," not a cryptographic guarantee no email-derived byte reaches a query. Acceptable for supervised, non-sensitive use; NOT acceptable for unattended sensitive mail.
 
-3. **No egress control.** Nothing yet prevents a compromised plane from exfiltrating via an allowed channel. Loop is therefore gated: supervised, non-sensitive ONLY until egress control is built.
+3. **Egress control remains deferred.** Nothing currently accepted prevents a compromised plane from exfiltrating via an allowed channel. Loop is therefore gated: supervised, non-sensitive ONLY until F-A4 connector containment, transport coverage, persistence, reboot validation, and durable evidence gates pass.
 
 4. **Direct Codex Apps Gmail connector bypass.** Read-only audit on 2026-07-14 found synchronized `codex_apps__gmail` / `mcp__codex_apps__gmail*` tool definitions in every inspected per-agent Codex home, including operations outside the broker contract. Historical state contains direct Gmail tool identifiers. No live connector call was made during the audit, but lazy loading means absence from current thread dynamic-tool tables is not proof of unavailability. Broker-only routing remains open until the connector surface is disabled and negative-tested.
 

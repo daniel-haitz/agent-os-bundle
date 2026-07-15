@@ -767,6 +767,8 @@ Purpose: prove F-A1/F-A2/F-A3 still function after identity move.
 
 Reversible: if any fail, use section R rollback rather than fix-forward.
 
+Before F-A4 closure, OpenClaw `2026.6.11 (e085fa1)` bounded regression validation must be completed and evidence recorded before foundation closure. Historical F-A1/F-A2/F-A3 evidence remains useful, but it is not sufficient by itself to close F-A4 on the current runtime baseline.
+
 OPERATOR-BY-HAND:
 
 ### F.1 F-A1 Broker Read
