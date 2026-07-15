@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 5020c96bbe7228586547950a6194535e714ad9aa
+private source repository commit: d0188238f5aabe7cd70241dcaced5798519db016
 private source repository branch: main
-generated timestamp: 2026-07-15T21:49:15Z
+generated timestamp: 2026-07-15T22:00:00Z
 publication manifest governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+d018823 fa4: remove unsupported GeneratedUID bootstrap write
 5020c96 fa4: make credential broker bootstrap rollback transactional
 4b2c495 fa4: harden OpenAI credential broker identity bootstrap
 ee43b37 fa4: gate OpenAI credential broker remediation readiness
@@ -779,7 +780,6 @@ c09e866 governance: harden F-A4 operator validation pattern
 3daa583 validation: complete F-A4 foundation hardening evidence
 d2f5b1a architecture: reconcile Agent OS with OpenClaw native capabilities
 ca7e0ea governance: wire enforcement and reconcile evidence controls
-bd1fbf3 docs: enforce governance reconciliation and publication controls
 ```
 
 ## Repository Tree
@@ -882,7 +882,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
-last validation timestamp: 2026-07-15T21:49:15Z
+last validation timestamp: 2026-07-15T22:00:00Z
 ```
 
 ---
@@ -4298,7 +4298,7 @@ Canonical account model:
 - GID allocation range: `740-799`, above the existing Gmail broker groups (`gmailbroker`/`gmailbroker-clients`) and used as an Agent OS allocation range for service-specific broker groups. This is not claimed as a macOS-reserved range.
 - Home: `/Users/openai-credential-broker`, because this broker owns a persistent non-login custody root analogous to the existing `gmailbroker` custody pattern.
 - Shell: `/usr/bin/false`.
-- Login-disabled markers: `Password: *`, `AuthenticationAuthority: ;DisabledUser;`, `IsHidden: 1`, and a generated `GeneratedUID`.
+- Login-disabled markers: `Password: *`, `UserShell: /usr/bin/false`, and `IsHidden: 1`. The live bootstrap attempt on macOS `26.5.2` rejected an explicit `GeneratedUID` write with `eDSPermissionError`; existing Agent OS service-account practice and the F-A4 runbook use fixed local `dscl` service records without requiring explicit `GeneratedUID`.
 - Broad supplementary groups such as `admin`, `wheel`, and `staff` are forbidden.
 - Custody roots are non-secret directories only: home/root/bin `0750`, secrets directory `0700`, all owned by `openai-credential-broker:openai-credential-broker`.
 
@@ -12416,7 +12416,6 @@ CHOWN="${AGENT_OS_TEST_CHOWN:-chown}"
 CHMOD="${AGENT_OS_TEST_CHMOD:-chmod}"
 RM="${AGENT_OS_TEST_RM:-rm}"
 RMDIR="${AGENT_OS_TEST_RMDIR:-rmdir}"
-UUIDGEN="${AGENT_OS_TEST_UUIDGEN:-uuidgen}"
 LAUNCHCTL="${AGENT_OS_TEST_LAUNCHCTL:-launchctl}"
 
 if [ "$MODE" != "dry-run" ] && [ "$MODE" != "self-test" ] && [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" != "1" ] && [ "$(id -u)" -ne 0 ]; then
@@ -12493,16 +12492,8 @@ user_hidden() {
   ds_read "/Users/$USER_NAME" IsHidden | awk '{print $1}'
 }
 
-user_generated_uid() {
-  ds_read "/Users/$USER_NAME" GeneratedUID | awk '{print $1}'
-}
-
 user_password() {
   ds_read "/Users/$USER_NAME" Password | awk '{print $1}'
-}
-
-user_auth_authority() {
-  ds_read "/Users/$USER_NAME" AuthenticationAuthority
 }
 
 group_real_name() {
@@ -12555,8 +12546,8 @@ record_baseline() {
     printf 'group\t%s\tabsent\t\n' "$GROUP_NAME" >> "$MANIFEST"
   fi
   if user_exists; then
-    printf 'user\t%s\tpresent\tuid=%s gid=%s home=%s shell=%s hidden=%s generatedUID=%s password=%s auth=%s\n' \
-      "$USER_NAME" "$(user_uid)" "$(user_gid)" "$(user_home)" "$(user_shell)" "$(user_hidden)" "$(user_generated_uid)" "$(user_password)" "$(user_auth_authority | tr '\n' ' ')" >> "$MANIFEST"
+    printf 'user\t%s\tpresent\tuid=%s gid=%s home=%s shell=%s hidden=%s password=%s\n' \
+      "$USER_NAME" "$(user_uid)" "$(user_gid)" "$(user_home)" "$(user_shell)" "$(user_hidden)" "$(user_password)" >> "$MANIFEST"
   else
     printf 'user\t%s\tabsent\t\n' "$USER_NAME" >> "$MANIFEST"
   fi
@@ -12595,8 +12586,8 @@ print_baseline_stdout() {
     printf 'group\t%s\tabsent\t\n' "$GROUP_NAME"
   fi
   if user_exists; then
-    printf 'user\t%s\tpresent\tuid=%s gid=%s home=%s shell=%s hidden=%s generatedUID=%s password=%s auth=%s\n' \
-      "$USER_NAME" "$(user_uid)" "$(user_gid)" "$(user_home)" "$(user_shell)" "$(user_hidden)" "$(user_generated_uid)" "$(user_password)" "$(user_auth_authority | tr '\n' ' ')"
+    printf 'user\t%s\tpresent\tuid=%s gid=%s home=%s shell=%s hidden=%s password=%s\n' \
+      "$USER_NAME" "$(user_uid)" "$(user_gid)" "$(user_home)" "$(user_shell)" "$(user_hidden)" "$(user_password)"
   else
     printf 'user\t%s\tabsent\t\n' "$USER_NAME"
   fi
@@ -12646,9 +12637,7 @@ validate_existing_user() {
   [ "$(user_shell)" = "$SHELL_PATH" ] || fail_nogo "pre-existing user shell mismatch"
   [ "$(user_real_name)" = "$REAL_NAME" ] || fail_nogo "pre-existing user RealName mismatch"
   [ "$(user_hidden)" = "1" ] || fail_nogo "pre-existing user is not hidden"
-  [ -n "$(user_generated_uid)" ] || fail_nogo "pre-existing user missing GeneratedUID"
   [ "$(user_password)" = "*" ] || fail_nogo "pre-existing user password marker mismatch"
-  user_auth_authority | grep -q "DisabledUser" || fail_nogo "pre-existing user missing DisabledUser authentication authority"
   if "$ID" -Gn "$USER_NAME" | tr ' ' '\n' | grep -Eq '^(admin|wheel|staff)$'; then
     fail_nogo "pre-existing user has a broad supplementary group"
   fi
@@ -12842,7 +12831,8 @@ run_dry_run() {
   fi
   validate_range "$proposed_uid" "$UID_MIN" "$UID_MAX" "uid"
   validate_range "$proposed_gid" "$GID_MIN" "$GID_MAX" "gid"
-  echo "Proposed user: $USER_NAME uid=$proposed_uid primaryGroup=$GROUP_NAME gid=$proposed_gid home=$HOME_DIR shell=$SHELL_PATH hidden=1 auth=DisabledUser"
+  echo "Account creation method: dscl local service record; no explicit GeneratedUID write."
+  echo "Proposed user: $USER_NAME uid=$proposed_uid primaryGroup=$GROUP_NAME gid=$proposed_gid home=$HOME_DIR shell=$SHELL_PATH hidden=1 password=*"
   echo "Would create if absent:"
   group_exists || echo "- group /Groups/$GROUP_NAME"
   user_exists || echo "- user /Users/$USER_NAME"
@@ -12857,10 +12847,13 @@ run_dry_run() {
 create_group() {
   created_gid="$1"
   txn_append group "$GROUP_NAME" created_intent 1
+  log "Creating group record: /Groups/$GROUP_NAME"
   "$DSCL" . -create "/Groups/$GROUP_NAME"
   txn_append group "$GROUP_NAME" created 1
+  log "Setting group PrimaryGroupID=$created_gid"
   "$DSCL" . -create "/Groups/$GROUP_NAME" PrimaryGroupID "$created_gid"
   txn_append group "$GROUP_NAME" gid "$created_gid"
+  log "Setting group RealName"
   "$DSCL" . -create "/Groups/$GROUP_NAME" RealName "$REAL_NAME"
   txn_append group "$GROUP_NAME" realName "$REAL_NAME"
 }
@@ -12868,26 +12861,29 @@ create_group() {
 create_user() {
   created_uid="$1"
   created_gid="$2"
-  generated_uid="$("$UUIDGEN")"
   txn_append user "$USER_NAME" created_intent 1
+  log "Creating user record: /Users/$USER_NAME"
   "$DSCL" . -create "/Users/$USER_NAME"
   txn_append user "$USER_NAME" created 1
+  log "Setting user UniqueID=$created_uid"
   "$DSCL" . -create "/Users/$USER_NAME" UniqueID "$created_uid"
   txn_append user "$USER_NAME" uid "$created_uid"
+  log "Setting user PrimaryGroupID=$created_gid"
   "$DSCL" . -create "/Users/$USER_NAME" PrimaryGroupID "$created_gid"
   txn_append user "$USER_NAME" gid "$created_gid"
+  log "Setting user RealName"
   "$DSCL" . -create "/Users/$USER_NAME" RealName "$REAL_NAME"
   txn_append user "$USER_NAME" realName "$REAL_NAME"
+  log "Setting user home: $HOME_DIR"
   "$DSCL" . -create "/Users/$USER_NAME" NFSHomeDirectory "$HOME_DIR"
   txn_append user "$USER_NAME" home "$HOME_DIR"
+  log "Setting user shell: $SHELL_PATH"
   "$DSCL" . -create "/Users/$USER_NAME" UserShell "$SHELL_PATH"
   txn_append user "$USER_NAME" shell "$SHELL_PATH"
+  log "Hiding user from login UI"
   "$DSCL" . -create "/Users/$USER_NAME" IsHidden 1
   txn_append user "$USER_NAME" hidden 1
-  "$DSCL" . -create "/Users/$USER_NAME" GeneratedUID "$generated_uid"
-  txn_append user "$USER_NAME" generatedUID "$generated_uid"
-  "$DSCL" . -create "/Users/$USER_NAME" AuthenticationAuthority ";DisabledUser;"
-  txn_append user "$USER_NAME" authenticationAuthority ";DisabledUser;"
+  log "Setting disabled password marker"
   "$DSCL" . -create "/Users/$USER_NAME" Password "*"
   txn_append user "$USER_NAME" password "*"
 }
@@ -12897,6 +12893,7 @@ install_dir_track() {
   local mode="$2"
   local existed=1
   [ -e "$path" ] || existed=0
+  log "Creating/verifying custody directory: $path mode=$mode"
   "$INSTALL" -d -o "$USER_NAME" -g "$GROUP_NAME" -m "$mode" "$path"
   if [ "$existed" -eq 0 ]; then
     txn_append path "$path" created "$mode"
@@ -13060,10 +13057,6 @@ FAKE
 #!/usr/bin/env bash
 exit 0
 FAKE
-  cat > "$fakebin/uuidgen" <<'FAKE'
-#!/usr/bin/env bash
-echo 11111111-2222-3333-4444-555555555555
-FAKE
   cat > "$fakebin/rmdir" <<'FAKE'
 #!/usr/bin/env bash
 rmdir "$1"
@@ -13091,7 +13084,6 @@ FAKE
       AGENT_OS_TEST_INSTALL="$fakebin/install" \
       AGENT_OS_TEST_STAT="$fakebin/stat" \
       AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
-      AGENT_OS_TEST_UUIDGEN="$fakebin/uuidgen" \
       OPENCLAW_BIN="$fakebin/openclaw" \
       AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
       AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
@@ -13104,7 +13096,6 @@ FAKE
     AGENT_OS_TEST_INSTALL="$fakebin/install" \
     AGENT_OS_TEST_STAT="$fakebin/stat" \
     AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
-    AGENT_OS_TEST_UUIDGEN="$fakebin/uuidgen" \
     OPENCLAW_BIN="$fakebin/openclaw" \
     AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
     AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
@@ -13208,8 +13199,6 @@ FAKE
   echo "$home_dir" > "$test_root/users/openai-credential-broker/NFSHomeDirectory"
   echo "$SHELL_PATH" > "$test_root/users/openai-credential-broker/UserShell"
   echo 1 > "$test_root/users/openai-credential-broker/IsHidden"
-  echo 11111111-2222-3333-4444-555555555555 > "$test_root/users/openai-credential-broker/GeneratedUID"
-  echo ";DisabledUser;" > "$test_root/users/openai-credential-broker/AuthenticationAuthority"
   echo "*" > "$test_root/users/openai-credential-broker/Password"
   set +e; AGENT_OS_FIXTURE_BROAD_GROUP=1 run_fixture --dry-run; status=$?; set -e
   [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: broad group accepted" >&2; exit 1; }

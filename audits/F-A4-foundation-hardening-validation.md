@@ -511,7 +511,7 @@ Canonical account model:
 - GID allocation range: `740-799`, above the existing Gmail broker groups (`gmailbroker`/`gmailbroker-clients`) and used as an Agent OS allocation range for service-specific broker groups. This is not claimed as a macOS-reserved range.
 - Home: `/Users/openai-credential-broker`, because this broker owns a persistent non-login custody root analogous to the existing `gmailbroker` custody pattern.
 - Shell: `/usr/bin/false`.
-- Login-disabled markers: `Password: *`, `AuthenticationAuthority: ;DisabledUser;`, `IsHidden: 1`, and a generated `GeneratedUID`.
+- Login-disabled markers: `Password: *`, `UserShell: /usr/bin/false`, and `IsHidden: 1`. The live bootstrap attempt on macOS `26.5.2` rejected an explicit `GeneratedUID` write with `eDSPermissionError`; existing Agent OS service-account practice and the F-A4 runbook use fixed local `dscl` service records without requiring explicit `GeneratedUID`.
 - Broad supplementary groups such as `admin`, `wheel`, and `staff` are forbidden.
 - Custody roots are non-secret directories only: home/root/bin `0750`, secrets directory `0700`, all owned by `openai-credential-broker:openai-credential-broker`.
 
