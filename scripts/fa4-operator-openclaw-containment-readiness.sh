@@ -26,12 +26,15 @@ OPENAI_BROKER_GROUP="openai-credential-broker"
 OPENAI_BROKER_RUNTIME_GROUP="openclawgw"
 OPENAI_BROKER_HOME="/Users/openai-credential-broker"
 OPENAI_BROKER_ROOT="$OPENAI_BROKER_HOME/agent-os-openai-credential-broker"
+OPENAI_BROKER_RUNTIME_DIR="$OPENAI_BROKER_ROOT/runtime"
+OPENAI_BROKER_RUNTIME_NODE="$OPENAI_BROKER_RUNTIME_DIR/node"
 OPENAI_BROKER_BIN="$OPENAI_BROKER_ROOT/bin/openai-credential-broker.mjs"
 OPENAI_BROKER_STORE="$OPENAI_BROKER_ROOT/secrets/openai-static-credentials.json"
 OPENAI_BROKER_RUN_DIR="/var/run/agent-os/openai-credential-broker"
 OPENAI_BROKER_SOCKET="$OPENAI_BROKER_RUN_DIR/openai-credential-broker.sock"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
+DEPLOYMENT_MANIFEST="$OUT_DIR/openai-credential-broker-deployment-manifest.json"
 PATCH_FILE="$OUT_DIR/openclaw-containment.patch.json"
 PLAN_FILE="$OUT_DIR/openclaw-secretref-plan.json"
 LOG="$OUT_DIR/readiness.log"
@@ -82,6 +85,98 @@ trap restore_candidate_cleanup EXIT
 
 plan_has_targets() {
   "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"
+}
+
+sha256_file() {
+  shasum -a 256 "$1" | awk '{print $1}'
+}
+
+node_version() {
+  "$1" --version
+}
+
+assert_no_agent_traversal_for_broker() {
+  local broker_can_exec_agent_node broker_can_read_agent_source
+  set +e
+  "$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_GROUP" "$NODE_BIN" X >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [user, group, path, mode] = process.argv.slice(2);
+try { process.initgroups(user, group); } catch {}
+process.setgid(group);
+process.setuid(user);
+try {
+  fs.accessSync(path, mode === "X" ? fs.constants.X_OK : fs.constants.R_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+  broker_can_exec_agent_node=$?
+  "$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_GROUP" "$OPENAI_BROKER_SOURCE" R >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [user, group, path, mode] = process.argv.slice(2);
+try { process.initgroups(user, group); } catch {}
+process.setgid(group);
+process.setuid(user);
+try {
+  fs.accessSync(path, mode === "X" ? fs.constants.X_OK : fs.constants.R_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+  broker_can_read_agent_source=$?
+  set -e
+  if [ "$broker_can_exec_agent_node" -eq 0 ] || [ "$broker_can_read_agent_source" -eq 0 ]; then
+    echo "BROKER ACCESS TO AGENT SOURCE TREE NOT REQUIRED: FAIL"
+    echo "NO-GO: broker identity unexpectedly has access to /Users/agent runtime/source paths."
+    exit 1
+  fi
+  echo "BROKER ACCESS TO AGENT SOURCE TREE NOT REQUIRED: PASS"
+}
+
+write_deployment_manifest() {
+  "$NODE_BIN" --input-type=module - "$DEPLOYMENT_MANIFEST" "$NODE_BIN" "$OPENAI_BROKER_SOURCE" "$OPENAI_BROKER_RUNTIME_NODE" "$OPENAI_BROKER_BIN" "$(node_version "$NODE_BIN")" "$(sha256_file "$NODE_BIN")" "$(sha256_file "$OPENAI_BROKER_SOURCE")" <<'NODE'
+import fs from "node:fs";
+const [manifestPath, sourceNode, sourceBroker, destNode, destBroker, nodeVersion, nodeHash, brokerHash] = process.argv.slice(2);
+const manifest = {
+  version: 1,
+  purpose: "F-A4 OpenAI credential broker staged runtime deployment",
+  node: {
+    strategy: "validated immutable copy of accepted OpenClaw-bundled Node",
+    sourcePath: sourceNode,
+    sourceVersion: nodeVersion,
+    sourceSha256: nodeHash,
+    destinationPath: destNode,
+    destinationOwner: "root",
+    destinationGroup: "openai-credential-broker",
+    destinationMode: "0550",
+  },
+  brokerSource: {
+    sourcePath: sourceBroker,
+    sourceSha256: brokerHash,
+    destinationPath: destBroker,
+    destinationOwner: "root",
+    destinationGroup: "openai-credential-broker",
+    destinationMode: "0550",
+  },
+  directories: [
+    { path: "/Users/openai-credential-broker/agent-os-openai-credential-broker", owner: "root", group: "openai-credential-broker", mode: "0750" },
+    { path: "/Users/openai-credential-broker/agent-os-openai-credential-broker/runtime", owner: "root", group: "openai-credential-broker", mode: "0750" },
+    { path: "/Users/openai-credential-broker/agent-os-openai-credential-broker/bin", owner: "root", group: "openai-credential-broker", mode: "0750" },
+    { path: "/Users/openai-credential-broker/agent-os-openai-credential-broker/secrets", owner: "openai-credential-broker", group: "openai-credential-broker", mode: "0700" }
+  ],
+  socket: {
+    runtimeDirectory: "/var/run/agent-os/openai-credential-broker",
+    owner: "openai-credential-broker",
+    group: "openclawgw",
+    directoryMode: "0750",
+    socketMode: "0660"
+  },
+  upgradeRule: "OpenClaw bundled Node upgrades require explicit readiness validation and controlled replacement; production does not execute from /Users/agent."
+};
+fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
+NODE
 }
 
 capture_metadata "$METADATA_BEFORE"
@@ -142,6 +237,17 @@ if id -Gn "$OPENAI_BROKER_USER" | tr ' ' '\n' | grep -Eq '^(admin|wheel|staff)$'
 fi
 
 echo "BROKER ACCOUNT PRESENT AND CANONICAL: PASS"
+
+[ -x "$NODE_BIN" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: source Node runtime is not executable: $NODE_BIN"; exit 1; }
+[ -r "$OPENAI_BROKER_SOURCE" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: broker source is not root-readable: $OPENAI_BROKER_SOURCE"; exit 1; }
+source_node_version="$(node_version "$NODE_BIN")"
+source_node_hash="$(sha256_file "$NODE_BIN")"
+source_broker_hash="$(sha256_file "$OPENAI_BROKER_SOURCE")"
+echo "Source Node runtime: $NODE_BIN version=$source_node_version sha256=$source_node_hash"
+echo "Broker source: $OPENAI_BROKER_SOURCE sha256=$source_broker_hash"
+write_deployment_manifest
+echo "Deployment manifest: $DEPLOYMENT_MANIFEST"
+assert_no_agent_traversal_for_broker
 
 "$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRETREF_RESOLVER_SOURCE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
@@ -292,15 +398,24 @@ NODE
 echo "SECRETREF PROVIDER SELECTED: exec"
 
 FIXTURE_DIR="$(mktemp -d /private/tmp/fa4-openai-secretref-readiness.XXXXXX)"
+FIXTURE_DEPLOY_ROOT="$FIXTURE_DIR/deploy"
+FIXTURE_RUNTIME_DIR="$FIXTURE_DEPLOY_ROOT/runtime"
+FIXTURE_BIN_DIR="$FIXTURE_DEPLOY_ROOT/bin"
 FIXTURE_RUN_DIR="$FIXTURE_DIR/run"
 FIXTURE_SOCKET="$FIXTURE_RUN_DIR/openai-credential-broker.sock"
 FIXTURE_STORE_DIR="$FIXTURE_DIR/secrets"
 FIXTURE_STORE="$FIXTURE_STORE_DIR/openai-static-credentials.json"
+FIXTURE_NODE="$FIXTURE_RUNTIME_DIR/node"
+FIXTURE_BROKER="$FIXTURE_BIN_DIR/openai-credential-broker.mjs"
 FIXTURE_PLAN="$OUT_DIR/openclaw-secretref-plan.fixture.json"
 chmod 0750 "$FIXTURE_DIR"
-mkdir -p "$FIXTURE_RUN_DIR" "$FIXTURE_STORE_DIR"
+mkdir -p "$FIXTURE_DEPLOY_ROOT" "$FIXTURE_RUNTIME_DIR" "$FIXTURE_BIN_DIR" "$FIXTURE_RUN_DIR" "$FIXTURE_STORE_DIR"
 chown root:wheel "$FIXTURE_DIR"
 chmod 0755 "$FIXTURE_DIR"
+chown root:"$OPENAI_BROKER_GROUP" "$FIXTURE_DEPLOY_ROOT" "$FIXTURE_RUNTIME_DIR" "$FIXTURE_BIN_DIR"
+chmod 0750 "$FIXTURE_DEPLOY_ROOT" "$FIXTURE_RUNTIME_DIR" "$FIXTURE_BIN_DIR"
+install -o root -g "$OPENAI_BROKER_GROUP" -m 0550 "$NODE_BIN" "$FIXTURE_NODE"
+install -o root -g "$OPENAI_BROKER_GROUP" -m 0550 "$OPENAI_BROKER_SOURCE" "$FIXTURE_BROKER"
 chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_RUN_DIR"
 chmod 0750 "$FIXTURE_RUN_DIR"
 chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_GROUP" "$FIXTURE_STORE_DIR"
@@ -313,8 +428,73 @@ cat > "$FIXTURE_STORE" <<'JSON'
 JSON
 chmod 0600 "$FIXTURE_STORE"
 chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_GROUP" "$FIXTURE_STORE"
+fixture_node_hash="$(sha256_file "$FIXTURE_NODE")"
+fixture_broker_hash="$(sha256_file "$FIXTURE_BROKER")"
+[ "$fixture_node_hash" = "$source_node_hash" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: staged Node hash mismatch"; exit 1; }
+[ "$fixture_broker_hash" = "$source_broker_hash" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: staged broker source hash mismatch"; exit 1; }
+echo "Fixture staged Node: $FIXTURE_NODE sha256=$fixture_node_hash"
+echo "Fixture staged broker: $FIXTURE_BROKER sha256=$fixture_broker_hash"
 
-"$NODE_BIN" --input-type=module - "$NODE_BIN" "$OPENAI_BROKER_SOURCE" "$FIXTURE_SOCKET" "$FIXTURE_STORE" "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" > "$OUT_DIR/fixture-broker.stdout" 2> "$OUT_DIR/fixture-broker.stderr" <<'NODE' &
+set +e
+"$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_NODE" --version >/dev/null 2>&1 <<'NODE'
+import { spawnSync } from "node:child_process";
+const [user, group, nodePath, ...args] = process.argv.slice(2);
+try { process.initgroups(user, group); } catch {}
+process.setgid(group);
+process.setuid(user);
+const result = spawnSync(nodePath, args, { shell: false, stdio: "ignore" });
+process.exit(result.status ?? 1);
+NODE
+broker_can_execute_fixture_node=$?
+"$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_BROKER" R >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [user, group, path, mode] = process.argv.slice(2);
+try { process.initgroups(user, group); } catch {}
+process.setgid(group);
+process.setuid(user);
+try {
+  fs.accessSync(path, mode === "W" ? fs.constants.W_OK : fs.constants.R_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+broker_can_read_fixture_broker=$?
+"$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_NODE" W >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [user, group, path, mode] = process.argv.slice(2);
+try { process.initgroups(user, group); } catch {}
+process.setgid(group);
+process.setuid(user);
+try {
+  fs.accessSync(path, mode === "W" ? fs.constants.W_OK : fs.constants.R_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+broker_can_write_fixture_node=$?
+"$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_BROKER" W >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [user, group, path, mode] = process.argv.slice(2);
+try { process.initgroups(user, group); } catch {}
+process.setgid(group);
+process.setuid(user);
+try {
+  fs.accessSync(path, mode === "W" ? fs.constants.W_OK : fs.constants.R_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+broker_can_write_fixture_broker=$?
+set -e
+[ "$broker_can_execute_fixture_node" -eq 0 ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: broker cannot execute staged fixture Node"; exit 1; }
+[ "$broker_can_read_fixture_broker" -eq 0 ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: broker cannot read staged fixture broker source"; exit 1; }
+[ "$broker_can_write_fixture_node" -ne 0 ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: broker can modify staged fixture Node"; exit 1; }
+[ "$broker_can_write_fixture_broker" -ne 0 ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: broker can modify staged fixture broker source"; exit 1; }
+
+"$NODE_BIN" --input-type=module - "$FIXTURE_NODE" "$FIXTURE_BROKER" "$FIXTURE_SOCKET" "$FIXTURE_STORE" "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" > "$OUT_DIR/fixture-broker.stdout" 2> "$OUT_DIR/fixture-broker.stderr" <<'NODE' &
 import { spawn } from "node:child_process";
 const [nodeBin, brokerSource, socketPath, storePath, userName, groupName] = process.argv.slice(2);
 try { process.initgroups(userName, groupName); } catch {}

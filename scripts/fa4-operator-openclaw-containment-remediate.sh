@@ -27,6 +27,8 @@ SECRETREF_RESOLVER_SOURCE="$REPO_ROOT/scripts/fa4-openai-secretref-resolver.mjs"
 OPENAI_BROKER_SOURCE="$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs"
 OPENAI_BROKER_USER="openai-credential-broker"
 OPENAI_BROKER_HOME="/Users/openai-credential-broker/agent-os-openai-credential-broker"
+OPENAI_BROKER_RUNTIME_DIR="$OPENAI_BROKER_HOME/runtime"
+OPENAI_BROKER_RUNTIME_NODE="$OPENAI_BROKER_RUNTIME_DIR/node"
 OPENAI_BROKER_BIN="$OPENAI_BROKER_HOME/bin/openai-credential-broker.mjs"
 OPENAI_BROKER_STORE="$OPENAI_BROKER_HOME/secrets/openai-static-credentials.json"
 OPENAI_BROKER_RUN_DIR="/var/run/agent-os/openai-credential-broker"
@@ -135,6 +137,8 @@ record_runtime_metadata() {
   record_metadata "$stage:openclaw_json" "$CONFIG"
   record_metadata "$stage:secret_file" "$SECRET_FILE"
   record_metadata "$stage:openai_broker_home" "$OPENAI_BROKER_HOME"
+  record_metadata "$stage:openai_broker_runtime_dir" "$OPENAI_BROKER_RUNTIME_DIR"
+  record_metadata "$stage:openai_broker_runtime_node" "$OPENAI_BROKER_RUNTIME_NODE"
   record_metadata "$stage:openai_broker_bin" "$OPENAI_BROKER_BIN"
   record_metadata "$stage:openai_broker_store" "$OPENAI_BROKER_STORE"
   record_metadata "$stage:openai_broker_run_dir" "$OPENAI_BROKER_RUN_DIR"
@@ -156,9 +160,16 @@ install_exec_secretref_runtime() {
   install -d -o root -g wheel -m 0755 /Library/AgentOS
   install -o root -g wheel -m 0555 "$OPENAI_BROKER_RUNDIR_SOURCE" "$OPENAI_BROKER_RUNDIR"
   install -o root -g openclawgw -m 0550 "$SECRETREF_RESOLVER_SOURCE" "$SECRETREF_RESOLVER"
-  install -d -o "$OPENAI_BROKER_USER" -g openclawgw -m 0750 "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_HOME/bin"
+  install -d -o root -g "$OPENAI_BROKER_USER" -m 0750 "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_HOME/bin" "$OPENAI_BROKER_RUNTIME_DIR"
   install -d -o "$OPENAI_BROKER_USER" -g "$OPENAI_BROKER_USER" -m 0700 "$OPENAI_BROKER_HOME/secrets"
-  install -o root -g openclawgw -m 0555 "$OPENAI_BROKER_SOURCE" "$OPENAI_BROKER_BIN"
+  install -o root -g "$OPENAI_BROKER_USER" -m 0550 "$NODE_BIN" "$OPENAI_BROKER_RUNTIME_NODE"
+  install -o root -g "$OPENAI_BROKER_USER" -m 0550 "$OPENAI_BROKER_SOURCE" "$OPENAI_BROKER_BIN"
+  node_hash_source="$(shasum -a 256 "$NODE_BIN" | awk '{print $1}')"
+  node_hash_dest="$(shasum -a 256 "$OPENAI_BROKER_RUNTIME_NODE" | awk '{print $1}')"
+  broker_hash_source="$(shasum -a 256 "$OPENAI_BROKER_SOURCE" | awk '{print $1}')"
+  broker_hash_dest="$(shasum -a 256 "$OPENAI_BROKER_BIN" | awk '{print $1}')"
+  [ "$node_hash_source" = "$node_hash_dest" ] || { echo "ERROR: staged Node runtime hash mismatch" >&2; exit 1; }
+  [ "$broker_hash_source" = "$broker_hash_dest" ] || { echo "ERROR: staged broker source hash mismatch" >&2; exit 1; }
   cat > "$OPENAI_BROKER_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -168,7 +179,7 @@ install_exec_secretref_runtime() {
   <string>ai.agent-os.openai-credential-broker</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$NODE_BIN</string>
+    <string>$OPENAI_BROKER_RUNTIME_NODE</string>
     <string>$OPENAI_BROKER_BIN</string>
   </array>
   <key>UserName</key>
@@ -245,6 +256,8 @@ find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' 
 backup_file "$SECRET_FILE" "agent-os-openai.json.before"
 backup_file "$SECRETREF_RESOLVER" "fa4-openai-secretref-resolver.mjs.before"
 backup_file "$OPENAI_BROKER_STORE" "openai-static-credentials.json.before"
+backup_file "$OPENAI_BROKER_RUNTIME_NODE" "openai-credential-broker-runtime-node.before"
+backup_file "$OPENAI_BROKER_BIN" "openai-credential-broker.mjs.before"
 backup_file "$OPENAI_BROKER_PLIST" "ai.agent-os.openai-credential-broker.plist.before"
 backup_file "$OPENAI_BROKER_RUNDIR" "fa4-openai-credential-broker-rundir.sh.before"
 backup_file "$OPENAI_BROKER_RUNDIR_PLIST" "ai.agent-os.openai-credential-broker-rundir.plist.before"
@@ -303,13 +316,13 @@ if ! grep -Fq "$SECRET_FILE" "$BACKUP_MANIFEST"; then
   log "Removing absent-before SecretRef backing file."
   rm -f "$SECRET_FILE"
 fi
-for absent_path in "$SECRETREF_RESOLVER" "$OPENAI_BROKER_STORE" "$OPENAI_BROKER_BIN" "$OPENAI_BROKER_PLIST" "$OPENAI_BROKER_RUNDIR" "$OPENAI_BROKER_RUNDIR_PLIST" "$OPENAI_BROKER_SOCKET"; do
+for absent_path in "$SECRETREF_RESOLVER" "$OPENAI_BROKER_STORE" "$OPENAI_BROKER_BIN" "$OPENAI_BROKER_RUNTIME_NODE" "$OPENAI_BROKER_PLIST" "$OPENAI_BROKER_RUNDIR" "$OPENAI_BROKER_RUNDIR_PLIST" "$OPENAI_BROKER_SOCKET"; do
   if ! grep -Fq "\$absent_path" "$BACKUP_MANIFEST"; then
     log "Removing absent-before path: \$absent_path"
     rm -f "\$absent_path"
   fi
 done
-for absent_dir in "$OPENAI_BROKER_HOME/secrets" "$OPENAI_BROKER_HOME/bin" "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_RUN_DIR"; do
+for absent_dir in "$OPENAI_BROKER_HOME/secrets" "$OPENAI_BROKER_HOME/bin" "$OPENAI_BROKER_RUNTIME_DIR" "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_RUN_DIR"; do
   if ! awk -F '\t' -v path="\$absent_dir" 'NR > 1 && \$1 ~ /^baseline:/ && \$2 == path && \$3 == "present" { found=1 } END { exit found ? 0 : 1 }' "$METADATA_MANIFEST"; then
     log "Removing absent-before directory if empty: \$absent_dir"
     rmdir "\$absent_dir" 2>/dev/null || true
