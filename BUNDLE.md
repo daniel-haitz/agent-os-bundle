@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-07-15T02:43:44Z · commit: ca7e0ea_
+_Generated: 2026-07-15T02:57:54Z · commit: d2f5b1a_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -264,6 +264,7 @@ Do not reorder this sequence without explicit architecture approval.
 
 ## Recent git log (20)
 ```
+d2f5b1a architecture: reconcile Agent OS with OpenClaw native capabilities
 ca7e0ea governance: wire enforcement and reconcile evidence controls
 bd1fbf3 docs: enforce governance reconciliation and publication controls
 5aaec3e chore: restore wrap-up script executable mode
@@ -283,7 +284,6 @@ a3d31c3 [codex] F-A4.5: record wall proof and Gmail blockers
 929e2e0 docs: patch cutover runbook — rollback ownership integrity, cert preflight, inline foundation proofs
 191b40c docs: assemble F-A4 gateway re-home cutover runbook (draft, operator-by-hand)
 5269c64 docs: patch F-A4 Phase 5 — broker UID gate, broker-read proof, cert check, honest close-out
-b37299d docs: draft F-A4 egress wall artifacts
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -391,9 +391,9 @@ missing files count: 0
 
 ## Governance enforcement
 ```text
-wrap-up.sh commit: ca7e0eaa2b497a71f7fbf030a44978b30fd4d9ca
-bundle-for-claude.sh commit: ca7e0eaa2b497a71f7fbf030a44978b30fd4d9ca
-last validation timestamp: 2026-07-15T02:43:44Z
+wrap-up.sh commit: d2f5b1a5c6014a1ed94b9a92923a9d2bb8501003
+bundle-for-claude.sh commit: d2f5b1a5c6014a1ed94b9a92923a9d2bb8501003
+last validation timestamp: 2026-07-15T02:57:54Z
 ```
 
 ---
@@ -4204,6 +4204,30 @@ The obligation register in `docs/AGENT_OS_OBLIGATION_REGISTER.md` is the canonic
 - OpenAI key plaintext custody remains an F-A4/F-B credential-custody obligation because gateway-readable model-provider credentials are not made safe by documentation or model assignment.
 - Gmail recovery passphrase escrow remains a Gmail recovery-governance backlog obligation. The current approved state is operator-held-only passphrase custody in `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md`; no operational escrow change is authorized by this record.
 
+## OpenClaw Native Capability Reconciliation
+
+Agent OS follows a configure-native-capability-first rule: configure and validate OpenClaw native controls before building custom infrastructure. Custom development is permitted only where native controls do not satisfy Agent OS governance, evidence, or boundary requirements.
+
+| Capability | OpenClaw Native Capability | Agent OS Responsibility |
+|---|---|---|
+| Credential handling | SecretRef, secret audit, redaction | Governance policy, evidence, unsupported browser credential gaps, and broker custody where provider scopes exceed allowed semantics |
+| Tool permissions | Sandbox, filesystem permissions, network controls | Action policy, approval rules, ownership boundaries, and proof that configured controls fail closed |
+| Approval workflows | `elevatedAccess` and confirmation controls | Define consequential-action policy, semantic action registration, expiry, and revalidation rules |
+| Observability | Activity, OTEL spans, native diagnostics | Evidence model, retention, correlation, boundary-owned logs, and governance interpretation |
+| MCP/tool integration | Native MCP capability | Connector governance, approval, complete-mediation checks, and broker-bypass prevention |
+
+Agent OS will not recreate OpenClaw primitives where native capabilities satisfy the control requirement.
+
+Custom development remains limited to:
+
+- governance layer;
+- typed handoffs;
+- evidence model;
+- executive operating logic;
+- gaps not solved by OpenClaw.
+
+OpenClaw SecretRef covers supported credential paths. Browser-mediated credential injection remains separate and blocked until a credential firewall capability or equivalent Agent OS-controlled solution is validated.
+
 ## Resulting roadmap
 
 ### KEEP
@@ -4726,12 +4750,21 @@ The operator must retain a secret-free recovery record containing:
 
 Prevent security-critical obligations from disappearing during document refactoring, compression, or publication changes.
 
-Every obligation is classified as:
+Allowed statuses:
 
+- Open
 - Closed
 - Moved
 - Retired
 - Superseded
+
+Rules:
+
+- Open requires owner, canonical reference, and evidence or tracking location.
+- Closed requires completion evidence.
+- Moved requires a destination canonical reference.
+- Retired requires approval rationale.
+- Superseded requires an ADR or canonical replacement reference.
 
 No silent deletion is allowed.
 
@@ -4739,11 +4772,12 @@ No silent deletion is allowed.
 
 | Obligation | Status | Owner | Canonical Reference | Evidence |
 |---|---|---|---|---|
-| Aquaman source audit + native SecretRef comparison | Moved | Phase 6 secrets governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` records ADOPT-PENDING-VERIFY and source-audit/native-SecretRef comparison requirement. |
-| ClawGuard source review before audit trust | Moved | F-B observability governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` records ADOPT-PENDING-VERIFY before audit integrity reliance. |
-| Browser fill tool-side secret resolution | Moved | Phase 6 secrets governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` and `docs/OPENCLAW_BUILD_PLAN.md` record the browser-fill SecretRef verification gate. |
-| OpenAI key plaintext custody flag | Moved | F-A4 credential custody governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/F-A4_LOCK_2B_0READ_CREDENTIAL_CUSTODY.md` and ADR-013 record gateway-readable credential implications and model-assignment constraints. |
-| Gmail recovery passphrase escrow posture | Moved | Gmail recovery governance | `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md` | Recovery runbook records operator-held-only passphrase custody and explicitly defers operational escrow changes. |
+| Aquaman source audit + native SecretRef comparison | Open | Phase 6 secrets governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — OpenClaw Native Capability Reconciliation | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` records ADOPT-PENDING-VERIFY and source-audit/native-SecretRef comparison requirement. |
+| ClawGuard source review before audit trust | Open | F-B observability governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` records ADOPT-PENDING-VERIFY before audit integrity reliance. |
+| Browser fill tool-side secret resolution | Open | Phase 6 secrets governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — OpenClaw Native Capability Reconciliation | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` and `docs/OPENCLAW_BUILD_PLAN.md` record the browser-fill SecretRef verification gate. |
+| OpenAI key plaintext custody flag | Open | F-A4 credential custody governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/F-A4_LOCK_2B_0READ_CREDENTIAL_CUSTODY.md` and ADR-013 record gateway-readable credential implications and model-assignment constraints. |
+| Gmail recovery passphrase escrow posture | Open | Gmail recovery governance | `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md` | Recovery runbook records operator-held-only passphrase custody and explicitly defers operational escrow changes. |
+| OpenClaw Security and Release Monitoring | Open | Platform maintenance governance | `docs/F-A4_CUTOVER_RUNBOOK.md` — Native OpenClaw Security Baseline Validation | OpenClaw evolves rapidly; Agent OS requires recurring validation of security advisories, runtime upgrades, and breaking changes before qualification or closure claims. |
 ```
 
 ### docs/AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md
@@ -4993,6 +5027,29 @@ Before ANY future phase is built:
 2. Answer the phase's pre-build checklist in the drop's discovery phase.
 3. If the phase introduces a capability the brief doesn't cover, research it first and add a section. No more discovering architecture mid-build.
 
+## Build vs Configure Decision Rule
+
+Before creating custom infrastructure:
+
+1. Confirm whether OpenClaw already provides the native capability.
+2. Configure the native control first.
+3. Validate the configured control against Agent OS requirements.
+4. Build custom capability only when native capability is insufficient.
+
+Do not build duplicate infrastructure for:
+
+- secret vaulting;
+- approval queues;
+- tracing layers;
+- sandbox layers.
+
+Build only where Agent OS adds value beyond native runtime primitives:
+
+- governance;
+- typed agent contracts;
+- evidence/publication controls;
+- executive decision layer.
+
 ---
 
 ## PHASE THEME 1 — More agents / orchestration (researcher, calendar agent, future roster)
@@ -5096,6 +5153,8 @@ MAST taxonomy — "Why Do Multi-Agent LLM Systems Fail?" (Cemri et al., NeurIPS 
 - Every action it can trigger inherits that capability's own confirmation/egress gates — the Command Center doesn't get to be an exception.
 - Cycle check is critical here: a controller that can trigger agents that can trigger the controller is a loop generator.
 
+Command Center may use existing OpenClaw-compatible dashboards or native telemetry. Agent OS custom value is executive prioritization, decision framing, reporting, and the personal operating model. Do not commit to a specific dashboard repository before the native telemetry/control surface is evaluated.
+
 **Pre-build checklist:** Theme-1 checklist + "does any Command Center action bypass an existing trust boundary? (must be no)."
 
 ---
@@ -5174,6 +5233,20 @@ Only the operator (Daniel, via Telegram) issues commands. Nothing observed throu
 It is not enough that untrusted text "shouldn't" be obeyed. The architecture must make it so untrusted content structurally cannot influence which tool fires or with what parameters. This is the difference between "the model usually resists" and "the model cannot."
 
 Both rules are architectural, not prompt-based. A system-prompt instruction to "ignore injected commands" is a weak supplement, never the primary control.
+
+## Native Enforcement Preference
+
+Agent OS uses OpenClaw native enforcement mechanisms where available. Custom security controls exist only where governance requirements exceed runtime capability or OpenClaw does not provide an equivalent control.
+
+Native controls to configure and validate first include:
+
+- SecretRef;
+- sandboxing;
+- `elevatedAccess`;
+- MCP controls;
+- security audit.
+
+SecretRef covers supported credential types. Browser-mediated credential automation remains blocked until a credential firewall capability exists or an equivalent Agent OS-controlled solution is validated.
 
 ---
 
@@ -6540,6 +6613,31 @@ Purpose: record everything needed to restore the old `agent` gateway and origina
 `~/.openclaw` ownership/modes.
 
 Reversible: yes. No live gateway mutation should happen in this section.
+
+## Native OpenClaw Security Baseline Validation
+
+Before F-A4 closure, validate the current OpenClaw native enforcement baseline. Native controls do not replace Agent OS governance; they provide enforcement primitives that must be configured, measured, and reconciled.
+
+Security:
+
+- `openclaw security audit`
+- `openclaw doctor --security`
+
+Secrets:
+
+- `openclaw secrets audit`
+- SecretRef migration where applicable
+
+Runtime:
+
+- current version validation
+- migration/rollback capability
+
+Sandbox:
+
+- sandbox mode
+- filesystem permissions
+- network controls
 
 ### 0.1 Timestamp And Destination
 
@@ -10922,8 +11020,9 @@ for required in "${CRITICAL_PUBLICATION_PATHS[@]}"; do
 done
 
 PUBLISHED_LIST="$(mktemp /tmp/agent-os-published-files-XXXXXX.txt)"
+STALE_CANDIDATES="$(mktemp /tmp/agent-os-stale-published-XXXXXX.txt)"
 DRY_RUN_OUT=""
-trap 'rm -f "$PUBLISHED_LIST" ${DRY_RUN_OUT:-}' EXIT
+trap 'rm -f "$PUBLISHED_LIST" "$STALE_CANDIDATES" ${DRY_RUN_OUT:-}' EXIT
 MISSING_COUNT=0
 
 while IFS= read -r path; do
@@ -11069,8 +11168,8 @@ if [ "$DRY_RUN" = true ]; then
   exit 0
 fi
 
-# 4. Publish manifest-declared files. First migration does not delete older
-# published content; cleanup follows after successful manifest publication.
+# 4. Publish manifest-declared files. Managed publication paths are reconciled to
+# the manifest so stale mirror artifacts do not survive refactors.
 while IFS= read -r file; do
   mkdir -p "$BUNDLE_REPO/$(dirname "$file")"
   cp "$PRIVATE_REPO/$file" "$BUNDLE_REPO/$file"
@@ -11078,6 +11177,14 @@ done < "$PUBLISHED_LIST"
 
 # 5. Commit + push the public bundle.
 cd "$BUNDLE_REPO"
+git ls-files CONTROL.md OPERATING_CONSTITUTION.md docs audits scripts > "$STALE_CANDIDATES" || true
+while IFS= read -r tracked; do
+  [ -z "$tracked" ] && continue
+  if ! grep -Fxq "$tracked" "$PUBLISHED_LIST"; then
+    git rm -q --ignore-unmatch "$tracked"
+  fi
+done < "$STALE_CANDIDATES"
+
 git add "$BUNDLE_FILE"
 while IFS= read -r file; do
   git add "$file"
@@ -11175,12 +11282,20 @@ check_closed_phase_evidence() {
       found && /^- F-A[0-9]/ && $0 !~ "^- " p " " { exit }
       found { print }
     ' CONTROL.md)"
-    printf '%s\n' "$block" | grep -q "Evidence location:" || fail_wrapup "$phase missing evidence location."
-    printf '%s\n' "$block" | grep -q "Validation date:" || fail_wrapup "$phase missing validation date."
-    printf '%s\n' "$block" | grep -q "Runtime baseline:" || fail_wrapup "$phase missing runtime baseline."
-    printf '%s\n' "$block" | grep -q "Status:" || fail_wrapup "$phase missing evidence status."
-    printf '%s\n' "$block" | grep -Eq 'Pending reconstruction|pending reconstruction|historical validation artifacts|OpenClaw|202[0-9]-[0-9]{2}-[0-9]{2}' \
-      || fail_wrapup "$phase evidence block lacks evidence date/baseline or explicit migration state."
+    evidence_line="$(printf '%s\n' "$block" | grep -m1 "Evidence location:" || true)"
+    validation_line="$(printf '%s\n' "$block" | grep -m1 "Validation date:" || true)"
+    baseline_line="$(printf '%s\n' "$block" | grep -m1 "Runtime baseline:" || true)"
+    status_line="$(printf '%s\n' "$block" | grep -m1 "Status:" || true)"
+
+    [ -n "${evidence_line#*: }" ] && [ "$evidence_line" != "${evidence_line#*: }" ] || fail_wrapup "$phase missing evidence location."
+    [ -n "${validation_line#*: }" ] && [ "$validation_line" != "${validation_line#*: }" ] || fail_wrapup "$phase missing validation date."
+    [ -n "${baseline_line#*: }" ] && [ "$baseline_line" != "${baseline_line#*: }" ] || fail_wrapup "$phase missing runtime baseline."
+    [ -n "${status_line#*: }" ] && [ "$status_line" != "${status_line#*: }" ] || fail_wrapup "$phase missing evidence status."
+
+    printf '%s\n' "$validation_line" | grep -Eqi '202[0-9]-[0-9]{2}-[0-9]{2}|pending reconstruction|historical validation artifacts' \
+      || fail_wrapup "$phase validation date lacks date or explicit reconstruction state."
+    printf '%s\n' "$baseline_line" | grep -Eqi 'OpenClaw `?202[0-9]\.[0-9]+\.[0-9]+|pending reconstruction|historical validation artifacts' \
+      || fail_wrapup "$phase runtime baseline lacks OpenClaw version or explicit reconstruction state."
   done
 }
 
@@ -11197,7 +11312,7 @@ check_open_verification_gates() {
     printf '%s\n' "$gates" | grep -q "^- $blocker" || fail_wrapup "active blocker $blocker missing corresponding open verification gate."
   done <<< "$blockers"
 
-  if grep -q '| .* | \(Moved\|Retired\|Superseded\) |' docs/AGENT_OS_OBLIGATION_REGISTER.md; then
+  if grep -q '| .* | \(Open\|Moved\|Retired\|Superseded\) |' docs/AGENT_OS_OBLIGATION_REGISTER.md; then
     printf '%s\n' "$gates" | grep -qi 'obligation' || fail_wrapup "unresolved obligations exist but Open verification gates does not reference obligations."
   fi
 
@@ -11225,7 +11340,7 @@ check_obligation_register() {
         print "empty obligation"
         bad=1
       }
-      if (status !~ /^(Closed|Moved|Retired|Superseded)$/) {
+      if (status !~ /^(Open|Closed|Moved|Retired|Superseded)$/) {
         print "invalid obligation status: " status
         bad=1
       }

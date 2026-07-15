@@ -53,6 +53,31 @@ Purpose: record everything needed to restore the old `agent` gateway and origina
 
 Reversible: yes. No live gateway mutation should happen in this section.
 
+## Native OpenClaw Security Baseline Validation
+
+Before F-A4 closure, validate the current OpenClaw native enforcement baseline. Native controls do not replace Agent OS governance; they provide enforcement primitives that must be configured, measured, and reconciled.
+
+Security:
+
+- `openclaw security audit`
+- `openclaw doctor --security`
+
+Secrets:
+
+- `openclaw secrets audit`
+- SecretRef migration where applicable
+
+Runtime:
+
+- current version validation
+- migration/rollback capability
+
+Sandbox:
+
+- sandbox mode
+- filesystem permissions
+- network controls
+
 ### 0.1 Timestamp And Destination
 
 OPERATOR-BY-HAND as `dannybigdeals`:

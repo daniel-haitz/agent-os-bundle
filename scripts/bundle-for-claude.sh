@@ -96,8 +96,9 @@ for required in "${CRITICAL_PUBLICATION_PATHS[@]}"; do
 done
 
 PUBLISHED_LIST="$(mktemp /tmp/agent-os-published-files-XXXXXX.txt)"
+STALE_CANDIDATES="$(mktemp /tmp/agent-os-stale-published-XXXXXX.txt)"
 DRY_RUN_OUT=""
-trap 'rm -f "$PUBLISHED_LIST" ${DRY_RUN_OUT:-}' EXIT
+trap 'rm -f "$PUBLISHED_LIST" "$STALE_CANDIDATES" ${DRY_RUN_OUT:-}' EXIT
 MISSING_COUNT=0
 
 while IFS= read -r path; do
@@ -243,8 +244,8 @@ if [ "$DRY_RUN" = true ]; then
   exit 0
 fi
 
-# 4. Publish manifest-declared files. First migration does not delete older
-# published content; cleanup follows after successful manifest publication.
+# 4. Publish manifest-declared files. Managed publication paths are reconciled to
+# the manifest so stale mirror artifacts do not survive refactors.
 while IFS= read -r file; do
   mkdir -p "$BUNDLE_REPO/$(dirname "$file")"
   cp "$PRIVATE_REPO/$file" "$BUNDLE_REPO/$file"
@@ -252,6 +253,14 @@ done < "$PUBLISHED_LIST"
 
 # 5. Commit + push the public bundle.
 cd "$BUNDLE_REPO"
+git ls-files CONTROL.md OPERATING_CONSTITUTION.md docs audits scripts > "$STALE_CANDIDATES" || true
+while IFS= read -r tracked; do
+  [ -z "$tracked" ] && continue
+  if ! grep -Fxq "$tracked" "$PUBLISHED_LIST"; then
+    git rm -q --ignore-unmatch "$tracked"
+  fi
+done < "$STALE_CANDIDATES"
+
 git add "$BUNDLE_FILE"
 while IFS= read -r file; do
   git add "$file"

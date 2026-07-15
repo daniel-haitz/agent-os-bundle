@@ -71,12 +71,20 @@ check_closed_phase_evidence() {
       found && /^- F-A[0-9]/ && $0 !~ "^- " p " " { exit }
       found { print }
     ' CONTROL.md)"
-    printf '%s\n' "$block" | grep -q "Evidence location:" || fail_wrapup "$phase missing evidence location."
-    printf '%s\n' "$block" | grep -q "Validation date:" || fail_wrapup "$phase missing validation date."
-    printf '%s\n' "$block" | grep -q "Runtime baseline:" || fail_wrapup "$phase missing runtime baseline."
-    printf '%s\n' "$block" | grep -q "Status:" || fail_wrapup "$phase missing evidence status."
-    printf '%s\n' "$block" | grep -Eq 'Pending reconstruction|pending reconstruction|historical validation artifacts|OpenClaw|202[0-9]-[0-9]{2}-[0-9]{2}' \
-      || fail_wrapup "$phase evidence block lacks evidence date/baseline or explicit migration state."
+    evidence_line="$(printf '%s\n' "$block" | grep -m1 "Evidence location:" || true)"
+    validation_line="$(printf '%s\n' "$block" | grep -m1 "Validation date:" || true)"
+    baseline_line="$(printf '%s\n' "$block" | grep -m1 "Runtime baseline:" || true)"
+    status_line="$(printf '%s\n' "$block" | grep -m1 "Status:" || true)"
+
+    [ -n "${evidence_line#*: }" ] && [ "$evidence_line" != "${evidence_line#*: }" ] || fail_wrapup "$phase missing evidence location."
+    [ -n "${validation_line#*: }" ] && [ "$validation_line" != "${validation_line#*: }" ] || fail_wrapup "$phase missing validation date."
+    [ -n "${baseline_line#*: }" ] && [ "$baseline_line" != "${baseline_line#*: }" ] || fail_wrapup "$phase missing runtime baseline."
+    [ -n "${status_line#*: }" ] && [ "$status_line" != "${status_line#*: }" ] || fail_wrapup "$phase missing evidence status."
+
+    printf '%s\n' "$validation_line" | grep -Eqi '202[0-9]-[0-9]{2}-[0-9]{2}|pending reconstruction|historical validation artifacts' \
+      || fail_wrapup "$phase validation date lacks date or explicit reconstruction state."
+    printf '%s\n' "$baseline_line" | grep -Eqi 'OpenClaw `?202[0-9]\.[0-9]+\.[0-9]+|pending reconstruction|historical validation artifacts' \
+      || fail_wrapup "$phase runtime baseline lacks OpenClaw version or explicit reconstruction state."
   done
 }
 
@@ -93,7 +101,7 @@ check_open_verification_gates() {
     printf '%s\n' "$gates" | grep -q "^- $blocker" || fail_wrapup "active blocker $blocker missing corresponding open verification gate."
   done <<< "$blockers"
 
-  if grep -q '| .* | \(Moved\|Retired\|Superseded\) |' docs/AGENT_OS_OBLIGATION_REGISTER.md; then
+  if grep -q '| .* | \(Open\|Moved\|Retired\|Superseded\) |' docs/AGENT_OS_OBLIGATION_REGISTER.md; then
     printf '%s\n' "$gates" | grep -qi 'obligation' || fail_wrapup "unresolved obligations exist but Open verification gates does not reference obligations."
   fi
 
@@ -121,7 +129,7 @@ check_obligation_register() {
         print "empty obligation"
         bad=1
       }
-      if (status !~ /^(Closed|Moved|Retired|Superseded)$/) {
+      if (status !~ /^(Open|Closed|Moved|Retired|Superseded)$/) {
         print "invalid obligation status: " status
         bad=1
       }

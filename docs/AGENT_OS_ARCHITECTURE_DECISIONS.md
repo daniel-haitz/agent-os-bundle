@@ -480,6 +480,30 @@ The obligation register in `docs/AGENT_OS_OBLIGATION_REGISTER.md` is the canonic
 - OpenAI key plaintext custody remains an F-A4/F-B credential-custody obligation because gateway-readable model-provider credentials are not made safe by documentation or model assignment.
 - Gmail recovery passphrase escrow remains a Gmail recovery-governance backlog obligation. The current approved state is operator-held-only passphrase custody in `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md`; no operational escrow change is authorized by this record.
 
+## OpenClaw Native Capability Reconciliation
+
+Agent OS follows a configure-native-capability-first rule: configure and validate OpenClaw native controls before building custom infrastructure. Custom development is permitted only where native controls do not satisfy Agent OS governance, evidence, or boundary requirements.
+
+| Capability | OpenClaw Native Capability | Agent OS Responsibility |
+|---|---|---|
+| Credential handling | SecretRef, secret audit, redaction | Governance policy, evidence, unsupported browser credential gaps, and broker custody where provider scopes exceed allowed semantics |
+| Tool permissions | Sandbox, filesystem permissions, network controls | Action policy, approval rules, ownership boundaries, and proof that configured controls fail closed |
+| Approval workflows | `elevatedAccess` and confirmation controls | Define consequential-action policy, semantic action registration, expiry, and revalidation rules |
+| Observability | Activity, OTEL spans, native diagnostics | Evidence model, retention, correlation, boundary-owned logs, and governance interpretation |
+| MCP/tool integration | Native MCP capability | Connector governance, approval, complete-mediation checks, and broker-bypass prevention |
+
+Agent OS will not recreate OpenClaw primitives where native capabilities satisfy the control requirement.
+
+Custom development remains limited to:
+
+- governance layer;
+- typed handoffs;
+- evidence model;
+- executive operating logic;
+- gaps not solved by OpenClaw.
+
+OpenClaw SecretRef covers supported credential paths. Browser-mediated credential injection remains separate and blocked until a credential firewall capability or equivalent Agent OS-controlled solution is validated.
+
 ## Resulting roadmap
 
 ### KEEP

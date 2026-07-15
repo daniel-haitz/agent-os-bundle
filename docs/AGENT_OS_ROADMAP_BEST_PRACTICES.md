@@ -13,6 +13,29 @@ Before ANY future phase is built:
 2. Answer the phase's pre-build checklist in the drop's discovery phase.
 3. If the phase introduces a capability the brief doesn't cover, research it first and add a section. No more discovering architecture mid-build.
 
+## Build vs Configure Decision Rule
+
+Before creating custom infrastructure:
+
+1. Confirm whether OpenClaw already provides the native capability.
+2. Configure the native control first.
+3. Validate the configured control against Agent OS requirements.
+4. Build custom capability only when native capability is insufficient.
+
+Do not build duplicate infrastructure for:
+
+- secret vaulting;
+- approval queues;
+- tracing layers;
+- sandbox layers.
+
+Build only where Agent OS adds value beyond native runtime primitives:
+
+- governance;
+- typed agent contracts;
+- evidence/publication controls;
+- executive decision layer.
+
 ---
 
 ## PHASE THEME 1 — More agents / orchestration (researcher, calendar agent, future roster)
@@ -115,6 +138,8 @@ MAST taxonomy — "Why Do Multi-Agent LLM Systems Fail?" (Cemri et al., NeurIPS 
 - It must not become a path that bypasses per-capability trust boundaries (e.g. a Command Center "send" button that skips the draft-only discipline).
 - Every action it can trigger inherits that capability's own confirmation/egress gates — the Command Center doesn't get to be an exception.
 - Cycle check is critical here: a controller that can trigger agents that can trigger the controller is a loop generator.
+
+Command Center may use existing OpenClaw-compatible dashboards or native telemetry. Agent OS custom value is executive prioritization, decision framing, reporting, and the personal operating model. Do not commit to a specific dashboard repository before the native telemetry/control surface is evaluated.
 
 **Pre-build checklist:** Theme-1 checklist + "does any Command Center action bypass an existing trust boundary? (must be no)."
 

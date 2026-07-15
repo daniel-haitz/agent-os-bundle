@@ -28,6 +28,20 @@ It is not enough that untrusted text "shouldn't" be obeyed. The architecture mus
 
 Both rules are architectural, not prompt-based. A system-prompt instruction to "ignore injected commands" is a weak supplement, never the primary control.
 
+## Native Enforcement Preference
+
+Agent OS uses OpenClaw native enforcement mechanisms where available. Custom security controls exist only where governance requirements exceed runtime capability or OpenClaw does not provide an equivalent control.
+
+Native controls to configure and validate first include:
+
+- SecretRef;
+- sandboxing;
+- `elevatedAccess`;
+- MCP controls;
+- security audit.
+
+SecretRef covers supported credential types. Browser-mediated credential automation remains blocked until a credential firewall capability exists or an equivalent Agent OS-controlled solution is validated.
+
 ---
 
 ## 2. The six design patterns (the toolbox)
