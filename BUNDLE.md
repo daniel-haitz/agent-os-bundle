@@ -1,10 +1,86 @@
-# AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-07-15T13:22:01Z · commit: c09e866_
+# AGENT OS — EXTERNAL AGENT ONBOARDING BUNDLE
 
-This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
+This is a sanitized snapshot for external AI-agent onboarding and review. Secrets are excluded by .gitignore + scan.
 
 ---
-## CONTROL.md (current state)
+## Bundle Identity
+```text
+private source repository commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+private source repository branch: main
+generated timestamp: 2026-07-15T17:30:21Z
+publication manifest governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+bundle-for-claude.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+public bundle repository commit: <not embedded before publication commit exists>
+```
+
+## External Agent Onboarding Protocol
+```markdown
+# Agent OS External Agent Onboarding Protocol
+
+## Audience
+
+This protocol is for a fresh external AI agent that receives only the public raw Agent OS bundle URL.
+
+The bundle is the agent's input context. Do not rely on prior chat memory, operator summaries, or inferred state.
+
+## Authority Hierarchy
+
+Use this order when sources conflict:
+
+1. Live runtime evidence for observed facts, when actually available to the agent.
+2. `CONTROL.md` for accepted current state, phase status, blockers, and approved next action.
+3. `OPERATING_CONSTITUTION.md` and `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md` for conduct and change discipline.
+4. `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` and other canonical architecture documents for settled design.
+5. Historical status, handoff, runbook, and audit documents as context only unless `CONTROL.md` reactivates them.
+
+A web-only external agent has no live runtime authority unless live evidence is separately supplied in the bundle or prompt. Documentation records validated reality; it is not runtime proof.
+
+## Mandatory Reading Order
+
+1. This onboarding protocol.
+2. `CONTROL.md`.
+3. `OPERATING_CONSTITUTION.md`.
+4. `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md`.
+5. `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md`.
+6. Evidence and runbooks referenced by `CONTROL.md` for the current phase.
+
+## Required First Response
+
+Before proposing or executing work, report:
+
+1. governing rules;
+2. documented runtime baseline, clearly distinguished from live verification;
+3. current phase;
+4. completed phases and evidence limits;
+5. active blockers;
+6. approved next bounded action;
+7. conflicts, stale references, and evidence gaps.
+
+## Prohibitions
+
+Do not:
+
+- execute commands or request runtime changes;
+- redesign architecture;
+- reopen settled decisions without new runtime evidence;
+- treat documentation as runtime proof;
+- claim closure from partial evidence;
+- trust prior chat memory over canonical bundle material;
+- treat historical handoff or status documents as current instructions when they conflict with `CONTROL.md`.
+
+## Stop Conditions
+
+Stop and report the conflict or evidence gap if:
+
+- `CONTROL.md` and another document disagree about current phase, blockers, or next action;
+- a required canonical document is missing from the bundle;
+- evidence is historical, provisional, or pending reconstruction and a closure claim depends on it;
+- a requested action exceeds the approved scope in `CONTROL.md`;
+- live runtime state is required but not available to the external agent.
+```
+
+## CONTROL.md — Canonical Current State
 ```markdown
 # CONTROL.md — Agent OS Current Control State
 
@@ -14,6 +90,12 @@ Every human or AI operator must read these mandatory control documents before ac
 
 - `OPERATING_CONSTITUTION.md`
 - `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md`
+
+## External-agent onboarding gate
+
+A fresh external AI agent receiving only the public raw bundle URL must first follow `docs/AGENT_ONBOARDING_PROTOCOL.md`.
+
+That protocol does not create a second current-state authority. `CONTROL.md` remains authoritative for accepted current state, phase status, blockers, and approved next action.
 
 Live runtime evidence is authoritative for observed facts. `CONTROL.md` records the accepted current state, phase status, blockers, next actions, and verification gates.
 
@@ -54,6 +136,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
   - `scripts/fa4-operator-egress-proxy-repair.sh`
   - `scripts/fa4-operator-readonly-validation.sh`
 - 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
+- The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.
@@ -282,469 +365,7 @@ Do not reorder this sequence without explicit architecture approval.
 - Documentation is reconciled before commit.
 ```
 
-## Recent git log (20)
-```
-c09e866 governance: harden F-A4 operator validation pattern
-3c65ffc validation: prepare F-A4 remediation and operator validation path
-3daa583 validation: complete F-A4 foundation hardening evidence
-d2f5b1a architecture: reconcile Agent OS with OpenClaw native capabilities
-ca7e0ea governance: wire enforcement and reconcile evidence controls
-bd1fbf3 docs: enforce governance reconciliation and publication controls
-5aaec3e chore: restore wrap-up script executable mode
-917cf68 docs: establish change control and reconcile agent baseline
-c52ef32 docs: refine agent governance boundaries and F-C scope
-36bb173 docs: reconcile architecture decisions and operational controls
-351d51a docs: add Agent OS operating constitution
-69cab30 docs: reconcile Gmail broker and containment state
-e39d896 [claude-code] Gmail re-auth DONE (token was dead, re-authed Gmail-scoped, verified live mail); keyring-backend gotcha documented; confined-reader allowlist drift root-caused (real fix next session)
-57f7656 [claude-code] F-A4: proxy proven innocent + integrates clean; Gmail root cause = missing refresh token (re-auth needed); Lloyd direct-Gmail bypass found; socket-dir race open
-49e8801 [codex] F-A4.5: record proxy relock trap
-fd5ccba [codex] F-A4.5: correct Gmail broker root cause
-a3d31c3 [codex] F-A4.5: record wall proof and Gmail blockers
-1f16a5c [codex] F-A4: record Phase 5 half-1 state
-0b973f6 [codex] publish: print bundle freshness reference
-551aa14 [codex] F-A4: record recovery state in CONTROL
-```
-
-## Repo tree (no node_modules / .secrets / state)
-```
-.gitignore
-00_START_HERE.md
-00_TEARDOWN.md
-01_PICK_UP_WORK.md
-BUILD_STATE.md
-CLAUDE.md
-CONTROL.md
-HANDOFF_BRIEF.md
-ITERATION_LOG.md
-OPERATING_CONSTITUTION.md
-README.md
-SETUP.md
-WORKER_PROTOCOL.md
-audits/2026-06-12-gmail-connector-discovery.md
-audits/2026-06-12-hooks-mechanism-audit.md
-audits/2026-06-12-killswitch-test.md
-audits/2026-06-12-panic-button-test.md
-audits/2026-06-12-pre-phase1-audit.md
-audits/2026-06-12-sandbox-killswitch-discovery.md
-audits/F-A0-platform-hardening-audit.md
-audits/F-A1-negative-test-results.md
-audits/F-A4-foundation-hardening-validation.md
-docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md
-docs/AGENT_OS_ARCHITECTURE_DECISIONS.md
-docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md
-docs/AGENT_OS_END_STATE_ARCHITECTURE.md
-docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md
-docs/AGENT_OS_OBLIGATION_REGISTER.md
-docs/AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md
-docs/AGENT_OS_ROADMAP_BEST_PRACTICES.md
-docs/AGENT_OS_SECURITY_DESIGN_STANDARD.md
-docs/CANONICAL_PUBLICATION_MANIFEST.md
-docs/F-A1_DEPLOY_LIST.md
-docs/F-A1_GMAIL_BROKER_DESIGN.md
-docs/F-A1_GMAIL_BROKER_DESIGN_ADDENDUM.md
-docs/F-A2_PROOF_RUNBOOK.md
-docs/F-A4_CUTOVER_RUNBOOK.md
-docs/F-A4_LOCK_2A_OWNERSHIP_MAP.md
-docs/F-A4_LOCK_2A_VERIFY_EGRESS_LOCK.md
-docs/F-A4_LOCK_2B_0READ_CREDENTIAL_CUSTODY.md
-docs/F-A4_LOCK_2B_LAUNCHDAEMON_PLIST_DRAFT.md
-docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md
-docs/F-B_OBSERVABILITY_DESIGN.md
-docs/OPENCLAW_BUILD_PLAN.md
-docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
-docs/OPENCLAW_DEEP_DIVE_CONFIG.md
-docs/OPENCLAW_ECOSYSTEM_AND_COVERAGE.md
-docs/OPENCLAW_FIELD_NOTES.md
-docs/OPENCLAW_RESEARCH_ADDENDUM.md
-docs/PHASE_2_EMAIL_ASSISTANT.md
-docs/PRIOR_BUILD_LEARNINGS.md
-doctrine/COMMUNICATION_STANDARD.md
-doctrine/SESSION_CLOSE_PROTOCOL.md
-drafts/fa4-phase5/agent-os-egress-proxy.mjs
-drafts/fa4-phase5/agent-os-egress.anchor
-drafts/fa4-phase5/ai.agent-os-egress-pf.plist
-drafts/fa4-phase5/ai.agent-os-egress-proxy.plist
-drafts/fa4-phase5/allowlist.txt
-drafts/fa4-phase5/pf.conf.fragment
-drafts/fa4-phase5/phase5-proof-commands.sh
-scripts/bundle-for-claude.sh
-scripts/end-session.sh
-scripts/fa4-operator-egress-proxy-repair.sh
-scripts/fa4-operator-readonly-validation.sh
-scripts/observability/q1-silent-failures.mjs
-scripts/observability/q2-orphan-correlations.mjs
-scripts/observability/q3-unclosed-runs.mjs
-scripts/observability/q4-egress-denials.mjs
-scripts/observability/q5-out-of-band-drafts.mjs
-scripts/secret-scan.sh
-scripts/start-session.sh
-scripts/start.sh
-scripts/wrap-up.sh
-src/gmail-broker/f-a1-test-suite.mjs
-src/gmail-broker/gmail-broker.mjs
-templates/COMMIT_FORMAT.md
-templates/DROP_FORMAT.md
-```
-
-## Tests status (last run, if recorded)
-```
-(no TEST_STATUS.txt — run tests and record)
-```
-
-## Open verification gates
-## Open verification gates
-
-- B1 direct Gmail connector bypass: active blocker `B1`; required Gmail complete-mediation gate.
-- B2 permanent proxy and pf integration: active blocker `B2`; required F-A4 containment gate.
-- B3 DNS, IPv6, and alternate-transport coverage: active blocker `B3`; required F-A4 containment gate.
-- B4 OpenClaw 2026.7.1 qualification: active blocker `B4`; required OpenClaw qualification gate after F-A4 transport reconciliation.
-- B5 foundation evidence and durable evidence substrate: active blocker `B5`; required F-B/F-C gates and phase evidence index.
-- B6 native validation and runtime-identity regression gaps: active blocker `B6`; required F-A4 foundation validation path.
-- Obligation register: unresolved obligations in `docs/AGENT_OS_OBLIGATION_REGISTER.md` must remain classified, owned, referenced, and evidenced.
-- Runtime validation: OpenClaw `2026.6.11 (e085fa1)` bounded regression for F-A1/F-A2/F-A3 must be completed and evidence recorded before F-A4 closure.
-
-## Phase status
-
-## Publication validation
-```text
-manifest commit: 3c65ffc0d9044516774b9b61b0b1b08796c0a6c5
-published files: 44
-missing files count: 0
-```
-
-## Governance enforcement
-```text
-wrap-up.sh commit: d2f5b1a5c6014a1ed94b9a92923a9d2bb8501003
-bundle-for-claude.sh commit: 3c65ffc0d9044516774b9b61b0b1b08796c0a6c5
-last validation timestamp: 2026-07-15T13:22:01Z
-```
-
----
-## Canonical publication manifest
-```markdown
-# Canonical Publication Manifest
-
-## Purpose
-
-Define the exact canonical files and evidence paths published into the sanitized Claude review bundle.
-
-## Published Root Files
-
-- `CONTROL.md`
-- `OPERATING_CONSTITUTION.md`
-
-## Published Docs
-
-- `docs/`
-
-This includes the manifest itself, architecture decisions, change-control standard, recovery runbooks, F-A1/F-A2/F-A4 runbooks, platform/security standards, ADRs, and historical canonical planning artifacts that are already part of the public review substrate.
-
-## Published Evidence
-
-- `audits/`
-
-## Published Governance Scripts
-
-- `scripts/wrap-up.sh`
-- `scripts/bundle-for-claude.sh`
-- `scripts/fa4-operator-readonly-validation.sh`
-- `scripts/fa4-operator-egress-proxy-repair.sh`
-
-## Machine-Readable Published Paths
-
-```text
-CONTROL.md
-OPERATING_CONSTITUTION.md
-docs/
-audits/
-scripts/wrap-up.sh
-scripts/bundle-for-claude.sh
-scripts/fa4-operator-readonly-validation.sh
-scripts/fa4-operator-egress-proxy-repair.sh
-```
-```
-
-## Canonical published files
-
-### CONTROL.md
-```markdown
-# CONTROL.md — Agent OS Current Control State
-
-## Mandatory operator gate
-
-Every human or AI operator must read these mandatory control documents before acting:
-
-- `OPERATING_CONSTITUTION.md`
-- `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md`
-
-Live runtime evidence is authoritative for observed facts. `CONTROL.md` records the accepted current state, phase status, blockers, next actions, and verification gates.
-
-No document, including `CONTROL.md`, can create authority that does not exist in live enforcement boundaries.
-
-Durable architecture decisions and technical requirements are recorded in `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md`.
-Security obligations that must not disappear during refactoring are tracked in `docs/AGENT_OS_OBLIGATION_REGISTER.md`.
-
-If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation and reconcile them before proceeding.
-
-## Current state
-
-- Documentation baseline before this reconciliation: `351d51afe6ac83afbde7b7a1977d6bd54a0c0c5a`.
-- Installed OpenClaw version last verified on 2026-07-14 by live runtime evidence: `OpenClaw 2026.6.11 (e085fa1)`.
-- This is the current runtime baseline reconciliation. Runtime changes require reconciliation according to the Change Control Standard.
-- OpenClaw `2026.7.1` is not installed or qualified.
-- Gateway runs under dedicated OS user `openclawgw` through root LaunchDaemon `ai.openclaw.gateway`.
-- Root-owned OpenClaw configuration and approval controls remain part of the F-A4 tamper boundary.
-- Current safe network baseline:
-  - Gateway running.
-  - Managed proxy block removed.
-  - pf containment not active.
-- Managed proxy and pf integration were previously proven but have not completed permanent acceptance, persistence, and reboot validation.
-- Gmail broker foundation is operational:
-  - Broker runs as `gmailbroker`.
-  - Gmail credentials remain in broker custody.
-  - `/var/run/agent-os` is `gmailbroker:gmailbroker-clients 0750`.
-  - Gmail broker socket is `gmailbroker:gmailbroker-clients 0660`.
-  - Broker `health_check` and `search_threads` succeed.
-  - Approved broker client path is `/Users/agent/.openclaw/scripts/gmail-broker-client.mjs`.
-  - Direct main broker execution requires per-run approval, and denial blocks execution.
-- Gmail credential recovery is governed by `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md`. Any restoration must return credentials to broker custody only. Restoring agent-readable credentials reopens the Gmail security boundary and requires architecture review.
-- Broker-only Gmail mediation is not proven. A synchronized Codex Apps Gmail connector remains a confirmed bypass risk outside the broker.
-- The approved Gmail broker path is draft-only/no-send proven. System-wide no-send is not proven while external connector surfaces remain.
-- Current model assignment evidence is recorded in ADR-013: `gmail-reader` uses `ollama/qwen3-coder:30b`; `email-researcher` uses `openai/gpt-5.5`.
-- F-A4 foundation hardening validation evidence is recorded in `audits/F-A4-foundation-hardening-validation.md`. F-A4 is not closed.
-- The selected F-A4 remediation path is operator-owned repair and validation without weakening the root-owned OpenClaw tamper lock:
-  - `scripts/fa4-operator-egress-proxy-repair.sh`
-  - `scripts/fa4-operator-readonly-validation.sh`
-- 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
-- F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
-  - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
-  - Validation date: original validation date pending reconstruction from historical validation artifacts.
-  - Runtime baseline: OpenClaw `2026.6.5`.
-  - Status: Historical evidence; pending bounded regression on `2026.6.11 (e085fa1)` before F-A4 closure.
-- Sensitive-data, autonomous-memory, Command Center mutation, and consequential-action expansion remain on hold.
-
-## Phase evidence index
-
-- F-A0 Platform hardening audit:
-  - Evidence location: `audits/F-A0-platform-hardening-audit.md`
-  - Validation date: 2026-06-16 remediation re-audit, with historical baseline evidence from 2026-06-12
-  - Runtime baseline: OpenClaw `2026.6.5 (5181e4f)` for original evidence; current reconciled runtime baseline is `2026.6.11 (e085fa1)` and requires bounded regression before F-A4 closure.
-  - Status: Historical evidence remains accepted for its original boundary; bounded regression is required on `2026.6.11 (e085fa1)` before F-A4 closure.
-- F-A1 Gmail capability broker:
-  - Evidence location: `audits/F-A1-negative-test-results.md`, `docs/F-A1_GMAIL_BROKER_DESIGN.md`, `docs/F-A1_DEPLOY_LIST.md`
-  - Validation date: 2026-06-16 broker exit gate; socket hardening revalidated 2026-07-14
-  - Runtime baseline: original broker gate on prior OpenClaw baseline; live broker/socket/client path reconciled on OpenClaw `2026.6.11 (e085fa1)`.
-  - Status: Broker exit gate closed; exclusive Gmail routing remains an F-A4 gate.
-  - F-A1 validation: 25/25 broker exit-gate tests passed in `audits/F-A1-negative-test-results.md` on 2026-06-16; original runtime baseline predates `2026.6.11`, with socket/client-path reconciliation recorded on 2026-07-14.
-- F-A2 Reader credential containment:
-  - Evidence location: `docs/F-A2_PROOF_RUNBOOK.md`, `docs/F-A4_CUTOVER_RUNBOOK.md` F.2 gate
-  - Validation date: evidence linkage pending reconstruction from historical validation artifacts.
-  - Runtime baseline: evidence linkage pending reconstruction from historical validation artifacts; current runtime baseline is OpenClaw `2026.6.11 (e085fa1)`.
-  - Status: Provisional pending evidence reconstruction; do not treat F-A2 as newly validated on `2026.6.11` until bounded regression evidence is recorded.
-- F-A3 Typed handoff:
-  - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
-  - Validation date: original validation date pending reconstruction from historical validation artifacts.
-  - Runtime baseline: OpenClaw `2026.6.5`.
-  - Status: Historical evidence; pending bounded regression on `2026.6.11 (e085fa1)` before F-A4 closure.
-
-## Open verification gates
-
-- B1 direct Gmail connector bypass: active blocker `B1`; required Gmail complete-mediation gate.
-- B2 permanent proxy and pf integration: active blocker `B2`; required F-A4 containment gate.
-- B3 DNS, IPv6, and alternate-transport coverage: active blocker `B3`; required F-A4 containment gate.
-- B4 OpenClaw 2026.7.1 qualification: active blocker `B4`; required OpenClaw qualification gate after F-A4 transport reconciliation.
-- B5 foundation evidence and durable evidence substrate: active blocker `B5`; required F-B/F-C gates and phase evidence index.
-- B6 native validation and runtime-identity regression gaps: active blocker `B6`; required F-A4 foundation validation path.
-- Obligation register: unresolved obligations in `docs/AGENT_OS_OBLIGATION_REGISTER.md` must remain classified, owned, referenced, and evidenced.
-- Runtime validation: OpenClaw `2026.6.11 (e085fa1)` bounded regression for F-A1/F-A2/F-A3 must be completed and evidence recorded before F-A4 closure.
-
-## Phase status
-
-Completed phases remain closed unless new evidence invalidates prior exit criteria. Discovery of adjacent risks creates a new blocker or change proposal; it does not automatically reopen completed work.
-
-Research findings do not automatically authorize implementation changes.
-
-Research produces proposals. Implementation changes require explicit approval, scoped execution, validation, and documentation reconciliation.
-
-| Phase | Status | Current meaning |
-|---|---|---|
-| F-A0 Platform hardening audit | CLOSED | Baseline platform hardening exit criteria passed. Revalidation is required after relevant upgrades or boundary changes. |
-| F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
-| F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
-| F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — REMEDIATION PACKAGE PREPARED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. Operator-owned egress proxy repair and read-only validation scripts are prepared, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open until operator execution records evidence. |
-| OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
-| F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
-| F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
-| F-D Generalized dispatch/confirm split | PENDING | Must inherit completed F-A, F-B, and F-C enforcement. |
-| Memory autonomy | HOLD | Autonomous promotion is prohibited until the memory-governance gate passes. |
-| Capability expansion and Command Center | HOLD | No expansion until applicable foundation gates pass. |
-| Financial, administrative, and sensitive workflows | HOLD — LAST | Require additional domain-specific action, approval, recovery, and evidence gates. |
-
-## Phase closure limits
-
-Closed phases remain closed only for the specific properties proven by their exit gates.
-
-- F-A0 proves the baseline platform hardening checks that were validated at closure. It does not prove future OpenClaw versions, plugins, connectors, MCP servers, host updates, or ownership changes preserve the same boundary.
-- F-A1 proves the Gmail broker capability foundation, broker-owned credential path, socket initialization, and approved client path. It does not prove exclusive Gmail mediation or absence of connector bypasses.
-- F-A2 proves reader-side Gmail credential containment. It does not prove complete exfiltration prevention, OS-level isolation between OpenClaw logical agents, or absence of external Gmail bypasses.
-- F-A3 proves typed handoff validation and fail-closed schema handling. It does not prove semantic safety of all content, researcher isolation as an OS principal, or complete prompt-injection resistance.
-- F-A4, when closed, proves only the documented mediation and egress controls for the validated runtime state. It does not prove OpenClaw logical agent identities are OS security principals, that gateway-readable secrets are inaccessible to the gateway, or that future plugins, MCP servers, connectors, or apps are safe.
-
-OpenClaw agent identities provide workflow and configuration separation. They must not be represented as OS-level isolation unless live runtime evidence proves separate OS users, process boundaries, permissions, and inaccessible credential paths.
-
-## Active blockers
-
-### B1 — Direct Gmail connector bypass
-
-A synchronized `codex_apps__gmail` / `mcp__codex_apps__gmail*` surface exists outside the approved Gmail broker contract.
-
-Complete Gmail mediation remains open until the surface is disabled for OpenClaw agents and proven unavailable after restart and connector synchronization.
-
-Desktop Codex Gmail access and OpenAI authentication must remain unchanged unless separately approved.
-
-### B2 — Permanent proxy and pf integration
-
-The managed proxy and pf wall are not active in the current safe baseline.
-
-Permanent acceptance, persistence, failure-recovery, and reboot validation remain required.
-
-### B3 — DNS, IPv6, and alternate-transport coverage
-
-The prior pf design did not prove containment across all practical egress paths.
-
-F-A4 must reconcile and validate DNS, IPv4, IPv6, direct-IP, alternate-resolver, TCP, UDP, and QUIC behavior before closure.
-
-### B4 — OpenClaw 2026.7.1 qualification
-
-The installed `2026.6.11` runtime does not expose `openclaw audit`. Its bundled Policy plugin exists but is disabled.
-`openclaw security audit --json` is the available security-audit interface for this baseline. The current loopback-only Gateway finding is accepted only while the Gateway is not exposed through a reverse proxy or other external listener.
-
-Version `2026.7.1` requires staged qualification because it changes audit, Codex Apps, approvals, plugins, networking, and recovery surfaces.
-
-### B5 — Foundation evidence
-
-F-B and F-C remain blocked until their enforcement and evidence gates are implemented and validated.
-
-### B6 — Native validation and runtime-identity regression gaps
-
-`audits/F-A4-foundation-hardening-validation.md` captured partial F-A4 foundation evidence on 2026-07-15.
-
-Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy LaunchDaemon exists but is not active and exits with `EX_CONFIG`. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
-
-F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
-
-1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
-2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
-3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
-
-The operator scripts follow the reusable Agent OS operator-action pattern: preflight checks, evidence output, rollback guidance, and validation output.
-
-## Next actions
-
-### Immediate bounded action
-
-Run the prepared F-A4 operator repair/validation path and reconcile the captured evidence without weakening the root-owned tamper lock.
-
-Required results:
-
-1. Native OpenClaw security/secrets/sandbox validation runs through an approved read-only path.
-2. The unsupported `openclaw doctor --security` requirement is replaced by the supported `2026.6.11` command surface: `security audit --json`, `security audit --deep --json`, `doctor --lint --json`, `secrets audit --json`, and `sandbox explain --json`.
-3. `openclaw secrets audit` no longer fails on `/Users/agent/.openclaw/npm/projects`, or the failure is source-backed as irrelevant to security validation.
-4. Egress proxy `EX_CONFIG` is resolved by the reviewed proxy artifact repair path, and proxy/pf evidence is captured through the approved operator path.
-5. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
-6. F-A1/F-A2/F-A3 bounded regression is executed for the actual gateway/runtime identity where required by the F-A4 cutover gate.
-
-### Locked sequence after the immediate action
-
-1. Validate broker reliability remains intact: socket directory persistence, ownership, and client path match the hardened live baseline.
-2. Prove broker workflow: confined Gmail broker health/search succeeds and durable audit evidence exists.
-3. Disable the confirmed Codex Apps Gmail connector surface for OpenClaw agents and prove broker-only Gmail access.
-4. Reconcile and approve the F-A4 DNS, IPv6, and alternate-transport design.
-5. Reapply the managed proxy and pf containment.
-6. Complete bounded OpenClaw `2026.6.11 (e085fa1)` regression for F-A1, F-A2, and F-A3 and record evidence before F-A4 closure.
-7. Complete F-A4 acceptance, persistence, failure-recovery, reboot validation, and minimal durable evidence validation.
-8. Snapshot OpenClaw state and prove rollback.
-9. Qualify OpenClaw `2026.7.1`.
-10. Re-prove F-A1 through F-A4 after qualification.
-11. Implement the reconciled F-B observability substrate.
-12. Implement minimum F-C action governance.
-13. Generalize the dispatch/confirm split under F-D.
-14. Begin supervised capability expansion only after all applicable gates pass.
-
-Do not reorder this sequence without explicit architecture approval.
-
-## Verification gates
-
-### Gmail complete-mediation gate
-
-- Approved broker operations succeed.
-- Gmail credentials remain exclusively in broker custody.
-- Direct Gmail connectors and alternate Gmail clients are unavailable to OpenClaw agents.
-- No fallback path restores direct Gmail access.
-- Direct main broker execution remains approval-gated.
-- Denial blocks execution.
-- Results survive restart and connector synchronization.
-
-### F-A4 containment gate
-
-- Enforcement remains owned outside the contained Gateway identity.
-- Approved network paths work.
-- Unapproved network paths fail closed across required address families and transports.
-- Broker, Telegram, and approved web operations continue to work.
-- Decisions appear in authoritative logs.
-- Enforcement survives service restart and host reboot.
-- Rollback is documented and proven.
-- Minimal durable evidence exists before closure: persistent logs, ownership-controlled evidence storage, retention longer than the validation window, and proof that validation events can be found after service restart and host reboot.
-
-### OpenClaw qualification gate
-
-- Pre-upgrade inventory, snapshot, and rollback proof exist.
-- Configuration, approvals, plugins, apps, MCP servers, tools, and connectors are compared.
-- Ownership and permission boundaries remain intact.
-- F-A1 through F-A4 regression tests pass.
-- Native-audit coverage and limitations are measured.
-- Approval failure and replay tests fail closed.
-- Restart, reboot, and rollback tests pass.
-
-### F-B observability gate
-
-- Runs are correlated end to end.
-- Every security-relevant event has an identified authoritative evidence source.
-- Terminal outcomes and delivered operator notification are observable.
-- Missing events and audit silence are detectable.
-- Sensitive content capture remains disabled.
-- Retention exceeds the trust-measurement window.
-- Native audit is not treated as proof of complete mediation or tamper evidence.
-
-### F-C action-governance gate
-
-- Every effectful operation uses a registered semantic action.
-- Unknown actions deny.
-- Approval binds to the exact action and expires safely.
-- The action is revalidated immediately before execution.
-- High-risk actions cannot gain durable approval.
-- Interrupted or retried actions cannot duplicate effects.
-- No model, memory, UI, prompt, or caller can bypass the enforcement point.
-
-### Memory-autonomy gate
-
-- The memory-governance requirements in `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` are implemented.
-- External content cannot autonomously become action-authorizing memory.
-- Automated memory processes cannot raise authority.
-- Stale, contradictory, malicious, truncated, and revoked-memory tests pass.
-
-### Capability-expansion gate
-
-- Applicable F-A through F-D gates are closed.
-- Gather and act paths are structurally separated.
-- Effectful operations use registered semantic actions.
-- Credential custody and egress are explicitly bounded.
-- Positive, negative, injection, replay, restart, and recovery tests pass.
-- Documentation is reconciled before commit.
-```
-
+## Governing Rules
 ### OPERATING_CONSTITUTION.md
 ```markdown
 # Agent OS Operating Constitution
@@ -913,6 +534,394 @@ Before commit:
 
 Commits must be narrow, reviewable, and truthful. A commit records verified state; it does not manufacture completion.
 ```
+
+### docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md
+```markdown
+# Agent OS Change Control Standard
+
+**Status:** Approved governance standard. Effective upon approval and commit to the canonical repository.
+
+## Purpose
+
+Prevent divergence between:
+
+- live runtime state;
+- `CONTROL.md`;
+- architecture decisions;
+- operational runbooks;
+- evidence artifacts.
+
+This standard applies to runtime, security, architecture, documentation, and capability changes that can affect Agent OS authority, trust boundaries, phase status, or operational obligations.
+
+Documentation does not create runtime authority. It records verified state, approved architecture, required gates, and evidence locations.
+
+## Required Change Lifecycle
+
+All runtime, security, architecture, documentation, or capability changes follow:
+
+```text
+Observe
+→ Document
+→ Propose
+→ Approve
+→ Change
+→ Validate
+→ Reconcile
+→ Commit
+```
+
+Meaning:
+
+- **Observe:** inspect relevant live state, repository state, evidence, and prior decisions before mutation.
+- **Document:** record verified facts, drift, uncertainty, and affected boundaries.
+- **Propose:** state the smallest bounded change, expected effect, rollback, and validation plan.
+- **Approve:** obtain explicit approval for the proposed scope.
+- **Change:** mutate only approved files, services, policies, credentials, or runtime state.
+- **Validate:** prove positive path, negative path, persistence, and evidence proportional to risk.
+- **Reconcile:** update `CONTROL.md`, architecture decisions, runbooks, and evidence indexes to match validated reality.
+- **Commit:** commit only the reviewed scope with a truthful message and clean status.
+
+Skipping reconciliation is a failed change, even when the runtime behavior works.
+
+## Changes Requiring Reconciliation
+
+The following require documentation and evidence reconciliation before closure:
+
+- OpenClaw version changes;
+- model assignments;
+- agent configuration;
+- connectors;
+- MCP servers;
+- plugins;
+- credentials;
+- permissions;
+- launchd services;
+- sockets;
+- proxy/firewall changes;
+- security boundary changes;
+- approval policy changes;
+- broker capability changes;
+- runtime identity or ownership changes;
+- evidence, logging, audit, or retention changes;
+- phase status changes;
+- rollback or recovery procedure changes.
+
+## Documentation Migration Rule
+
+No security-relevant item may disappear during refactoring.
+
+Every removed item must be classified as one of:
+
+- **Closed** — with evidence reference.
+- **Moved** — with destination reference.
+- **Retired** — with approval rationale.
+- **Superseded** — with ADR reference.
+
+No silent deletion is allowed.
+
+Security-critical obligations are tracked in `docs/AGENT_OS_OBLIGATION_REGISTER.md`. Refactors must preserve, close, move, retire, or supersede every listed obligation.
+
+If a document is compressed, split, renamed, or converted into an index, every active obligation, open blocker, phase gate, credential boundary, connector risk, approval rule, and runtime baseline must remain discoverable from canonical documents.
+
+## State Migration Rule
+
+When canonical documentation is rewritten, compressed, or reorganized:
+
+- Existing obligations must be migrated explicitly.
+- Existing evidence references must be preserved or replaced.
+- Existing blockers must remain visible until closed or retired.
+- A documentation refactor is treated as a change event, not a formatting event.
+
+A shorter document is not considered equivalent unless all active obligations, decisions, evidence references, and unresolved risks remain traceable.
+
+## `CONTROL.md` Compression Rule
+
+`CONTROL.md` may remain concise.
+
+However, when content moves out of `CONTROL.md`:
+
+- the destination document must be recorded;
+- status must remain visible;
+- open security obligations cannot disappear;
+- phase closure limits must remain visible or directly referenced;
+- unresolved blockers must retain owner, status, and next validation gate.
+
+`CONTROL.md` should point to detailed runbooks and ADRs; it must not hide active obligations inside historical notes.
+
+## Evidence Traceability
+
+Phase closures require:
+
+- evidence location;
+- commit reference;
+- validation date;
+- runtime baseline.
+
+Closed status without evidence linkage is provisional.
+
+A phase may remain summarized in `CONTROL.md`, but every closed phase must have a discoverable evidence pointer.
+
+Evidence may live in audit files, runbooks, sanitized logs, operator records, or committed validation summaries. The location must be recorded in canonical documentation.
+
+Evidence must distinguish:
+
+- live runtime proof;
+- historical proof;
+- inferred status;
+- proposed future validation.
+
+## Phase Completion Pattern
+
+Every phase closure or closure-ready claim must have:
+
+- architecture decision or explicit inheritance from an existing decision;
+- implementation path;
+- validation script or exact validation command block;
+- evidence artifact;
+- `CONTROL.md` status update;
+- publication checkpoint.
+
+Partial validation may be recorded, but it must not be described as closure.
+
+## Operator Action Pattern
+
+Privileged operator actions must be repeatable and reviewable. They require:
+
+- idempotent script or exact guarded command block;
+- preflight checks;
+- evidence output location;
+- rollback guidance or rollback script proportional to risk;
+- post-change validation output.
+
+Operator actions must not rely on undocumented manual repairs when the same step is expected to recur.
+
+## Evidence Record Pattern
+
+Evidence for phase gates and runtime changes must include:
+
+- exact command;
+- timestamp;
+- identity used;
+- result or exit status;
+- interpretation;
+- closure impact.
+
+## Runtime Authority Rule
+
+For live system state:
+
+```text
+Runtime evidence > canonical documentation > historical artifacts > session summaries.
+```
+
+Documentation records validated reality but cannot override live runtime evidence.
+
+## Wrap-Up And Publish Requirements
+
+Wrap-up validation should eventually detect:
+
+- broken document references;
+- runtime version drift;
+- stale paths;
+- missing canonical documents;
+- disappearance of security-critical gates;
+- missing evidence locations for closed phases;
+- removed obligations without Closed/Moved/Retired/Superseded classification.
+
+This document defines the requirement only. It does not implement scripts.
+
+## Non-Goals
+
+This standard does not authorize runtime mutation, credential access, connector changes, service restarts, or security-control changes.
+
+It also does not require `CONTROL.md` to carry every detail. It requires that details remain traceable, current, and canonically referenced.
+```
+
+## Current Verification Gates
+## Open verification gates
+
+- B1 direct Gmail connector bypass: active blocker `B1`; required Gmail complete-mediation gate.
+- B2 permanent proxy and pf integration: active blocker `B2`; required F-A4 containment gate.
+- B3 DNS, IPv6, and alternate-transport coverage: active blocker `B3`; required F-A4 containment gate.
+- B4 OpenClaw 2026.7.1 qualification: active blocker `B4`; required OpenClaw qualification gate after F-A4 transport reconciliation.
+- B5 foundation evidence and durable evidence substrate: active blocker `B5`; required F-B/F-C gates and phase evidence index.
+- B6 native validation and runtime-identity regression gaps: active blocker `B6`; required F-A4 foundation validation path.
+- Obligation register: unresolved obligations in `docs/AGENT_OS_OBLIGATION_REGISTER.md` must remain classified, owned, referenced, and evidenced.
+- Runtime validation: OpenClaw `2026.6.11 (e085fa1)` bounded regression for F-A1/F-A2/F-A3 must be completed and evidence recorded before F-A4 closure.
+
+## Phase status
+
+## Recent Git Log
+```
+808d242 governance: add external agent onboarding bundle protocol
+c09e866 governance: harden F-A4 operator validation pattern
+3c65ffc validation: prepare F-A4 remediation and operator validation path
+3daa583 validation: complete F-A4 foundation hardening evidence
+d2f5b1a architecture: reconcile Agent OS with OpenClaw native capabilities
+ca7e0ea governance: wire enforcement and reconcile evidence controls
+bd1fbf3 docs: enforce governance reconciliation and publication controls
+5aaec3e chore: restore wrap-up script executable mode
+917cf68 docs: establish change control and reconcile agent baseline
+c52ef32 docs: refine agent governance boundaries and F-C scope
+36bb173 docs: reconcile architecture decisions and operational controls
+351d51a docs: add Agent OS operating constitution
+69cab30 docs: reconcile Gmail broker and containment state
+e39d896 [claude-code] Gmail re-auth DONE (token was dead, re-authed Gmail-scoped, verified live mail); keyring-backend gotcha documented; confined-reader allowlist drift root-caused (real fix next session)
+57f7656 [claude-code] F-A4: proxy proven innocent + integrates clean; Gmail root cause = missing refresh token (re-auth needed); Lloyd direct-Gmail bypass found; socket-dir race open
+49e8801 [codex] F-A4.5: record proxy relock trap
+fd5ccba [codex] F-A4.5: correct Gmail broker root cause
+a3d31c3 [codex] F-A4.5: record wall proof and Gmail blockers
+1f16a5c [codex] F-A4: record Phase 5 half-1 state
+0b973f6 [codex] publish: print bundle freshness reference
+```
+
+## Repository Tree
+```
+.gitignore
+00_START_HERE.md
+00_TEARDOWN.md
+01_PICK_UP_WORK.md
+BUILD_STATE.md
+CLAUDE.md
+CONTROL.md
+HANDOFF_BRIEF.md
+ITERATION_LOG.md
+OPERATING_CONSTITUTION.md
+README.md
+SETUP.md
+WORKER_PROTOCOL.md
+audits/2026-06-12-gmail-connector-discovery.md
+audits/2026-06-12-hooks-mechanism-audit.md
+audits/2026-06-12-killswitch-test.md
+audits/2026-06-12-panic-button-test.md
+audits/2026-06-12-pre-phase1-audit.md
+audits/2026-06-12-sandbox-killswitch-discovery.md
+audits/F-A0-platform-hardening-audit.md
+audits/F-A1-negative-test-results.md
+audits/F-A4-foundation-hardening-validation.md
+docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md
+docs/AGENT_ONBOARDING_PROTOCOL.md
+docs/AGENT_OS_ARCHITECTURE_DECISIONS.md
+docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md
+docs/AGENT_OS_END_STATE_ARCHITECTURE.md
+docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md
+docs/AGENT_OS_OBLIGATION_REGISTER.md
+docs/AGENT_OS_PLATFORM_MECHANICS_REFERENCE.md
+docs/AGENT_OS_ROADMAP_BEST_PRACTICES.md
+docs/AGENT_OS_SECURITY_DESIGN_STANDARD.md
+docs/CANONICAL_PUBLICATION_MANIFEST.md
+docs/F-A1_DEPLOY_LIST.md
+docs/F-A1_GMAIL_BROKER_DESIGN.md
+docs/F-A1_GMAIL_BROKER_DESIGN_ADDENDUM.md
+docs/F-A2_PROOF_RUNBOOK.md
+docs/F-A4_CUTOVER_RUNBOOK.md
+docs/F-A4_LOCK_2A_OWNERSHIP_MAP.md
+docs/F-A4_LOCK_2A_VERIFY_EGRESS_LOCK.md
+docs/F-A4_LOCK_2B_0READ_CREDENTIAL_CUSTODY.md
+docs/F-A4_LOCK_2B_LAUNCHDAEMON_PLIST_DRAFT.md
+docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md
+docs/F-B_OBSERVABILITY_DESIGN.md
+docs/OPENCLAW_BUILD_PLAN.md
+docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
+docs/OPENCLAW_DEEP_DIVE_CONFIG.md
+docs/OPENCLAW_ECOSYSTEM_AND_COVERAGE.md
+docs/OPENCLAW_FIELD_NOTES.md
+docs/OPENCLAW_RESEARCH_ADDENDUM.md
+docs/PHASE_2_EMAIL_ASSISTANT.md
+docs/PRIOR_BUILD_LEARNINGS.md
+doctrine/COMMUNICATION_STANDARD.md
+doctrine/SESSION_CLOSE_PROTOCOL.md
+drafts/fa4-phase5/agent-os-egress-proxy.mjs
+drafts/fa4-phase5/agent-os-egress.anchor
+drafts/fa4-phase5/ai.agent-os-egress-pf.plist
+drafts/fa4-phase5/ai.agent-os-egress-proxy.plist
+drafts/fa4-phase5/allowlist.txt
+drafts/fa4-phase5/pf.conf.fragment
+drafts/fa4-phase5/phase5-proof-commands.sh
+scripts/bundle-for-claude.sh
+scripts/end-session.sh
+scripts/fa4-operator-egress-proxy-repair.sh
+scripts/fa4-operator-readonly-validation.sh
+scripts/observability/q1-silent-failures.mjs
+scripts/observability/q2-orphan-correlations.mjs
+scripts/observability/q3-unclosed-runs.mjs
+scripts/observability/q4-egress-denials.mjs
+scripts/observability/q5-out-of-band-drafts.mjs
+scripts/secret-scan.sh
+scripts/start-session.sh
+scripts/start.sh
+scripts/wrap-up.sh
+src/gmail-broker/f-a1-test-suite.mjs
+src/gmail-broker/gmail-broker.mjs
+templates/COMMIT_FORMAT.md
+templates/DROP_FORMAT.md
+```
+
+## Publication validation
+```text
+manifest commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+published files: 45
+missing files count: 0
+```
+
+## Governance enforcement
+```text
+wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+bundle-for-claude.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+last validation timestamp: 2026-07-15T17:30:21Z
+```
+
+---
+## Canonical publication manifest
+```markdown
+# Canonical Publication Manifest
+
+## Purpose
+
+Define the exact canonical files and evidence paths published into the sanitized Claude review bundle.
+
+## Published Root Files
+
+- `CONTROL.md`
+- `OPERATING_CONSTITUTION.md`
+
+## Published Docs
+
+- `docs/`
+
+This includes the manifest itself, architecture decisions, change-control standard, recovery runbooks, F-A1/F-A2/F-A4 runbooks, platform/security standards, ADRs, and historical canonical planning artifacts that are already part of the public review substrate.
+
+Critical onboarding document:
+
+- `docs/AGENT_ONBOARDING_PROTOCOL.md`
+
+## Published Evidence
+
+- `audits/`
+
+## Published Governance Scripts
+
+- `scripts/wrap-up.sh`
+- `scripts/bundle-for-claude.sh`
+- `scripts/fa4-operator-readonly-validation.sh`
+- `scripts/fa4-operator-egress-proxy-repair.sh`
+
+## Machine-Readable Published Paths
+
+```text
+CONTROL.md
+OPERATING_CONSTITUTION.md
+docs/
+docs/AGENT_ONBOARDING_PROTOCOL.md
+audits/
+scripts/wrap-up.sh
+scripts/bundle-for-claude.sh
+scripts/fa4-operator-readonly-validation.sh
+scripts/fa4-operator-egress-proxy-repair.sh
+```
+```
+
+## Remaining Canonical Published Files
 
 ### audits/2026-06-12-gmail-connector-discovery.md
 ```markdown
@@ -4708,208 +4717,6 @@ No completed foundation phase is reopened or removed without new evidence invali
 - Memory-promotion governance.
 ```
 
-### docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md
-```markdown
-# Agent OS Change Control Standard
-
-**Status:** Approved governance standard. Effective upon approval and commit to the canonical repository.
-
-## Purpose
-
-Prevent divergence between:
-
-- live runtime state;
-- `CONTROL.md`;
-- architecture decisions;
-- operational runbooks;
-- evidence artifacts.
-
-This standard applies to runtime, security, architecture, documentation, and capability changes that can affect Agent OS authority, trust boundaries, phase status, or operational obligations.
-
-Documentation does not create runtime authority. It records verified state, approved architecture, required gates, and evidence locations.
-
-## Required Change Lifecycle
-
-All runtime, security, architecture, documentation, or capability changes follow:
-
-```text
-Observe
-→ Document
-→ Propose
-→ Approve
-→ Change
-→ Validate
-→ Reconcile
-→ Commit
-```
-
-Meaning:
-
-- **Observe:** inspect relevant live state, repository state, evidence, and prior decisions before mutation.
-- **Document:** record verified facts, drift, uncertainty, and affected boundaries.
-- **Propose:** state the smallest bounded change, expected effect, rollback, and validation plan.
-- **Approve:** obtain explicit approval for the proposed scope.
-- **Change:** mutate only approved files, services, policies, credentials, or runtime state.
-- **Validate:** prove positive path, negative path, persistence, and evidence proportional to risk.
-- **Reconcile:** update `CONTROL.md`, architecture decisions, runbooks, and evidence indexes to match validated reality.
-- **Commit:** commit only the reviewed scope with a truthful message and clean status.
-
-Skipping reconciliation is a failed change, even when the runtime behavior works.
-
-## Changes Requiring Reconciliation
-
-The following require documentation and evidence reconciliation before closure:
-
-- OpenClaw version changes;
-- model assignments;
-- agent configuration;
-- connectors;
-- MCP servers;
-- plugins;
-- credentials;
-- permissions;
-- launchd services;
-- sockets;
-- proxy/firewall changes;
-- security boundary changes;
-- approval policy changes;
-- broker capability changes;
-- runtime identity or ownership changes;
-- evidence, logging, audit, or retention changes;
-- phase status changes;
-- rollback or recovery procedure changes.
-
-## Documentation Migration Rule
-
-No security-relevant item may disappear during refactoring.
-
-Every removed item must be classified as one of:
-
-- **Closed** — with evidence reference.
-- **Moved** — with destination reference.
-- **Retired** — with approval rationale.
-- **Superseded** — with ADR reference.
-
-No silent deletion is allowed.
-
-Security-critical obligations are tracked in `docs/AGENT_OS_OBLIGATION_REGISTER.md`. Refactors must preserve, close, move, retire, or supersede every listed obligation.
-
-If a document is compressed, split, renamed, or converted into an index, every active obligation, open blocker, phase gate, credential boundary, connector risk, approval rule, and runtime baseline must remain discoverable from canonical documents.
-
-## State Migration Rule
-
-When canonical documentation is rewritten, compressed, or reorganized:
-
-- Existing obligations must be migrated explicitly.
-- Existing evidence references must be preserved or replaced.
-- Existing blockers must remain visible until closed or retired.
-- A documentation refactor is treated as a change event, not a formatting event.
-
-A shorter document is not considered equivalent unless all active obligations, decisions, evidence references, and unresolved risks remain traceable.
-
-## `CONTROL.md` Compression Rule
-
-`CONTROL.md` may remain concise.
-
-However, when content moves out of `CONTROL.md`:
-
-- the destination document must be recorded;
-- status must remain visible;
-- open security obligations cannot disappear;
-- phase closure limits must remain visible or directly referenced;
-- unresolved blockers must retain owner, status, and next validation gate.
-
-`CONTROL.md` should point to detailed runbooks and ADRs; it must not hide active obligations inside historical notes.
-
-## Evidence Traceability
-
-Phase closures require:
-
-- evidence location;
-- commit reference;
-- validation date;
-- runtime baseline.
-
-Closed status without evidence linkage is provisional.
-
-A phase may remain summarized in `CONTROL.md`, but every closed phase must have a discoverable evidence pointer.
-
-Evidence may live in audit files, runbooks, sanitized logs, operator records, or committed validation summaries. The location must be recorded in canonical documentation.
-
-Evidence must distinguish:
-
-- live runtime proof;
-- historical proof;
-- inferred status;
-- proposed future validation.
-
-## Phase Completion Pattern
-
-Every phase closure or closure-ready claim must have:
-
-- architecture decision or explicit inheritance from an existing decision;
-- implementation path;
-- validation script or exact validation command block;
-- evidence artifact;
-- `CONTROL.md` status update;
-- publication checkpoint.
-
-Partial validation may be recorded, but it must not be described as closure.
-
-## Operator Action Pattern
-
-Privileged operator actions must be repeatable and reviewable. They require:
-
-- idempotent script or exact guarded command block;
-- preflight checks;
-- evidence output location;
-- rollback guidance or rollback script proportional to risk;
-- post-change validation output.
-
-Operator actions must not rely on undocumented manual repairs when the same step is expected to recur.
-
-## Evidence Record Pattern
-
-Evidence for phase gates and runtime changes must include:
-
-- exact command;
-- timestamp;
-- identity used;
-- result or exit status;
-- interpretation;
-- closure impact.
-
-## Runtime Authority Rule
-
-For live system state:
-
-```text
-Runtime evidence > canonical documentation > historical artifacts > session summaries.
-```
-
-Documentation records validated reality but cannot override live runtime evidence.
-
-## Wrap-Up And Publish Requirements
-
-Wrap-up validation should eventually detect:
-
-- broken document references;
-- runtime version drift;
-- stale paths;
-- missing canonical documents;
-- disappearance of security-critical gates;
-- missing evidence locations for closed phases;
-- removed obligations without Closed/Moved/Retired/Superseded classification.
-
-This document defines the requirement only. It does not implement scripts.
-
-## Non-Goals
-
-This standard does not authorize runtime mutation, credential access, connector changes, service restarts, or security-control changes.
-
-It also does not require `CONTROL.md` to carry every detail. It requires that details remain traceable, current, and canonically referenced.
-```
-
 ### docs/AGENT_OS_END_STATE_ARCHITECTURE.md
 ```markdown
 # Agent OS — End-State Architecture
@@ -5797,50 +5604,6 @@ A capability doesn't ship until 1–10 are answered and the item 10 test passes.
 ## 8. The one-line standard
 
 **Every Agent OS capability is an application-specific agent with a defined trust boundary, built from the named patterns, where the most dangerous action is structurally unreachable from untrusted data, the operator confirms consequential actions, and an injection-boundary test PROVES it before ship.**
-```
-
-### docs/CANONICAL_PUBLICATION_MANIFEST.md
-```markdown
-# Canonical Publication Manifest
-
-## Purpose
-
-Define the exact canonical files and evidence paths published into the sanitized Claude review bundle.
-
-## Published Root Files
-
-- `CONTROL.md`
-- `OPERATING_CONSTITUTION.md`
-
-## Published Docs
-
-- `docs/`
-
-This includes the manifest itself, architecture decisions, change-control standard, recovery runbooks, F-A1/F-A2/F-A4 runbooks, platform/security standards, ADRs, and historical canonical planning artifacts that are already part of the public review substrate.
-
-## Published Evidence
-
-- `audits/`
-
-## Published Governance Scripts
-
-- `scripts/wrap-up.sh`
-- `scripts/bundle-for-claude.sh`
-- `scripts/fa4-operator-readonly-validation.sh`
-- `scripts/fa4-operator-egress-proxy-repair.sh`
-
-## Machine-Readable Published Paths
-
-```text
-CONTROL.md
-OPERATING_CONSTITUTION.md
-docs/
-audits/
-scripts/wrap-up.sh
-scripts/bundle-for-claude.sh
-scripts/fa4-operator-readonly-validation.sh
-scripts/fa4-operator-egress-proxy-repair.sh
-```
 ```
 
 ### docs/F-A1_DEPLOY_LIST.md
@@ -11390,12 +11153,13 @@ The single biggest miss of the prior build: **nobody searched "OpenClaw" to disc
 ```markdown
 #!/usr/bin/env bash
 # bundle-for-claude.sh
-# GOVERNING PRINCIPLE: The public raw URL is the only source of truth for publish success.
-# Local success is not success.
+# GOVERNING PRINCIPLE: GitHub remote state via git protocol is the source of
+# truth for publication verification when reachable. Local success is not
+# authoritative remote verification.
 #
 # Builds a SANITIZED bundle of repo state and pushes it to the PUBLIC bundle repo so
-# Claude.ai can fetch it. Canonical reference docs are inlined so a fresh Claude thread
-# gets full context without a manual paste.
+# an external AI agent can fetch it. Canonical reference docs are inlined so a
+# fresh agent gets onboarding context without a manual paste.
 #
 # Usage: ./scripts/bundle-for-claude.sh [--dry-run]
 # --dry-run: generate the bundle locally and print a preview; do NOT push.
@@ -11460,6 +11224,7 @@ path_declared_in_manifest() {
 CRITICAL_PUBLICATION_PATHS=(
   "CONTROL.md"
   "OPERATING_CONSTITUTION.md"
+  "docs/AGENT_ONBOARDING_PROTOCOL.md"
   "docs/AGENT_OS_ARCHITECTURE_DECISIONS.md"
   "docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md"
   "docs/AGENT_OS_END_STATE_ARCHITECTURE.md"
@@ -11497,7 +11262,7 @@ while IFS= read -r path; do
   [ -z "$path" ] && continue
   case "$path" in
     */)
-      if ! git ls-files --error-unmatch "$path"* >/dev/null 2>&1; then
+      if ! git ls-files "$path" | grep -q .; then
         echo "ABORT: manifest directory has no tracked files: $path"
         MISSING_COUNT=$((MISSING_COUNT + 1))
       else
@@ -11531,6 +11296,9 @@ fi
 MANIFEST_COMMIT="$(git log -1 --format=%H -- "$MANIFEST_FILE")"
 WRAP_UP_COMMIT="$(git log -1 --format=%H -- scripts/wrap-up.sh)"
 BUNDLE_SCRIPT_COMMIT="$(git log -1 --format=%H -- scripts/bundle-for-claude.sh)"
+PRIVATE_SOURCE_COMMIT="$(git rev-parse HEAD)"
+PRIVATE_SOURCE_SHORT="$(git rev-parse --short HEAD)"
+PRIVATE_SOURCE_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 # 1. Hard secret scan BEFORE anything leaves the private repo.
 echo "Scanning for secrets before bundling..."
@@ -11538,7 +11306,8 @@ if [ -f scripts/secret-scan.sh ]; then
   ./scripts/secret-scan.sh || { echo "ABORT: secret scan failed. Nothing bundled."; exit 1; }
 fi
 
-# 2. Write the bundle — CONTROL.md + git state + manifest-declared canonical files inline.
+# 2. Write the bundle — onboarding protocol + CONTROL.md + governing rules +
+# git state + manifest-declared canonical files inline.
 if [ "$DRY_RUN" = true ]; then
   OUT="$(mktemp /tmp/bundle-dry-run-XXXXXX.md)"
   DRY_RUN_OUT="$OUT"
@@ -11547,39 +11316,62 @@ else
 fi
 
 {
-  echo "# AGENT OS — STATE BUNDLE FOR CLAUDE"
-  echo "_Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ) · commit: $(git rev-parse --short HEAD)_"
+  echo "# AGENT OS — EXTERNAL AGENT ONBOARDING BUNDLE"
   echo ""
-  echo "This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan."
+  echo "This is a sanitized snapshot for external AI-agent onboarding and review. Secrets are excluded by .gitignore + scan."
   echo ""
   echo "---"
 
-  echo "## CONTROL.md (current state)"
+  echo "## Bundle Identity"
+  echo '```text'
+  echo "private source repository commit: $PRIVATE_SOURCE_COMMIT"
+  echo "private source repository branch: $PRIVATE_SOURCE_BRANCH"
+  echo "generated timestamp: $VALIDATION_TS"
+  echo "publication manifest governance commit: $MANIFEST_COMMIT"
+  echo "wrap-up.sh governance commit: $WRAP_UP_COMMIT"
+  echo "bundle-for-claude.sh governance commit: $BUNDLE_SCRIPT_COMMIT"
+  echo "public bundle repository commit: <not embedded before publication commit exists>"
+  echo '```'
+  echo ""
+
+  echo "## External Agent Onboarding Protocol"
+  echo '```markdown'
+  cat docs/AGENT_ONBOARDING_PROTOCOL.md
+  echo '```'
+  echo ""
+
+  echo "## CONTROL.md — Canonical Current State"
   echo '```markdown'
   cat CONTROL.md
   echo '```'
   echo ""
 
-  echo "## Recent git log (20)"
+  echo "## Governing Rules"
+  echo "### OPERATING_CONSTITUTION.md"
+  echo '```markdown'
+  cat OPERATING_CONSTITUTION.md
+  echo '```'
+  echo ""
+  echo "### docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md"
+  echo '```markdown'
+  cat docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md
+  echo '```'
+  echo ""
+
+  echo "## Current Verification Gates"
+  awk '/^## Open verification gates$/{found=1} found{print} found && /^## / && $0 !~ /^## Open verification gates$/{exit}' CONTROL.md
+  echo ""
+
+  echo "## Recent Git Log"
   echo '```'
   git log --oneline -20
   echo '```'
   echo ""
 
-  echo "## Repo tree (no node_modules / .secrets / state)"
+  echo "## Repository Tree"
   echo '```'
   git ls-files | grep -vE '(^\.secrets/|node_modules/|^state/)' | head -200
   echo '```'
-  echo ""
-
-  echo "## Tests status (last run, if recorded)"
-  echo '```'
-  [ -f TEST_STATUS.txt ] && cat TEST_STATUS.txt || echo "(no TEST_STATUS.txt — run tests and record)"
-  echo '```'
-  echo ""
-
-  echo "## Open verification gates"
-  awk '/^## Open verification gates$/{found=1} found{print} found && /^## / && $0 !~ /^## Open verification gates$/{exit}' CONTROL.md
   echo ""
 
   echo "## Publication validation"
@@ -11605,10 +11397,15 @@ fi
   echo '```'
   echo ""
 
-  echo "## Canonical published files"
+  echo "## Remaining Canonical Published Files"
   echo ""
 
   while IFS= read -r file; do
+    case "$file" in
+      "docs/AGENT_ONBOARDING_PROTOCOL.md"|"CONTROL.md"|"OPERATING_CONSTITUTION.md"|"docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md"|"docs/CANONICAL_PUBLICATION_MANIFEST.md")
+        continue
+        ;;
+    esac
     echo "### $file"
     echo '```markdown'
     cat "$file"
@@ -11617,7 +11414,7 @@ fi
   done < "$PUBLISHED_LIST"
 
   echo "---"
-  echo "_To request a decision: tell Claude which CONTROL.md NEXT or which doc section you need a call on._"
+  echo "_External agent instruction: first reconstruct governing rules, documented runtime baseline versus live evidence, current phase, completed evidence and limits, active blockers, approved next bounded action, and stale/conflicting references. Do not execute, redesign, reopen settled decisions, or claim closure unless explicitly approved after this reconstruction._"
 } > "$OUT"
 
 # 3. Dry-run exits here — show preview, print size.
@@ -11661,14 +11458,25 @@ git commit -m "bundle: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null 2>&1 \
   || { echo "  (bundle unchanged — no new commit needed)"; }
 git push -q
 
-# 6. Print cache-proof raw URL.
+# 6. Print cache-proof raw URL and publication commit details.
 REMOTE_URL=$(git remote get-url origin)
 SLUG=$(echo "$REMOTE_URL" | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 CACHE_BUSTER=$(git rev-parse --short HEAD)
+BUNDLE_HEAD_LOCAL=$(git rev-parse HEAD)
+BUNDLE_HEAD_REMOTE=$(git ls-remote origin HEAD 2>/dev/null | awk '{print $1}' || true)
 echo ""
-echo "=== PASTE THIS URL TO CLAUDE ==="
+echo "=== EXTERNAL AGENT RAW BUNDLE URL ==="
 echo "https://raw.githubusercontent.com/$SLUG/$BRANCH/$BUNDLE_FILE?v=$CACHE_BUSTER"
+echo ""
+echo "Public bundle repository commit:"
+echo "$BUNDLE_HEAD_LOCAL"
+echo "Authoritative remote commit:"
+if [ -n "$BUNDLE_HEAD_REMOTE" ]; then
+  echo "$BUNDLE_HEAD_REMOTE"
+else
+  echo "<remote verification unavailable>"
+fi
 echo ""
 echo "Docs base URL:"
 echo "https://raw.githubusercontent.com/$SLUG/$BRANCH/docs/"
@@ -11912,8 +11720,9 @@ echo "F-A4 read-only validation complete: $OUT_DIR"
 #!/usr/bin/env bash
 # wrap-up.sh — Session-close command
 #
-# GOVERNING PRINCIPLE: The public raw URL is the only source of truth for publish success.
-# Local success is not success.
+# GOVERNING PRINCIPLE: GitHub remote state via git protocol is the source of
+# truth for publication verification when reachable. Local success is not
+# authoritative remote verification.
 #
 # Runs the full session-close sequence and PROVES the public mirror is current:
 #   1. State-freshness check  — prompt if CONTROL.md looks untouched; never block on commit timing
@@ -11921,7 +11730,7 @@ echo "F-A4 read-only validation complete: $OUT_DIR"
 #   3. Commit staged changes  — structured message, only if something is staged
 #   4. Push private repo
 #   5. Regenerate + push public bundle  (calls bundle-for-claude.sh)
-#   6. VERIFY public raw URL reflects the new commit — or FAIL LOUD with hand-fix steps
+#   6. VERIFY public bundle state via git protocol when reachable and local bundle content.
 #
 # Usage:
 #   ./scripts/wrap-up.sh "what shipped"
@@ -12093,13 +11902,13 @@ if [ -z "$CONTROL_RECENT" ] && [ -z "$CONTROL_STAGED" ] && [ -z "$CONTROL_MODIFI
   printf "Is that right? [y/N] "
   if read -r CONFIRM < /dev/tty 2>/dev/null; then
     if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-      echo "STOPPED. Update CONTROL.md (NOW / NEXT / DONE) before wrapping up."
+      echo "STOPPED. Reconcile CONTROL.md Current state, Phase status, blockers, and Next actions before wrapping up."
       exit 1
     fi
   else
     echo ""
     echo "STOPPED: non-interactive session and CONTROL.md looks stale."
-    echo "Update CONTROL.md (NOW / NEXT / DONE) then re-run wrap-up."
+    echo "Update CONTROL.md Current state, Phase status, blockers, and Next actions, then re-run wrap-up."
     exit 1
   fi
 fi
@@ -12186,44 +11995,61 @@ echo "→ Verifying push reached GitHub and bundle embeds correct commit..."
 BUNDLE_HEAD_REMOTE=$(git -C "$BUNDLE_REPO" ls-remote origin HEAD 2>/dev/null | awk '{print $1}' || true)
 
 PUSH_OK=false
+REMOTE_VERIFIED=false
 if [ "$BUNDLE_HEAD_REMOTE" = "$BUNDLE_HEAD_LOCAL" ]; then
   PUSH_OK=true
+  REMOTE_VERIFIED=true
 elif [ -z "$BUNDLE_HEAD_REMOTE" ]; then
-  # RESIDUAL: ls-remote unreachable — falling back to trusting git push exit code.
-  # This is a known residual documented in doctrine/SESSION_CLOSE_PROTOCOL.md.
-  # Future hardening: emit SOFT WARNING instead of CONFIRMED when ls-remote fails.
-  # Do not change this without reading that doc first.
+  # Remote verification unavailable. Do not claim authoritative remote publication
+  # verification; rely only on the clean push exit code and local bundle content.
   PUSH_OK=true
 fi
 
 # (b) Local content check — BUNDLE.md must embed the private HEAD we just pushed
-LOCAL_BUNDLE_PREFIX=$(head -c 500 "$BUNDLE_REPO/BUNDLE.md" 2>/dev/null || echo "")
+LOCAL_BUNDLE_PREFIX=$(head -c 2000 "$BUNDLE_REPO/BUNDLE.md" 2>/dev/null || echo "")
 BUNDLE_GENERATED=""
-if [[ "$LOCAL_BUNDLE_PREFIX" =~ _Generated:\ ([0-9TZ:-]+) ]]; then
+if [[ "$LOCAL_BUNDLE_PREFIX" =~ generated\ timestamp:\ ([0-9TZ:-]+) ]]; then
   BUNDLE_GENERATED="${BASH_REMATCH[1]}"
 fi
 BUNDLE_COMMIT=""
-if [[ "$LOCAL_BUNDLE_PREFIX" =~ commit:\ ([a-f0-9]+) ]]; then
+if [[ "$LOCAL_BUNDLE_PREFIX" =~ private\ source\ repository\ commit:\ ([a-f0-9]+) ]]; then
   BUNDLE_COMMIT="${BASH_REMATCH[1]}"
 fi
 CONTENT_OK=false
-[ "$BUNDLE_COMMIT" = "$PRIVATE_HEAD" ] && CONTENT_OK=true
+case "$BUNDLE_COMMIT" in
+  "$PRIVATE_HEAD"|"$PRIVATE_HEAD"*) CONTENT_OK=true ;;
+esac
 
 if [ "$PUSH_OK" = true ] && [ "$CONTENT_OK" = true ]; then
   echo ""
-  echo "PUBLISH CONFIRMED"
+  if [ "$REMOTE_VERIFIED" = true ]; then
+    echo "PUBLISH CONFIRMED"
+  else
+    echo "PUBLISH COMPLETED — REMOTE VERIFICATION UNAVAILABLE"
+  fi
   echo "  private HEAD  : $PRIVATE_HEAD (pushed)"
-  echo "  bundle HEAD   : $BUNDLE_HEAD_SHORT (on GitHub)"
+  echo "  bundle HEAD   : $BUNDLE_HEAD_SHORT"
+  echo "  remote HEAD   : ${BUNDLE_HEAD_REMOTE:-<ls-remote failed>}"
   echo "  bundle embeds : $BUNDLE_COMMIT (correct)"
   echo "  raw URL (live in ~5 min): $PUBLIC_URL?v=$BUNDLE_HEAD_SHORT"
   echo ""
-  NEXT_LINE=$(awk '/^## NEXT/{f=1; next} f&&/^>/{print; exit}' CONTROL.md | sed 's/^> //')
+  NEXT_LINE=$(awk '
+    /^## Next actions$/ { found=1; next }
+    found && /^## / { exit }
+    found && /^### Immediate bounded action$/ { immediate=1; next }
+    immediate && NF { print; exit }
+  ' CONTROL.md)
   echo "STATUS"
   echo "  did:     ${SUMMARY}"
   echo "  commit:  $PRIVATE_HEAD"
-  echo "  bundle:  CONFIRMED on GitHub @ $BUNDLE_HEAD_SHORT (embed: $BUNDLE_COMMIT)"
-  echo "  next:    ${NEXT_LINE:-<check CONTROL.md NEXT>}"
-  echo "  flags:   ${FLAGS:-none}"
+  if [ "$REMOTE_VERIFIED" = true ]; then
+    echo "  bundle:  CONFIRMED on GitHub @ $BUNDLE_HEAD_SHORT (embed: $BUNDLE_COMMIT)"
+    echo "  flags:   ${FLAGS:-none}"
+  else
+    echo "  bundle:  pushed locally @ $BUNDLE_HEAD_SHORT; remote verification unavailable (embed: $BUNDLE_COMMIT)"
+    echo "  flags:   ${FLAGS:-remote verification unavailable}"
+  fi
+  echo "  next:    ${NEXT_LINE:-<check CONTROL.md Next actions>}"
   echo ""
   echo "PUBLISHED_REF: $BUNDLE_HEAD_SHORT @ ${BUNDLE_GENERATED:-<generated-unknown>} embeds $BUNDLE_COMMIT"
 else
@@ -12251,4 +12077,4 @@ fi
 ```
 
 ---
-_To request a decision: tell Claude which CONTROL.md NEXT or which doc section you need a call on._
+_External agent instruction: first reconstruct governing rules, documented runtime baseline versus live evidence, current phase, completed evidence and limits, active blockers, approved next bounded action, and stale/conflicting references. Do not execute, redesign, reopen settled decisions, or claim closure unless explicitly approved after this reconstruction._

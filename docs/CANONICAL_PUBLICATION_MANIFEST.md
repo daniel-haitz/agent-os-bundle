@@ -15,6 +15,10 @@ Define the exact canonical files and evidence paths published into the sanitized
 
 This includes the manifest itself, architecture decisions, change-control standard, recovery runbooks, F-A1/F-A2/F-A4 runbooks, platform/security standards, ADRs, and historical canonical planning artifacts that are already part of the public review substrate.
 
+Critical onboarding document:
+
+- `docs/AGENT_ONBOARDING_PROTOCOL.md`
+
 ## Published Evidence
 
 - `audits/`
@@ -32,6 +36,7 @@ This includes the manifest itself, architecture decisions, change-control standa
 CONTROL.md
 OPERATING_CONSTITUTION.md
 docs/
+docs/AGENT_ONBOARDING_PROTOCOL.md
 audits/
 scripts/wrap-up.sh
 scripts/bundle-for-claude.sh

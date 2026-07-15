@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # bundle-for-claude.sh
-# GOVERNING PRINCIPLE: The public raw URL is the only source of truth for publish success.
-# Local success is not success.
+# GOVERNING PRINCIPLE: GitHub remote state via git protocol is the source of
+# truth for publication verification when reachable. Local success is not
+# authoritative remote verification.
 #
 # Builds a SANITIZED bundle of repo state and pushes it to the PUBLIC bundle repo so
-# Claude.ai can fetch it. Canonical reference docs are inlined so a fresh Claude thread
-# gets full context without a manual paste.
+# an external AI agent can fetch it. Canonical reference docs are inlined so a
+# fresh agent gets onboarding context without a manual paste.
 #
 # Usage: ./scripts/bundle-for-claude.sh [--dry-run]
 # --dry-run: generate the bundle locally and print a preview; do NOT push.
@@ -70,6 +71,7 @@ path_declared_in_manifest() {
 CRITICAL_PUBLICATION_PATHS=(
   "CONTROL.md"
   "OPERATING_CONSTITUTION.md"
+  "docs/AGENT_ONBOARDING_PROTOCOL.md"
   "docs/AGENT_OS_ARCHITECTURE_DECISIONS.md"
   "docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md"
   "docs/AGENT_OS_END_STATE_ARCHITECTURE.md"
@@ -107,7 +109,7 @@ while IFS= read -r path; do
   [ -z "$path" ] && continue
   case "$path" in
     */)
-      if ! git ls-files --error-unmatch "$path"* >/dev/null 2>&1; then
+      if ! git ls-files "$path" | grep -q .; then
         echo "ABORT: manifest directory has no tracked files: $path"
         MISSING_COUNT=$((MISSING_COUNT + 1))
       else
@@ -141,6 +143,9 @@ fi
 MANIFEST_COMMIT="$(git log -1 --format=%H -- "$MANIFEST_FILE")"
 WRAP_UP_COMMIT="$(git log -1 --format=%H -- scripts/wrap-up.sh)"
 BUNDLE_SCRIPT_COMMIT="$(git log -1 --format=%H -- scripts/bundle-for-claude.sh)"
+PRIVATE_SOURCE_COMMIT="$(git rev-parse HEAD)"
+PRIVATE_SOURCE_SHORT="$(git rev-parse --short HEAD)"
+PRIVATE_SOURCE_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 # 1. Hard secret scan BEFORE anything leaves the private repo.
 echo "Scanning for secrets before bundling..."
@@ -148,7 +153,8 @@ if [ -f scripts/secret-scan.sh ]; then
   ./scripts/secret-scan.sh || { echo "ABORT: secret scan failed. Nothing bundled."; exit 1; }
 fi
 
-# 2. Write the bundle — CONTROL.md + git state + manifest-declared canonical files inline.
+# 2. Write the bundle — onboarding protocol + CONTROL.md + governing rules +
+# git state + manifest-declared canonical files inline.
 if [ "$DRY_RUN" = true ]; then
   OUT="$(mktemp /tmp/bundle-dry-run-XXXXXX.md)"
   DRY_RUN_OUT="$OUT"
@@ -157,39 +163,62 @@ else
 fi
 
 {
-  echo "# AGENT OS — STATE BUNDLE FOR CLAUDE"
-  echo "_Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ) · commit: $(git rev-parse --short HEAD)_"
+  echo "# AGENT OS — EXTERNAL AGENT ONBOARDING BUNDLE"
   echo ""
-  echo "This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan."
+  echo "This is a sanitized snapshot for external AI-agent onboarding and review. Secrets are excluded by .gitignore + scan."
   echo ""
   echo "---"
 
-  echo "## CONTROL.md (current state)"
+  echo "## Bundle Identity"
+  echo '```text'
+  echo "private source repository commit: $PRIVATE_SOURCE_COMMIT"
+  echo "private source repository branch: $PRIVATE_SOURCE_BRANCH"
+  echo "generated timestamp: $VALIDATION_TS"
+  echo "publication manifest governance commit: $MANIFEST_COMMIT"
+  echo "wrap-up.sh governance commit: $WRAP_UP_COMMIT"
+  echo "bundle-for-claude.sh governance commit: $BUNDLE_SCRIPT_COMMIT"
+  echo "public bundle repository commit: <not embedded before publication commit exists>"
+  echo '```'
+  echo ""
+
+  echo "## External Agent Onboarding Protocol"
+  echo '```markdown'
+  cat docs/AGENT_ONBOARDING_PROTOCOL.md
+  echo '```'
+  echo ""
+
+  echo "## CONTROL.md — Canonical Current State"
   echo '```markdown'
   cat CONTROL.md
   echo '```'
   echo ""
 
-  echo "## Recent git log (20)"
+  echo "## Governing Rules"
+  echo "### OPERATING_CONSTITUTION.md"
+  echo '```markdown'
+  cat OPERATING_CONSTITUTION.md
+  echo '```'
+  echo ""
+  echo "### docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md"
+  echo '```markdown'
+  cat docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md
+  echo '```'
+  echo ""
+
+  echo "## Current Verification Gates"
+  awk '/^## Open verification gates$/{found=1} found{print} found && /^## / && $0 !~ /^## Open verification gates$/{exit}' CONTROL.md
+  echo ""
+
+  echo "## Recent Git Log"
   echo '```'
   git log --oneline -20
   echo '```'
   echo ""
 
-  echo "## Repo tree (no node_modules / .secrets / state)"
+  echo "## Repository Tree"
   echo '```'
   git ls-files | grep -vE '(^\.secrets/|node_modules/|^state/)' | head -200
   echo '```'
-  echo ""
-
-  echo "## Tests status (last run, if recorded)"
-  echo '```'
-  [ -f TEST_STATUS.txt ] && cat TEST_STATUS.txt || echo "(no TEST_STATUS.txt — run tests and record)"
-  echo '```'
-  echo ""
-
-  echo "## Open verification gates"
-  awk '/^## Open verification gates$/{found=1} found{print} found && /^## / && $0 !~ /^## Open verification gates$/{exit}' CONTROL.md
   echo ""
 
   echo "## Publication validation"
@@ -215,10 +244,15 @@ fi
   echo '```'
   echo ""
 
-  echo "## Canonical published files"
+  echo "## Remaining Canonical Published Files"
   echo ""
 
   while IFS= read -r file; do
+    case "$file" in
+      "docs/AGENT_ONBOARDING_PROTOCOL.md"|"CONTROL.md"|"OPERATING_CONSTITUTION.md"|"docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md"|"docs/CANONICAL_PUBLICATION_MANIFEST.md")
+        continue
+        ;;
+    esac
     echo "### $file"
     echo '```markdown'
     cat "$file"
@@ -227,7 +261,7 @@ fi
   done < "$PUBLISHED_LIST"
 
   echo "---"
-  echo "_To request a decision: tell Claude which CONTROL.md NEXT or which doc section you need a call on._"
+  echo "_External agent instruction: first reconstruct governing rules, documented runtime baseline versus live evidence, current phase, completed evidence and limits, active blockers, approved next bounded action, and stale/conflicting references. Do not execute, redesign, reopen settled decisions, or claim closure unless explicitly approved after this reconstruction._"
 } > "$OUT"
 
 # 3. Dry-run exits here — show preview, print size.
@@ -271,14 +305,25 @@ git commit -m "bundle: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null 2>&1 \
   || { echo "  (bundle unchanged — no new commit needed)"; }
 git push -q
 
-# 6. Print cache-proof raw URL.
+# 6. Print cache-proof raw URL and publication commit details.
 REMOTE_URL=$(git remote get-url origin)
 SLUG=$(echo "$REMOTE_URL" | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 CACHE_BUSTER=$(git rev-parse --short HEAD)
+BUNDLE_HEAD_LOCAL=$(git rev-parse HEAD)
+BUNDLE_HEAD_REMOTE=$(git ls-remote origin HEAD 2>/dev/null | awk '{print $1}' || true)
 echo ""
-echo "=== PASTE THIS URL TO CLAUDE ==="
+echo "=== EXTERNAL AGENT RAW BUNDLE URL ==="
 echo "https://raw.githubusercontent.com/$SLUG/$BRANCH/$BUNDLE_FILE?v=$CACHE_BUSTER"
+echo ""
+echo "Public bundle repository commit:"
+echo "$BUNDLE_HEAD_LOCAL"
+echo "Authoritative remote commit:"
+if [ -n "$BUNDLE_HEAD_REMOTE" ]; then
+  echo "$BUNDLE_HEAD_REMOTE"
+else
+  echo "<remote verification unavailable>"
+fi
 echo ""
 echo "Docs base URL:"
 echo "https://raw.githubusercontent.com/$SLUG/$BRANCH/docs/"

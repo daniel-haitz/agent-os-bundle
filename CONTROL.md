@@ -7,6 +7,12 @@ Every human or AI operator must read these mandatory control documents before ac
 - `OPERATING_CONSTITUTION.md`
 - `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md`
 
+## External-agent onboarding gate
+
+A fresh external AI agent receiving only the public raw bundle URL must first follow `docs/AGENT_ONBOARDING_PROTOCOL.md`.
+
+That protocol does not create a second current-state authority. `CONTROL.md` remains authoritative for accepted current state, phase status, blockers, and approved next action.
+
 Live runtime evidence is authoritative for observed facts. `CONTROL.md` records the accepted current state, phase status, blockers, next actions, and verification gates.
 
 No document, including `CONTROL.md`, can create authority that does not exist in live enforcement boundaries.
@@ -46,6 +52,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
   - `scripts/fa4-operator-egress-proxy-repair.sh`
   - `scripts/fa4-operator-readonly-validation.sh`
 - 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
+- The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.

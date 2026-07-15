@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # wrap-up.sh — Session-close command
 #
-# GOVERNING PRINCIPLE: The public raw URL is the only source of truth for publish success.
-# Local success is not success.
+# GOVERNING PRINCIPLE: GitHub remote state via git protocol is the source of
+# truth for publication verification when reachable. Local success is not
+# authoritative remote verification.
 #
 # Runs the full session-close sequence and PROVES the public mirror is current:
 #   1. State-freshness check  — prompt if CONTROL.md looks untouched; never block on commit timing
@@ -10,7 +11,7 @@
 #   3. Commit staged changes  — structured message, only if something is staged
 #   4. Push private repo
 #   5. Regenerate + push public bundle  (calls bundle-for-claude.sh)
-#   6. VERIFY public raw URL reflects the new commit — or FAIL LOUD with hand-fix steps
+#   6. VERIFY public bundle state via git protocol when reachable and local bundle content.
 #
 # Usage:
 #   ./scripts/wrap-up.sh "what shipped"
@@ -182,13 +183,13 @@ if [ -z "$CONTROL_RECENT" ] && [ -z "$CONTROL_STAGED" ] && [ -z "$CONTROL_MODIFI
   printf "Is that right? [y/N] "
   if read -r CONFIRM < /dev/tty 2>/dev/null; then
     if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-      echo "STOPPED. Update CONTROL.md (NOW / NEXT / DONE) before wrapping up."
+      echo "STOPPED. Reconcile CONTROL.md Current state, Phase status, blockers, and Next actions before wrapping up."
       exit 1
     fi
   else
     echo ""
     echo "STOPPED: non-interactive session and CONTROL.md looks stale."
-    echo "Update CONTROL.md (NOW / NEXT / DONE) then re-run wrap-up."
+    echo "Update CONTROL.md Current state, Phase status, blockers, and Next actions, then re-run wrap-up."
     exit 1
   fi
 fi
@@ -275,44 +276,61 @@ echo "→ Verifying push reached GitHub and bundle embeds correct commit..."
 BUNDLE_HEAD_REMOTE=$(git -C "$BUNDLE_REPO" ls-remote origin HEAD 2>/dev/null | awk '{print $1}' || true)
 
 PUSH_OK=false
+REMOTE_VERIFIED=false
 if [ "$BUNDLE_HEAD_REMOTE" = "$BUNDLE_HEAD_LOCAL" ]; then
   PUSH_OK=true
+  REMOTE_VERIFIED=true
 elif [ -z "$BUNDLE_HEAD_REMOTE" ]; then
-  # RESIDUAL: ls-remote unreachable — falling back to trusting git push exit code.
-  # This is a known residual documented in doctrine/SESSION_CLOSE_PROTOCOL.md.
-  # Future hardening: emit SOFT WARNING instead of CONFIRMED when ls-remote fails.
-  # Do not change this without reading that doc first.
+  # Remote verification unavailable. Do not claim authoritative remote publication
+  # verification; rely only on the clean push exit code and local bundle content.
   PUSH_OK=true
 fi
 
 # (b) Local content check — BUNDLE.md must embed the private HEAD we just pushed
-LOCAL_BUNDLE_PREFIX=$(head -c 500 "$BUNDLE_REPO/BUNDLE.md" 2>/dev/null || echo "")
+LOCAL_BUNDLE_PREFIX=$(head -c 2000 "$BUNDLE_REPO/BUNDLE.md" 2>/dev/null || echo "")
 BUNDLE_GENERATED=""
-if [[ "$LOCAL_BUNDLE_PREFIX" =~ _Generated:\ ([0-9TZ:-]+) ]]; then
+if [[ "$LOCAL_BUNDLE_PREFIX" =~ generated\ timestamp:\ ([0-9TZ:-]+) ]]; then
   BUNDLE_GENERATED="${BASH_REMATCH[1]}"
 fi
 BUNDLE_COMMIT=""
-if [[ "$LOCAL_BUNDLE_PREFIX" =~ commit:\ ([a-f0-9]+) ]]; then
+if [[ "$LOCAL_BUNDLE_PREFIX" =~ private\ source\ repository\ commit:\ ([a-f0-9]+) ]]; then
   BUNDLE_COMMIT="${BASH_REMATCH[1]}"
 fi
 CONTENT_OK=false
-[ "$BUNDLE_COMMIT" = "$PRIVATE_HEAD" ] && CONTENT_OK=true
+case "$BUNDLE_COMMIT" in
+  "$PRIVATE_HEAD"|"$PRIVATE_HEAD"*) CONTENT_OK=true ;;
+esac
 
 if [ "$PUSH_OK" = true ] && [ "$CONTENT_OK" = true ]; then
   echo ""
-  echo "PUBLISH CONFIRMED"
+  if [ "$REMOTE_VERIFIED" = true ]; then
+    echo "PUBLISH CONFIRMED"
+  else
+    echo "PUBLISH COMPLETED — REMOTE VERIFICATION UNAVAILABLE"
+  fi
   echo "  private HEAD  : $PRIVATE_HEAD (pushed)"
-  echo "  bundle HEAD   : $BUNDLE_HEAD_SHORT (on GitHub)"
+  echo "  bundle HEAD   : $BUNDLE_HEAD_SHORT"
+  echo "  remote HEAD   : ${BUNDLE_HEAD_REMOTE:-<ls-remote failed>}"
   echo "  bundle embeds : $BUNDLE_COMMIT (correct)"
   echo "  raw URL (live in ~5 min): $PUBLIC_URL?v=$BUNDLE_HEAD_SHORT"
   echo ""
-  NEXT_LINE=$(awk '/^## NEXT/{f=1; next} f&&/^>/{print; exit}' CONTROL.md | sed 's/^> //')
+  NEXT_LINE=$(awk '
+    /^## Next actions$/ { found=1; next }
+    found && /^## / { exit }
+    found && /^### Immediate bounded action$/ { immediate=1; next }
+    immediate && NF { print; exit }
+  ' CONTROL.md)
   echo "STATUS"
   echo "  did:     ${SUMMARY}"
   echo "  commit:  $PRIVATE_HEAD"
-  echo "  bundle:  CONFIRMED on GitHub @ $BUNDLE_HEAD_SHORT (embed: $BUNDLE_COMMIT)"
-  echo "  next:    ${NEXT_LINE:-<check CONTROL.md NEXT>}"
-  echo "  flags:   ${FLAGS:-none}"
+  if [ "$REMOTE_VERIFIED" = true ]; then
+    echo "  bundle:  CONFIRMED on GitHub @ $BUNDLE_HEAD_SHORT (embed: $BUNDLE_COMMIT)"
+    echo "  flags:   ${FLAGS:-none}"
+  else
+    echo "  bundle:  pushed locally @ $BUNDLE_HEAD_SHORT; remote verification unavailable (embed: $BUNDLE_COMMIT)"
+    echo "  flags:   ${FLAGS:-remote verification unavailable}"
+  fi
+  echo "  next:    ${NEXT_LINE:-<check CONTROL.md Next actions>}"
   echo ""
   echo "PUBLISHED_REF: $BUNDLE_HEAD_SHORT @ ${BUNDLE_GENERATED:-<generated-unknown>} embeds $BUNDLE_COMMIT"
 else
