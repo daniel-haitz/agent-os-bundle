@@ -168,8 +168,12 @@ install_exec_secretref_runtime() {
   node_hash_dest="$(shasum -a 256 "$OPENAI_BROKER_RUNTIME_NODE" | awk '{print $1}')"
   broker_hash_source="$(shasum -a 256 "$OPENAI_BROKER_SOURCE" | awk '{print $1}')"
   broker_hash_dest="$(shasum -a 256 "$OPENAI_BROKER_BIN" | awk '{print $1}')"
+  resolver_hash_source="$(shasum -a 256 "$SECRETREF_RESOLVER_SOURCE" | awk '{print $1}')"
+  resolver_hash_dest="$(shasum -a 256 "$SECRETREF_RESOLVER" | awk '{print $1}')"
   [ "$node_hash_source" = "$node_hash_dest" ] || { echo "ERROR: staged Node runtime hash mismatch" >&2; exit 1; }
   [ "$broker_hash_source" = "$broker_hash_dest" ] || { echo "ERROR: staged broker source hash mismatch" >&2; exit 1; }
+  [ "$resolver_hash_source" = "$resolver_hash_dest" ] || { echo "ERROR: staged resolver hash mismatch" >&2; exit 1; }
+  [ "$(stat -f '%Su:%Sg %04OLp' "$SECRETREF_RESOLVER")" = "root:openclawgw 0550" ] || { echo "ERROR: resolver custody mismatch: $(stat -f '%Su:%Sg %04OLp' "$SECRETREF_RESOLVER")" >&2; exit 1; }
   cat > "$OPENAI_BROKER_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

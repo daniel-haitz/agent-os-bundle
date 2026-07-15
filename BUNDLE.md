@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: b99ce52039d0990ab67f4bff6208812010a4b735
+private source repository commit: 51f1c4e95cac92882748c304fa0d7d44c1710a0d
 private source repository branch: main
-generated timestamp: 2026-07-15T23:12:28Z
+generated timestamp: 2026-07-15T23:35:45Z
 publication manifest governance commit: 32649394862772fe6e292ac935681135e6330ce1
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+51f1c4e fa4: stage SecretRef resolver for root-owned apply
 b99ce52 fa4: stage credential broker runtime outside agent home
 53c48be fa4: tighten host certification gate semantics
 3264939 fa4: certify host compatibility before broker bootstrap
@@ -779,7 +780,6 @@ a37cb6d validation: use behavioral broker argPattern checks
 90c77bf validation: harden F-A4 secrets audit check
 faf3d90 validation: prepare F-A4 OpenClaw containment remediation
 b8bce39 validation: fix F-A4 runtime identity validation harness
-1d974e6 [claude-code] harden F-A4 egress proxy launchd reload
 ```
 
 ## Repository Tree
@@ -884,7 +884,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
-last validation timestamp: 2026-07-15T23:12:28Z
+last validation timestamp: 2026-07-15T23:35:45Z
 ```
 
 ---
@@ -4321,6 +4321,8 @@ The bootstrap now also exposes a no-mutation `--certify-host` gate that aggregat
 Containment readiness later failed at `PROVIDER SOURCE COMPATIBILITY` because the dedicated `openai-credential-broker` identity cannot traverse `/Users/agent`. Live evidence showed `/Users/agent` is `agent:staff 0750` with ACL search only for `openclawgw`, and direct tests as `openai-credential-broker` could neither execute `/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node` nor read `/Users/agent/agent-os/src/openai-credential-broker/openai-credential-broker.mjs`. This is an intended isolation result, not a broker account defect.
 
 The readiness/remediation design now stages a broker-private runtime outside `/Users/agent`: Node is copied from the accepted OpenClaw-bundled runtime into `/Users/openai-credential-broker/agent-os-openai-credential-broker/runtime/node`, and broker source is copied into `/Users/openai-credential-broker/agent-os-openai-credential-broker/bin/openai-credential-broker.mjs`. Runtime/bin directories and executables are root-owned with group access for the broker identity and non-writable executable modes; the secrets directory and credential store remain `openai-credential-broker` owned. Readiness writes a deployment manifest containing source paths, destination paths, versions, hashes, owners, groups, and modes, and proves the provider with a temporary fixture deployment that does not require broker access to `/Users/agent`.
+
+Containment readiness then exposed the resolver-side equivalent: `openclaw secrets apply --dry-run` runs as root and rejects an exec SecretRef provider command unless that command is owned by the invoking UID. The plan had pointed at the repository source `scripts/fa4-openai-secretref-resolver.mjs`, owned by `agent`, so OpenClaw correctly rejected it. The corrected model stages the resolver from repository source to `/Users/agent/.openclaw/scripts/fa4-openai-secretref-resolver.mjs` as `root:openclawgw 0550`; production and fixture SecretRef plans reference only the staged resolver, never the repository source. Readiness now stages a temporary root-owned resolver fixture, verifies hash/ownership/mode, verifies `openclawgw` can read/execute but not modify it, verifies the broker identity cannot modify it, and runs the SecretRef dry-run against the staged fixture command.
 
 ### Closure Impact
 
@@ -13917,6 +13919,7 @@ CONFIG="$OPENCLAW_HOME/openclaw.json"
 STATE_DIR="$OPENCLAW_HOME/state"
 SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
 SECRETREF_RESOLVER_SOURCE="$REPO_ROOT/scripts/fa4-openai-secretref-resolver.mjs"
+SECRETREF_RESOLVER="$OPENCLAW_HOME/scripts/fa4-openai-secretref-resolver.mjs"
 OPENAI_BROKER_SOURCE="$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs"
 OPENAI_BROKER_USER="openai-credential-broker"
 OPENAI_BROKER_GROUP="openai-credential-broker"
@@ -13955,8 +13958,8 @@ record_metadata() {
   local label="$2"
   local target="$3"
   if [ -e "$target" ]; then
-    stat -f '%u	%Su	%g	%Sg	%Lp' "$target" \
-      | awk -v label="$label" -v path="$target" -F '\t' '{ printf "%s\t%s\tpresent\t%s\t%s\t%s\t%s\t%04o\n", label, path, $1, $2, $3, $4, $5 }' \
+    stat -f '%u	%Su	%g	%Sg	%OLp' "$target" \
+      | awk -v label="$label" -v path="$target" -F '\t' '{ printf "%s\t%s\tpresent\t%s\t%s\t%s\t%s\t%s\n", label, path, $1, $2, $3, $4, $5 }' \
       >> "$output"
   else
     printf '%s\t%s\tabsent\t\t\t\t\t\n' "$label" "$target" >> "$output"
@@ -13974,9 +13977,8 @@ capture_metadata() {
 restore_candidate_cleanup() {
   if [ -n "${FIXTURE_BROKER_PID:-}" ]; then
     kill "$FIXTURE_BROKER_PID" 2>/dev/null || true
+    wait "$FIXTURE_BROKER_PID" 2>/dev/null || true
   fi
-  chown root:openclawgw "$OPENCLAW_HOME"
-  chmod 0550 "$OPENCLAW_HOME"
 }
 trap restore_candidate_cleanup EXIT
 
@@ -14033,9 +14035,9 @@ NODE
 }
 
 write_deployment_manifest() {
-  "$NODE_BIN" --input-type=module - "$DEPLOYMENT_MANIFEST" "$NODE_BIN" "$OPENAI_BROKER_SOURCE" "$OPENAI_BROKER_RUNTIME_NODE" "$OPENAI_BROKER_BIN" "$(node_version "$NODE_BIN")" "$(sha256_file "$NODE_BIN")" "$(sha256_file "$OPENAI_BROKER_SOURCE")" <<'NODE'
+  "$NODE_BIN" --input-type=module - "$DEPLOYMENT_MANIFEST" "$NODE_BIN" "$OPENAI_BROKER_SOURCE" "$SECRETREF_RESOLVER_SOURCE" "$OPENAI_BROKER_RUNTIME_NODE" "$OPENAI_BROKER_BIN" "$SECRETREF_RESOLVER" "$(node_version "$NODE_BIN")" "$(sha256_file "$NODE_BIN")" "$(sha256_file "$OPENAI_BROKER_SOURCE")" "$(sha256_file "$SECRETREF_RESOLVER_SOURCE")" <<'NODE'
 import fs from "node:fs";
-const [manifestPath, sourceNode, sourceBroker, destNode, destBroker, nodeVersion, nodeHash, brokerHash] = process.argv.slice(2);
+const [manifestPath, sourceNode, sourceBroker, sourceResolver, destNode, destBroker, destResolver, nodeVersion, nodeHash, brokerHash, resolverHash] = process.argv.slice(2);
 const manifest = {
   version: 1,
   purpose: "F-A4 OpenAI credential broker staged runtime deployment",
@@ -14056,6 +14058,19 @@ const manifest = {
     destinationOwner: "root",
     destinationGroup: "openai-credential-broker",
     destinationMode: "0550",
+  },
+  resolver: {
+    sourcePath: sourceResolver,
+    sourceSha256: resolverHash,
+    destinationPath: destResolver,
+    destinationOwner: "root",
+    destinationGroup: "openclawgw",
+    destinationMode: "0550",
+    runtimeShebangStrategy: "repository shebang retained; executable path must be available to openclawgw",
+    expectedApplyingUid: 0,
+    openClawOwnershipInvariant: "openclaw secrets apply validates exec provider command owner equals invoking UID",
+    stagedSha256: resolverHash,
+    upgradeRule: "Resolver replacement requires hash validation and controlled staging; SecretRef plans must not execute from /Users/agent/agent-os."
   },
   directories: [
     { path: "/Users/openai-credential-broker/agent-os-openai-credential-broker", owner: "root", group: "openai-credential-broker", mode: "0750" },
@@ -14146,7 +14161,7 @@ write_deployment_manifest
 echo "Deployment manifest: $DEPLOYMENT_MANIFEST"
 assert_no_agent_traversal_for_broker
 
-"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRETREF_RESOLVER_SOURCE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
+"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRETREF_RESOLVER" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -14298,21 +14313,26 @@ FIXTURE_DIR="$(mktemp -d /private/tmp/fa4-openai-secretref-readiness.XXXXXX)"
 FIXTURE_DEPLOY_ROOT="$FIXTURE_DIR/deploy"
 FIXTURE_RUNTIME_DIR="$FIXTURE_DEPLOY_ROOT/runtime"
 FIXTURE_BIN_DIR="$FIXTURE_DEPLOY_ROOT/bin"
+FIXTURE_RESOLVER_DIR="$FIXTURE_DIR/resolver"
 FIXTURE_RUN_DIR="$FIXTURE_DIR/run"
 FIXTURE_SOCKET="$FIXTURE_RUN_DIR/openai-credential-broker.sock"
 FIXTURE_STORE_DIR="$FIXTURE_DIR/secrets"
 FIXTURE_STORE="$FIXTURE_STORE_DIR/openai-static-credentials.json"
 FIXTURE_NODE="$FIXTURE_RUNTIME_DIR/node"
 FIXTURE_BROKER="$FIXTURE_BIN_DIR/openai-credential-broker.mjs"
+FIXTURE_RESOLVER="$FIXTURE_RESOLVER_DIR/fa4-openai-secretref-resolver.mjs"
 FIXTURE_PLAN="$OUT_DIR/openclaw-secretref-plan.fixture.json"
 chmod 0750 "$FIXTURE_DIR"
-mkdir -p "$FIXTURE_DEPLOY_ROOT" "$FIXTURE_RUNTIME_DIR" "$FIXTURE_BIN_DIR" "$FIXTURE_RUN_DIR" "$FIXTURE_STORE_DIR"
+mkdir -p "$FIXTURE_DEPLOY_ROOT" "$FIXTURE_RUNTIME_DIR" "$FIXTURE_BIN_DIR" "$FIXTURE_RESOLVER_DIR" "$FIXTURE_RUN_DIR" "$FIXTURE_STORE_DIR"
 chown root:wheel "$FIXTURE_DIR"
 chmod 0755 "$FIXTURE_DIR"
 chown root:"$OPENAI_BROKER_GROUP" "$FIXTURE_DEPLOY_ROOT" "$FIXTURE_RUNTIME_DIR" "$FIXTURE_BIN_DIR"
 chmod 0750 "$FIXTURE_DEPLOY_ROOT" "$FIXTURE_RUNTIME_DIR" "$FIXTURE_BIN_DIR"
+chown root:"$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_RESOLVER_DIR"
+chmod 0750 "$FIXTURE_RESOLVER_DIR"
 install -o root -g "$OPENAI_BROKER_GROUP" -m 0550 "$NODE_BIN" "$FIXTURE_NODE"
 install -o root -g "$OPENAI_BROKER_GROUP" -m 0550 "$OPENAI_BROKER_SOURCE" "$FIXTURE_BROKER"
+install -o root -g "$OPENAI_BROKER_RUNTIME_GROUP" -m 0550 "$SECRETREF_RESOLVER_SOURCE" "$FIXTURE_RESOLVER"
 chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_RUN_DIR"
 chmod 0750 "$FIXTURE_RUN_DIR"
 chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_GROUP" "$FIXTURE_STORE_DIR"
@@ -14327,10 +14347,14 @@ chmod 0600 "$FIXTURE_STORE"
 chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_GROUP" "$FIXTURE_STORE"
 fixture_node_hash="$(sha256_file "$FIXTURE_NODE")"
 fixture_broker_hash="$(sha256_file "$FIXTURE_BROKER")"
+source_resolver_hash="$(sha256_file "$SECRETREF_RESOLVER_SOURCE")"
+fixture_resolver_hash="$(sha256_file "$FIXTURE_RESOLVER")"
 [ "$fixture_node_hash" = "$source_node_hash" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: staged Node hash mismatch"; exit 1; }
 [ "$fixture_broker_hash" = "$source_broker_hash" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: staged broker source hash mismatch"; exit 1; }
+[ "$fixture_resolver_hash" = "$source_resolver_hash" ] || { echo "RESOLVER CUSTODY COMPATIBILITY: FAIL"; echo "NO-GO: staged resolver hash mismatch"; exit 1; }
 echo "Fixture staged Node: $FIXTURE_NODE sha256=$fixture_node_hash"
 echo "Fixture staged broker: $FIXTURE_BROKER sha256=$fixture_broker_hash"
+echo "Fixture staged resolver: $FIXTURE_RESOLVER sha256=$fixture_resolver_hash"
 
 set +e
 "$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_NODE" --version >/dev/null 2>&1 <<'NODE'
@@ -14391,6 +14415,56 @@ set -e
 [ "$broker_can_write_fixture_node" -ne 0 ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: broker can modify staged fixture Node"; exit 1; }
 [ "$broker_can_write_fixture_broker" -ne 0 ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; echo "NO-GO: broker can modify staged fixture broker source"; exit 1; }
 
+resolver_meta="$(stat -f '%Su:%Sg %04OLp' "$FIXTURE_RESOLVER")"
+[ "$resolver_meta" = "root:$OPENAI_BROKER_RUNTIME_GROUP 0550" ] || { echo "RESOLVER CUSTODY COMPATIBILITY: FAIL"; echo "NO-GO: staged resolver metadata mismatch: $resolver_meta"; exit 1; }
+set +e
+"$NODE_BIN" --input-type=module - "$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_RESOLVER" R >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [group, path, mode] = process.argv.slice(2);
+try { process.initgroups("openclawgw", group); } catch {}
+process.setgid(group);
+process.setuid("openclawgw");
+try {
+  fs.accessSync(path, mode === "W" ? fs.constants.W_OK : fs.constants.R_OK | fs.constants.X_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+openclawgw_can_execute_resolver=$?
+"$NODE_BIN" --input-type=module - "$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_RESOLVER" W >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [group, path, mode] = process.argv.slice(2);
+try { process.initgroups("openclawgw", group); } catch {}
+process.setgid(group);
+process.setuid("openclawgw");
+try {
+  fs.accessSync(path, mode === "W" ? fs.constants.W_OK : fs.constants.R_OK | fs.constants.X_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+openclawgw_can_write_resolver=$?
+"$NODE_BIN" --input-type=module - "$OPENAI_BROKER_USER" "$OPENAI_BROKER_GROUP" "$FIXTURE_RESOLVER" W >/dev/null 2>&1 <<'NODE'
+import fs from "node:fs";
+const [user, group, path, mode] = process.argv.slice(2);
+try { process.initgroups(user, group); } catch {}
+process.setgid(group);
+process.setuid(user);
+try {
+  fs.accessSync(path, mode === "W" ? fs.constants.W_OK : fs.constants.R_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+broker_can_write_resolver=$?
+set -e
+[ "$openclawgw_can_execute_resolver" -eq 0 ] || { echo "RESOLVER CUSTODY COMPATIBILITY: FAIL"; echo "NO-GO: openclawgw cannot read/execute staged resolver"; exit 1; }
+[ "$openclawgw_can_write_resolver" -ne 0 ] || { echo "RESOLVER CUSTODY COMPATIBILITY: FAIL"; echo "NO-GO: openclawgw can modify staged resolver"; exit 1; }
+[ "$broker_can_write_resolver" -ne 0 ] || { echo "RESOLVER CUSTODY COMPATIBILITY: FAIL"; echo "NO-GO: broker can modify staged resolver"; exit 1; }
+
 "$NODE_BIN" --input-type=module - "$FIXTURE_NODE" "$FIXTURE_BROKER" "$FIXTURE_SOCKET" "$FIXTURE_STORE" "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" > "$OUT_DIR/fixture-broker.stdout" 2> "$OUT_DIR/fixture-broker.stderr" <<'NODE' &
 import { spawn } from "node:child_process";
 const [nodeBin, brokerSource, socketPath, storePath, userName, groupName] = process.argv.slice(2);
@@ -14421,7 +14495,7 @@ if [ "$socket_meta" != "$expected_socket_meta" ]; then
   exit 1
 fi
 
-"$NODE_BIN" --input-type=module - "$SECRETREF_RESOLVER_SOURCE" "$FIXTURE_SOCKET" "$OUT_DIR" <<'NODE'
+"$NODE_BIN" --input-type=module - "$FIXTURE_RESOLVER" "$FIXTURE_SOCKET" "$OUT_DIR" <<'NODE'
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 
@@ -14519,10 +14593,25 @@ if [ "$openclawgw_can_read_store" -eq 0 ]; then
   exit 1
 fi
 
-sed "s#__FIXTURE_SOCKET__#$FIXTURE_SOCKET#g" "$PLAN_FILE" > "$FIXTURE_PLAN"
+"$NODE_BIN" --input-type=module - "$PLAN_FILE" "$FIXTURE_PLAN" "$FIXTURE_RESOLVER" "$FIXTURE_SOCKET" "$SECRETREF_RESOLVER_SOURCE" <<'NODE'
+import fs from "node:fs";
+const [planPath, fixturePlanPath, resolverPath, socketPath, repoResolverPath] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+plan.providerUpserts.agent_os_openai.command = resolverPath;
+plan.providerUpserts.agent_os_openai.env = {
+  AGENT_OS_OPENAI_SECRETREF_TEST_MODE: "1",
+  AGENT_OS_OPENAI_CREDENTIAL_SOCKET: socketPath,
+};
+const serialized = `${JSON.stringify(plan, null, 2)}\n`;
+if (serialized.includes(repoResolverPath) || serialized.includes("/Users/agent/agent-os/scripts/fa4-openai-secretref-resolver.mjs")) {
+  throw new Error("fixture SecretRef plan references repository resolver source");
+}
+fs.writeFileSync(fixturePlanPath, serialized, { mode: 0o600 });
+NODE
 if plan_has_targets; then
   echo "SECRETREF PLAN DRY RUN"
   "$OPENCLAW_BIN" secrets apply --from "$FIXTURE_PLAN" --dry-run --allow-exec --json > "$OUT_DIR/secretref-exec-dry-run.json"
+  echo "SECRETREF PLAN OWNERSHIP VALIDATION: PASS"
 fi
 
 echo "CONFIG PATCH DRY RUN"
@@ -14534,6 +14623,7 @@ if ! plan_has_targets; then
 fi
 
 echo "PROVIDER SOURCE COMPATIBILITY: PASS"
+echo "RESOLVER CUSTODY COMPATIBILITY: PASS"
 echo "BROKER EXECUTES AS DEDICATED UID: PASS"
 echo "BROKER STORE OWNER/MODE: PASS"
 echo "STORE UNREADABLE AND UNWRITABLE BY OPENCLAWGW: PASS"
@@ -14725,8 +14815,12 @@ install_exec_secretref_runtime() {
   node_hash_dest="$(shasum -a 256 "$OPENAI_BROKER_RUNTIME_NODE" | awk '{print $1}')"
   broker_hash_source="$(shasum -a 256 "$OPENAI_BROKER_SOURCE" | awk '{print $1}')"
   broker_hash_dest="$(shasum -a 256 "$OPENAI_BROKER_BIN" | awk '{print $1}')"
+  resolver_hash_source="$(shasum -a 256 "$SECRETREF_RESOLVER_SOURCE" | awk '{print $1}')"
+  resolver_hash_dest="$(shasum -a 256 "$SECRETREF_RESOLVER" | awk '{print $1}')"
   [ "$node_hash_source" = "$node_hash_dest" ] || { echo "ERROR: staged Node runtime hash mismatch" >&2; exit 1; }
   [ "$broker_hash_source" = "$broker_hash_dest" ] || { echo "ERROR: staged broker source hash mismatch" >&2; exit 1; }
+  [ "$resolver_hash_source" = "$resolver_hash_dest" ] || { echo "ERROR: staged resolver hash mismatch" >&2; exit 1; }
+  [ "$(stat -f '%Su:%Sg %04OLp' "$SECRETREF_RESOLVER")" = "root:openclawgw 0550" ] || { echo "ERROR: resolver custody mismatch: $(stat -f '%Su:%Sg %04OLp' "$SECRETREF_RESOLVER")" >&2; exit 1; }
   cat > "$OPENAI_BROKER_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
