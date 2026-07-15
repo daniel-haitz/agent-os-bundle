@@ -52,6 +52,8 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
   - `scripts/fa4-operator-egress-proxy-repair.sh`
   - `scripts/fa4-operator-readonly-validation.sh`
 - 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
+- 2026-07-15 operator evidence confirmed the egress proxy can run as `egressproxy:egressproxy`, listen on `127.0.0.1:13128`, allow `chatgpt.com` CONNECT, deny `example.com` CONNECT with `403`, and record both decisions in `proxy.jsonl`.
+- The egress proxy repair harness had a confirmed launchd bootout/bootstrap race: immediate bootstrap after bootout could fail with `Bootstrap failed: 5: Input/output error`, while a later manual bootstrap succeeded. The harness correction is prepared and syntax-tested; pf integration and full read-only validation remain pending.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
@@ -167,11 +169,11 @@ F-B and F-C remain blocked until their enforcement and evidence gates are implem
 
 `audits/F-A4-foundation-hardening-validation.md` captured partial F-A4 foundation evidence on 2026-07-15.
 
-Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy LaunchDaemon exists but is not active and exits with `EX_CONFIG`. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
+Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy can run and enforce allow/deny behavior after operator bootstrap, but the repair harness reload race required correction before it could be treated as repeatable tooling. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
+1. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh`.
 2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
 
@@ -188,7 +190,7 @@ Required results:
 1. Native OpenClaw security/secrets/sandbox validation runs through an approved read-only path.
 2. The unsupported `openclaw doctor --security` requirement is replaced by the supported `2026.6.11` command surface: `security audit --json`, `security audit --deep --json`, `doctor --lint --json`, `secrets audit --json`, and `sandbox explain --json`.
 3. `openclaw secrets audit` no longer fails on `/Users/agent/.openclaw/npm/projects`, or the failure is source-backed as irrelevant to security validation.
-4. Egress proxy `EX_CONFIG` is resolved by the reviewed proxy artifact repair path, and proxy/pf evidence is captured through the approved operator path.
+4. Corrected egress proxy repair harness runs repeatably, and proxy/pf evidence is captured through the approved operator path.
 5. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
 6. F-A1/F-A2/F-A3 bounded regression is executed for the actual gateway/runtime identity where required by the F-A4 cutover gate.
 

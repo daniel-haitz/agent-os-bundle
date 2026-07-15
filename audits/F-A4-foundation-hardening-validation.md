@@ -350,3 +350,47 @@ Classification: environment/execution-context issue. The repair harness was not 
 ### Closure Impact
 
 F-A4 remains **not closed**. The next closure step is an interactive operator run of the prepared repair and validation harnesses, followed by evidence reconciliation.
+
+## Egress Proxy Harness Race — 2026-07-15
+
+### Operator Runtime Evidence
+
+Operator evidence supplied after the build-lead pass showed:
+
+- `scripts/fa4-operator-egress-proxy-repair.sh` repeatedly failed when it ran `launchctl bootout system/ai.agent-os-egress-proxy` immediately followed by `launchctl bootstrap system /Library/LaunchDaemons/ai.agent-os-egress-proxy.plist`.
+- The bootstrap failure was `Bootstrap failed: 5: Input/output error`.
+- A later manual `sudo launchctl bootstrap system /Library/LaunchDaemons/ai.agent-os-egress-proxy.plist` succeeded with exit code `0`.
+- The resulting daemon ran as `egressproxy:egressproxy`.
+- Runtime checks passed for:
+  - listener active on `127.0.0.1:13128`;
+  - `chatgpt.com` CONNECT allowed;
+  - `example.com` CONNECT denied with `403`;
+  - both decisions recorded in `proxy.jsonl`.
+
+The evidence directories named by the operator were not readable by the non-privileged `agent` account:
+
+- `/Users/dannybigdeals/fa4-egress-proxy-repair-20260715T173700Z`
+- `/Users/dannybigdeals/fa4-egress-proxy-repair-20260715T174610Z`
+
+### Classification
+
+This is a repair-harness launchd timing/idempotency defect, not a change to the selected F-A4 architecture, proxy implementation, allowlist, plist semantics, pf design, or runtime policy.
+
+### Tooling Correction Prepared
+
+`scripts/fa4-operator-egress-proxy-repair.sh` now uses a bounded `reload_launchdaemon` helper that:
+
+- requests bootout;
+- waits until the launchd service is actually absent;
+- bootstraps only after confirmed absence;
+- retries bounded `Bootstrap failed: 5` failures;
+- fails loudly after retry exhaustion;
+- logs attempts and results to `repair.log`;
+- kickstarts after bootstrap;
+- confirms launchd presence, running state, expected user, expected group, and listener on `127.0.0.1:13128`.
+
+The generated `rollback.sh` now uses the same wait/retry mechanics and must either restore/reload successfully or fail loudly with evidence.
+
+### Closure Impact
+
+F-A4 remains **not closed**. The proxy runtime allow/deny behavior is partially proven by operator evidence, but pf integration, full read-only validation, bounded regression, persistence, reboot validation, and durable evidence gates remain pending.

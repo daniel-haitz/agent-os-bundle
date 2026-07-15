@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+private source repository commit: 1d974e694e559fe0312ffee0639614c56cdda03c
 private source repository branch: main
-generated timestamp: 2026-07-15T17:30:21Z
+generated timestamp: 2026-07-15T17:49:56Z
 publication manifest governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
@@ -136,6 +136,8 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
   - `scripts/fa4-operator-egress-proxy-repair.sh`
   - `scripts/fa4-operator-readonly-validation.sh`
 - 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
+- 2026-07-15 operator evidence confirmed the egress proxy can run as `egressproxy:egressproxy`, listen on `127.0.0.1:13128`, allow `chatgpt.com` CONNECT, deny `example.com` CONNECT with `403`, and record both decisions in `proxy.jsonl`.
+- The egress proxy repair harness had a confirmed launchd bootout/bootstrap race: immediate bootstrap after bootout could fail with `Bootstrap failed: 5: Input/output error`, while a later manual bootstrap succeeded. The harness correction is prepared and syntax-tested; pf integration and full read-only validation remain pending.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
@@ -251,11 +253,11 @@ F-B and F-C remain blocked until their enforcement and evidence gates are implem
 
 `audits/F-A4-foundation-hardening-validation.md` captured partial F-A4 foundation evidence on 2026-07-15.
 
-Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy LaunchDaemon exists but is not active and exits with `EX_CONFIG`. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
+Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy can run and enforce allow/deny behavior after operator bootstrap, but the repair harness reload race required correction before it could be treated as repeatable tooling. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
+1. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh`.
 2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
 
@@ -272,7 +274,7 @@ Required results:
 1. Native OpenClaw security/secrets/sandbox validation runs through an approved read-only path.
 2. The unsupported `openclaw doctor --security` requirement is replaced by the supported `2026.6.11` command surface: `security audit --json`, `security audit --deep --json`, `doctor --lint --json`, `secrets audit --json`, and `sandbox explain --json`.
 3. `openclaw secrets audit` no longer fails on `/Users/agent/.openclaw/npm/projects`, or the failure is source-backed as irrelevant to security validation.
-4. Egress proxy `EX_CONFIG` is resolved by the reviewed proxy artifact repair path, and proxy/pf evidence is captured through the approved operator path.
+4. Corrected egress proxy repair harness runs repeatably, and proxy/pf evidence is captured through the approved operator path.
 5. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
 6. F-A1/F-A2/F-A3 bounded regression is executed for the actual gateway/runtime identity where required by the F-A4 cutover gate.
 
@@ -753,6 +755,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+1d974e6 [claude-code] harden F-A4 egress proxy launchd reload
 808d242 governance: add external agent onboarding bundle protocol
 c09e866 governance: harden F-A4 operator validation pattern
 3c65ffc validation: prepare F-A4 remediation and operator validation path
@@ -772,7 +775,6 @@ e39d896 [claude-code] Gmail re-auth DONE (token was dead, re-authed Gmail-scoped
 fd5ccba [codex] F-A4.5: correct Gmail broker root cause
 a3d31c3 [codex] F-A4.5: record wall proof and Gmail blockers
 1f16a5c [codex] F-A4: record Phase 5 half-1 state
-0b973f6 [codex] publish: print bundle freshness reference
 ```
 
 ## Repository Tree
@@ -868,7 +870,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
-last validation timestamp: 2026-07-15T17:30:21Z
+last validation timestamp: 2026-07-15T17:49:56Z
 ```
 
 ---
@@ -4109,6 +4111,50 @@ Classification: environment/execution-context issue. The repair harness was not 
 ### Closure Impact
 
 F-A4 remains **not closed**. The next closure step is an interactive operator run of the prepared repair and validation harnesses, followed by evidence reconciliation.
+
+## Egress Proxy Harness Race — 2026-07-15
+
+### Operator Runtime Evidence
+
+Operator evidence supplied after the build-lead pass showed:
+
+- `scripts/fa4-operator-egress-proxy-repair.sh` repeatedly failed when it ran `launchctl bootout system/ai.agent-os-egress-proxy` immediately followed by `launchctl bootstrap system /Library/LaunchDaemons/ai.agent-os-egress-proxy.plist`.
+- The bootstrap failure was `Bootstrap failed: 5: Input/output error`.
+- A later manual `sudo launchctl bootstrap system /Library/LaunchDaemons/ai.agent-os-egress-proxy.plist` succeeded with exit code `0`.
+- The resulting daemon ran as `egressproxy:egressproxy`.
+- Runtime checks passed for:
+  - listener active on `127.0.0.1:13128`;
+  - `chatgpt.com` CONNECT allowed;
+  - `example.com` CONNECT denied with `403`;
+  - both decisions recorded in `proxy.jsonl`.
+
+The evidence directories named by the operator were not readable by the non-privileged `agent` account:
+
+- `/Users/dannybigdeals/fa4-egress-proxy-repair-20260715T173700Z`
+- `/Users/dannybigdeals/fa4-egress-proxy-repair-20260715T174610Z`
+
+### Classification
+
+This is a repair-harness launchd timing/idempotency defect, not a change to the selected F-A4 architecture, proxy implementation, allowlist, plist semantics, pf design, or runtime policy.
+
+### Tooling Correction Prepared
+
+`scripts/fa4-operator-egress-proxy-repair.sh` now uses a bounded `reload_launchdaemon` helper that:
+
+- requests bootout;
+- waits until the launchd service is actually absent;
+- bootstraps only after confirmed absence;
+- retries bounded `Bootstrap failed: 5` failures;
+- fails loudly after retry exhaustion;
+- logs attempts and results to `repair.log`;
+- kickstarts after bootstrap;
+- confirms launchd presence, running state, expected user, expected group, and listener on `127.0.0.1:13128`.
+
+The generated `rollback.sh` now uses the same wait/retry mechanics and must either restore/reload successfully or fail loudly with evidence.
+
+### Closure Impact
+
+F-A4 remains **not closed**. The proxy runtime allow/deny behavior is partially proven by operator evidence, but pf integration, full read-only validation, bounded regression, persistence, reboot validation, and durable evidence gates remain pending.
 ```
 
 ### docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md
@@ -11511,6 +11557,14 @@ PLIST="/Library/LaunchDaemons/ai.agent-os-egress-proxy.plist"
 SOURCE="$SUPPORT_DIR/agent-os-egress-proxy.mjs"
 ALLOWLIST="$SUPPORT_DIR/allowlist.txt"
 ANCHOR="$SUPPORT_DIR/agent-os-egress.anchor"
+LABEL="ai.agent-os-egress-proxy"
+HOST="127.0.0.1"
+PORT="13128"
+EXPECTED_USER="egressproxy"
+EXPECTED_GROUP="egressproxy"
+LAUNCHD_TIMEOUT_SECONDS=20
+BOOTSTRAP_RETRIES=4
+BOOTSTRAP_RETRY_SLEEP=2
 
 mkdir -p "$OUT_DIR" "$BACKUP_DIR"
 chmod 0700 "$OUT_DIR" "$BACKUP_DIR"
@@ -11529,6 +11583,129 @@ backup_path() {
   else
     printf '%s\n' "$path" >> "$BACKUP_DIR/absent-paths.txt"
   fi
+}
+
+service_present() {
+  launchctl print "system/$LABEL" >/dev/null 2>&1
+}
+
+wait_service_absent() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  while service_present; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL still present after bootout timeout." >&2
+      launchctl print "system/$LABEL" || true
+      return 1
+    fi
+    sleep 1
+  done
+  echo "$LABEL is absent from launchd."
+}
+
+wait_service_present() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until service_present; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL did not appear after bootstrap timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+  echo "$LABEL is present in launchd."
+}
+
+assert_service_running() {
+  local state
+  state="$(launchctl print "system/$LABEL")"
+  printf '%s\n' "$state"
+  printf '%s\n' "$state" | grep -q "state = running" || {
+    echo "ERROR: $LABEL is not running." >&2
+    return 1
+  }
+  printf '%s\n' "$state" | grep -q "username = $EXPECTED_USER" || {
+    echo "ERROR: $LABEL is not running as $EXPECTED_USER." >&2
+    return 1
+  }
+  printf '%s\n' "$state" | grep -q "group = $EXPECTED_GROUP" || {
+    echo "ERROR: $LABEL is not running with group $EXPECTED_GROUP." >&2
+    return 1
+  }
+}
+
+wait_service_running() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_service_running; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL did not reach running state before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+assert_listener() {
+  lsof -nP -a -iTCP@"$HOST:$PORT" -sTCP:LISTEN -u "$EXPECTED_USER" >/dev/null || {
+    echo "ERROR: $LABEL is not listening on $HOST:$PORT as $EXPECTED_USER." >&2
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN || true
+    return 1
+  }
+  lsof -nP -a -iTCP@"$HOST:$PORT" -sTCP:LISTEN -u "$EXPECTED_USER"
+}
+
+wait_listener() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_listener; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL listener did not become ready before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+reload_launchdaemon() {
+  local plist="$1"
+  local attempt status output
+
+  echo "Requesting bootout for system/$LABEL..."
+  set +e
+  output="$(launchctl bootout "system/$LABEL" 2>&1)"
+  status=$?
+  set -e
+  echo "bootout exit status: $status"
+  [ -z "$output" ] || printf '%s\n' "$output"
+
+  wait_service_absent
+
+  for attempt in $(seq 1 "$BOOTSTRAP_RETRIES"); do
+    echo "bootstrap attempt $attempt/$BOOTSTRAP_RETRIES: $plist"
+    set +e
+    output="$(launchctl bootstrap system "$plist" 2>&1)"
+    status=$?
+    set -e
+    echo "bootstrap exit status: $status"
+    [ -z "$output" ] || printf '%s\n' "$output"
+
+    if [ "$status" -eq 0 ]; then
+      break
+    fi
+    if [ "$status" -eq 5 ] || printf '%s\n' "$output" | grep -q "Bootstrap failed: 5"; then
+      if [ "$attempt" -lt "$BOOTSTRAP_RETRIES" ]; then
+        echo "bootstrap hit launchctl error 5; waiting before retry."
+        sleep "$BOOTSTRAP_RETRY_SLEEP"
+        wait_service_absent
+        continue
+      fi
+    fi
+    echo "ERROR: bootstrap failed for $LABEL after attempt $attempt." >&2
+    return 1
+  done
+
+  wait_service_present
+  launchctl kickstart -k "system/$LABEL"
+  wait_service_present
+  wait_service_running
+  wait_listener
 }
 
 if ! id -u egressproxy >/dev/null 2>&1; then
@@ -11552,6 +11729,143 @@ cat > "$OUT_DIR/rollback.sh" <<EOF
 set -euo pipefail
 
 BACKUP_DIR="$BACKUP_DIR"
+LABEL="$LABEL"
+HOST="$HOST"
+PORT="$PORT"
+EXPECTED_USER="$EXPECTED_USER"
+EXPECTED_GROUP="$EXPECTED_GROUP"
+PLIST="$PLIST"
+LAUNCHD_TIMEOUT_SECONDS="$LAUNCHD_TIMEOUT_SECONDS"
+BOOTSTRAP_RETRIES="$BOOTSTRAP_RETRIES"
+BOOTSTRAP_RETRY_SLEEP="$BOOTSTRAP_RETRY_SLEEP"
+
+service_present() {
+  launchctl print "system/\$LABEL" >/dev/null 2>&1
+}
+
+wait_service_absent() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  while service_present; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL still present after bootout timeout." >&2
+      launchctl print "system/\$LABEL" || true
+      return 1
+    fi
+    sleep 1
+  done
+  echo "\$LABEL is absent from launchd."
+}
+
+wait_service_present() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until service_present; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL did not appear after bootstrap timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+  echo "\$LABEL is present in launchd."
+}
+
+assert_service_running() {
+  local state
+  state="\$(launchctl print "system/\$LABEL")"
+  printf '%s\n' "\$state"
+  printf '%s\n' "\$state" | grep -q "state = running" || {
+    echo "ERROR: \$LABEL is not running." >&2
+    return 1
+  }
+  printf '%s\n' "\$state" | grep -q "username = \$EXPECTED_USER" || {
+    echo "ERROR: \$LABEL is not running as \$EXPECTED_USER." >&2
+    return 1
+  }
+  printf '%s\n' "\$state" | grep -q "group = \$EXPECTED_GROUP" || {
+    echo "ERROR: \$LABEL is not running with group \$EXPECTED_GROUP." >&2
+    return 1
+  }
+}
+
+wait_service_running() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_service_running; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL did not reach running state before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+assert_listener() {
+  lsof -nP -a -iTCP@"\$HOST:\$PORT" -sTCP:LISTEN -u "\$EXPECTED_USER" >/dev/null || {
+    echo "ERROR: \$LABEL is not listening on \$HOST:\$PORT as \$EXPECTED_USER." >&2
+    lsof -nP -iTCP:"\$PORT" -sTCP:LISTEN || true
+    return 1
+  }
+  lsof -nP -a -iTCP@"\$HOST:\$PORT" -sTCP:LISTEN -u "\$EXPECTED_USER"
+}
+
+wait_listener() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_listener; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL listener did not become ready before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+reload_launchdaemon() {
+  local plist="\$1"
+  local attempt status output
+
+  echo "Requesting bootout for system/\$LABEL..."
+  set +e
+  output="\$(launchctl bootout "system/\$LABEL" 2>&1)"
+  status=\$?
+  set -e
+  echo "bootout exit status: \$status"
+  [ -z "\$output" ] || printf '%s\n' "\$output"
+
+  wait_service_absent
+
+  if [ ! -f "\$plist" ]; then
+    echo "rollback target plist absent; service remains unloaded."
+    return 0
+  fi
+
+  for attempt in \$(seq 1 "\$BOOTSTRAP_RETRIES"); do
+    echo "bootstrap attempt \$attempt/\$BOOTSTRAP_RETRIES: \$plist"
+    set +e
+    output="\$(launchctl bootstrap system "\$plist" 2>&1)"
+    status=\$?
+    set -e
+    echo "bootstrap exit status: \$status"
+    [ -z "\$output" ] || printf '%s\n' "\$output"
+
+    if [ "\$status" -eq 0 ]; then
+      break
+    fi
+    if [ "\$status" -eq 5 ] || printf '%s\n' "\$output" | grep -q "Bootstrap failed: 5"; then
+      if [ "\$attempt" -lt "\$BOOTSTRAP_RETRIES" ]; then
+        echo "bootstrap hit launchctl error 5; waiting before retry."
+        sleep "\$BOOTSTRAP_RETRY_SLEEP"
+        wait_service_absent
+        continue
+      fi
+    fi
+    echo "ERROR: bootstrap failed for \$LABEL after attempt \$attempt." >&2
+    return 1
+  done
+
+  wait_service_present
+  launchctl kickstart -k "system/\$LABEL"
+  wait_service_present
+  wait_service_running
+  wait_listener
+}
 
 restore_path() {
   local path="\$1"
@@ -11572,12 +11886,7 @@ restore_path "$ALLOWLIST"
 restore_path "$ANCHOR"
 restore_path "$PLIST"
 
-launchctl bootout system/ai.agent-os-egress-proxy 2>/dev/null || true
-if [ -f "$PLIST" ]; then
-  launchctl bootstrap system "$PLIST"
-  launchctl kickstart -k system/ai.agent-os-egress-proxy
-fi
-launchctl print system/ai.agent-os-egress-proxy || true
+reload_launchdaemon "\$PLIST"
 EOF
 chmod 0700 "$OUT_DIR/rollback.sh"
 
@@ -11588,12 +11897,7 @@ install -o root -g egressproxy -m 0440 "$DRAFT_DIR/allowlist.txt" "$ALLOWLIST"
 install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress.anchor" "$ANCHOR"
 install -o root -g wheel -m 0644 "$DRAFT_DIR/ai.agent-os-egress-proxy.plist" "$PLIST"
 
-launchctl bootout system/ai.agent-os-egress-proxy 2>/dev/null || true
-launchctl bootstrap system "$PLIST"
-launchctl kickstart -k system/ai.agent-os-egress-proxy
-sleep 2
-launchctl print system/ai.agent-os-egress-proxy
-lsof -nP -iTCP:13128 -sTCP:LISTEN
+reload_launchdaemon "$PLIST"
 
 echo "Proxy repair/install complete. Next operator steps:"
 echo "1. Run proxy allow/deny sanity checks from docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md."

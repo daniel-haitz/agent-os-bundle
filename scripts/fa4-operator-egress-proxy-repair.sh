@@ -24,6 +24,14 @@ PLIST="/Library/LaunchDaemons/ai.agent-os-egress-proxy.plist"
 SOURCE="$SUPPORT_DIR/agent-os-egress-proxy.mjs"
 ALLOWLIST="$SUPPORT_DIR/allowlist.txt"
 ANCHOR="$SUPPORT_DIR/agent-os-egress.anchor"
+LABEL="ai.agent-os-egress-proxy"
+HOST="127.0.0.1"
+PORT="13128"
+EXPECTED_USER="egressproxy"
+EXPECTED_GROUP="egressproxy"
+LAUNCHD_TIMEOUT_SECONDS=20
+BOOTSTRAP_RETRIES=4
+BOOTSTRAP_RETRY_SLEEP=2
 
 mkdir -p "$OUT_DIR" "$BACKUP_DIR"
 chmod 0700 "$OUT_DIR" "$BACKUP_DIR"
@@ -42,6 +50,129 @@ backup_path() {
   else
     printf '%s\n' "$path" >> "$BACKUP_DIR/absent-paths.txt"
   fi
+}
+
+service_present() {
+  launchctl print "system/$LABEL" >/dev/null 2>&1
+}
+
+wait_service_absent() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  while service_present; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL still present after bootout timeout." >&2
+      launchctl print "system/$LABEL" || true
+      return 1
+    fi
+    sleep 1
+  done
+  echo "$LABEL is absent from launchd."
+}
+
+wait_service_present() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until service_present; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL did not appear after bootstrap timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+  echo "$LABEL is present in launchd."
+}
+
+assert_service_running() {
+  local state
+  state="$(launchctl print "system/$LABEL")"
+  printf '%s\n' "$state"
+  printf '%s\n' "$state" | grep -q "state = running" || {
+    echo "ERROR: $LABEL is not running." >&2
+    return 1
+  }
+  printf '%s\n' "$state" | grep -q "username = $EXPECTED_USER" || {
+    echo "ERROR: $LABEL is not running as $EXPECTED_USER." >&2
+    return 1
+  }
+  printf '%s\n' "$state" | grep -q "group = $EXPECTED_GROUP" || {
+    echo "ERROR: $LABEL is not running with group $EXPECTED_GROUP." >&2
+    return 1
+  }
+}
+
+wait_service_running() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_service_running; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL did not reach running state before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+assert_listener() {
+  lsof -nP -a -iTCP@"$HOST:$PORT" -sTCP:LISTEN -u "$EXPECTED_USER" >/dev/null || {
+    echo "ERROR: $LABEL is not listening on $HOST:$PORT as $EXPECTED_USER." >&2
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN || true
+    return 1
+  }
+  lsof -nP -a -iTCP@"$HOST:$PORT" -sTCP:LISTEN -u "$EXPECTED_USER"
+}
+
+wait_listener() {
+  local deadline=$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_listener; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "ERROR: $LABEL listener did not become ready before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+reload_launchdaemon() {
+  local plist="$1"
+  local attempt status output
+
+  echo "Requesting bootout for system/$LABEL..."
+  set +e
+  output="$(launchctl bootout "system/$LABEL" 2>&1)"
+  status=$?
+  set -e
+  echo "bootout exit status: $status"
+  [ -z "$output" ] || printf '%s\n' "$output"
+
+  wait_service_absent
+
+  for attempt in $(seq 1 "$BOOTSTRAP_RETRIES"); do
+    echo "bootstrap attempt $attempt/$BOOTSTRAP_RETRIES: $plist"
+    set +e
+    output="$(launchctl bootstrap system "$plist" 2>&1)"
+    status=$?
+    set -e
+    echo "bootstrap exit status: $status"
+    [ -z "$output" ] || printf '%s\n' "$output"
+
+    if [ "$status" -eq 0 ]; then
+      break
+    fi
+    if [ "$status" -eq 5 ] || printf '%s\n' "$output" | grep -q "Bootstrap failed: 5"; then
+      if [ "$attempt" -lt "$BOOTSTRAP_RETRIES" ]; then
+        echo "bootstrap hit launchctl error 5; waiting before retry."
+        sleep "$BOOTSTRAP_RETRY_SLEEP"
+        wait_service_absent
+        continue
+      fi
+    fi
+    echo "ERROR: bootstrap failed for $LABEL after attempt $attempt." >&2
+    return 1
+  done
+
+  wait_service_present
+  launchctl kickstart -k "system/$LABEL"
+  wait_service_present
+  wait_service_running
+  wait_listener
 }
 
 if ! id -u egressproxy >/dev/null 2>&1; then
@@ -65,6 +196,143 @@ cat > "$OUT_DIR/rollback.sh" <<EOF
 set -euo pipefail
 
 BACKUP_DIR="$BACKUP_DIR"
+LABEL="$LABEL"
+HOST="$HOST"
+PORT="$PORT"
+EXPECTED_USER="$EXPECTED_USER"
+EXPECTED_GROUP="$EXPECTED_GROUP"
+PLIST="$PLIST"
+LAUNCHD_TIMEOUT_SECONDS="$LAUNCHD_TIMEOUT_SECONDS"
+BOOTSTRAP_RETRIES="$BOOTSTRAP_RETRIES"
+BOOTSTRAP_RETRY_SLEEP="$BOOTSTRAP_RETRY_SLEEP"
+
+service_present() {
+  launchctl print "system/\$LABEL" >/dev/null 2>&1
+}
+
+wait_service_absent() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  while service_present; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL still present after bootout timeout." >&2
+      launchctl print "system/\$LABEL" || true
+      return 1
+    fi
+    sleep 1
+  done
+  echo "\$LABEL is absent from launchd."
+}
+
+wait_service_present() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until service_present; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL did not appear after bootstrap timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+  echo "\$LABEL is present in launchd."
+}
+
+assert_service_running() {
+  local state
+  state="\$(launchctl print "system/\$LABEL")"
+  printf '%s\n' "\$state"
+  printf '%s\n' "\$state" | grep -q "state = running" || {
+    echo "ERROR: \$LABEL is not running." >&2
+    return 1
+  }
+  printf '%s\n' "\$state" | grep -q "username = \$EXPECTED_USER" || {
+    echo "ERROR: \$LABEL is not running as \$EXPECTED_USER." >&2
+    return 1
+  }
+  printf '%s\n' "\$state" | grep -q "group = \$EXPECTED_GROUP" || {
+    echo "ERROR: \$LABEL is not running with group \$EXPECTED_GROUP." >&2
+    return 1
+  }
+}
+
+wait_service_running() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_service_running; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL did not reach running state before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+assert_listener() {
+  lsof -nP -a -iTCP@"\$HOST:\$PORT" -sTCP:LISTEN -u "\$EXPECTED_USER" >/dev/null || {
+    echo "ERROR: \$LABEL is not listening on \$HOST:\$PORT as \$EXPECTED_USER." >&2
+    lsof -nP -iTCP:"\$PORT" -sTCP:LISTEN || true
+    return 1
+  }
+  lsof -nP -a -iTCP@"\$HOST:\$PORT" -sTCP:LISTEN -u "\$EXPECTED_USER"
+}
+
+wait_listener() {
+  local deadline=\$((SECONDS + LAUNCHD_TIMEOUT_SECONDS))
+  until assert_listener; do
+    if [ "\$SECONDS" -ge "\$deadline" ]; then
+      echo "ERROR: \$LABEL listener did not become ready before timeout." >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+reload_launchdaemon() {
+  local plist="\$1"
+  local attempt status output
+
+  echo "Requesting bootout for system/\$LABEL..."
+  set +e
+  output="\$(launchctl bootout "system/\$LABEL" 2>&1)"
+  status=\$?
+  set -e
+  echo "bootout exit status: \$status"
+  [ -z "\$output" ] || printf '%s\n' "\$output"
+
+  wait_service_absent
+
+  if [ ! -f "\$plist" ]; then
+    echo "rollback target plist absent; service remains unloaded."
+    return 0
+  fi
+
+  for attempt in \$(seq 1 "\$BOOTSTRAP_RETRIES"); do
+    echo "bootstrap attempt \$attempt/\$BOOTSTRAP_RETRIES: \$plist"
+    set +e
+    output="\$(launchctl bootstrap system "\$plist" 2>&1)"
+    status=\$?
+    set -e
+    echo "bootstrap exit status: \$status"
+    [ -z "\$output" ] || printf '%s\n' "\$output"
+
+    if [ "\$status" -eq 0 ]; then
+      break
+    fi
+    if [ "\$status" -eq 5 ] || printf '%s\n' "\$output" | grep -q "Bootstrap failed: 5"; then
+      if [ "\$attempt" -lt "\$BOOTSTRAP_RETRIES" ]; then
+        echo "bootstrap hit launchctl error 5; waiting before retry."
+        sleep "\$BOOTSTRAP_RETRY_SLEEP"
+        wait_service_absent
+        continue
+      fi
+    fi
+    echo "ERROR: bootstrap failed for \$LABEL after attempt \$attempt." >&2
+    return 1
+  done
+
+  wait_service_present
+  launchctl kickstart -k "system/\$LABEL"
+  wait_service_present
+  wait_service_running
+  wait_listener
+}
 
 restore_path() {
   local path="\$1"
@@ -85,12 +353,7 @@ restore_path "$ALLOWLIST"
 restore_path "$ANCHOR"
 restore_path "$PLIST"
 
-launchctl bootout system/ai.agent-os-egress-proxy 2>/dev/null || true
-if [ -f "$PLIST" ]; then
-  launchctl bootstrap system "$PLIST"
-  launchctl kickstart -k system/ai.agent-os-egress-proxy
-fi
-launchctl print system/ai.agent-os-egress-proxy || true
+reload_launchdaemon "\$PLIST"
 EOF
 chmod 0700 "$OUT_DIR/rollback.sh"
 
@@ -101,12 +364,7 @@ install -o root -g egressproxy -m 0440 "$DRAFT_DIR/allowlist.txt" "$ALLOWLIST"
 install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress.anchor" "$ANCHOR"
 install -o root -g wheel -m 0644 "$DRAFT_DIR/ai.agent-os-egress-proxy.plist" "$PLIST"
 
-launchctl bootout system/ai.agent-os-egress-proxy 2>/dev/null || true
-launchctl bootstrap system "$PLIST"
-launchctl kickstart -k system/ai.agent-os-egress-proxy
-sleep 2
-launchctl print system/ai.agent-os-egress-proxy
-lsof -nP -iTCP:13128 -sTCP:LISTEN
+reload_launchdaemon "$PLIST"
 
 echo "Proxy repair/install complete. Next operator steps:"
 echo "1. Run proxy allow/deny sanity checks from docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md."
