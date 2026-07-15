@@ -2,8 +2,8 @@
 # F-A4 operator-owned read-only validation harness.
 #
 # Run by the human operator from an admin shell. This script intentionally uses
-# sudo for protected read-only checks while preserving the root-owned OpenClaw
-# tamper lock. It must not print secret values.
+# a fixed-operation identity wrapper for protected read-only checks while
+# preserving the root-owned OpenClaw tamper lock. It must not print secret values.
 
 set -euo pipefail
 
@@ -21,6 +21,7 @@ NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 BROKER_CLIENT="/Users/agent/.openclaw/scripts/gmail-broker-client.mjs"
 GATE_SCRIPT="/Users/agent/.openclaw/scripts/research-handoff-gate.mjs"
 GATE_TEST="/Users/agent/.openclaw/scripts/test-research-handoff-gate.mjs"
+OPENCLAWGW_WRAPPER="$REPO_ROOT/scripts/fa4-openclawgw-readonly-wrapper.mjs"
 
 mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
@@ -48,23 +49,36 @@ run_capture() {
   } | tee "$OUT_DIR/$name.txt"
 }
 
-run_as_openclawgw() {
-  sudo -u openclawgw -g openclawgw env \
-    HOME=/Users/agent \
-    OPENCLAW_CONFIG_PATH=/Users/agent/.openclaw/openclaw.json \
-    OPENCLAW_STATE_DIR=/Users/agent/.openclaw/state \
-    PATH=/Users/agent/.local/bin:/Users/agent/.local/openclaw/tools/node-v22.22.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin \
-    "$@"
+run_openclawgw_check() {
+  local operation="$1"
+  shift
+  if [ "$#" -ne 0 ]; then
+    echo "ERROR: run_openclawgw_check accepts only a fixed operation id." >&2
+    return 64
+  fi
+  "$NODE_BIN" "$OPENCLAWGW_WRAPPER" "$operation"
+}
+
+process_identity_capture() {
+  ps -axo user,uid,gid,pid,ppid,command | awk '
+    NR == 1 ||
+    /ai\.openclaw\.gateway/ ||
+    /ai\.agent-os\.gmail-broker/ ||
+    /ai\.agent-os-egress-proxy/ ||
+    /openclawgw/ ||
+    /gmailbroker/ ||
+    /egressproxy/
+  '
 }
 
 echo "F-A4 read-only validation capture: $OUT_DIR"
 date -u +%Y-%m-%dT%H:%M:%SZ | tee "$OUT_DIR/timestamp.txt"
 
-run_capture openclaw-version run_as_openclawgw "$OPENCLAW_BIN" --version
+run_capture openclaw-version run_openclawgw_check openclaw-version
 run_capture gateway-launchd launchctl print system/ai.openclaw.gateway
 run_capture broker-launchd launchctl print system/ai.agent-os.gmail-broker
 run_capture egress-proxy-launchd launchctl print system/ai.agent-os-egress-proxy
-run_capture process-identities ps -axo user,uid,pid,ppid,command
+run_capture process-identities process_identity_capture
 run_capture openclaw-path-modes stat -f '%Sp %Su:%Sg %N' \
   /Users/agent/.openclaw \
   /Users/agent/.openclaw/openclaw.json \
@@ -76,22 +90,22 @@ run_capture broker-socket-modes stat -f '%Sp %Su:%Sg %N' \
   /var/run/agent-os \
   /var/run/agent-os/gmail-broker.sock
 
-run_capture openclaw-security-audit run_as_openclawgw "$OPENCLAW_BIN" security audit --json
-run_capture openclaw-security-audit-deep run_as_openclawgw "$OPENCLAW_BIN" security audit --deep --json
-run_capture openclaw-doctor-lint run_as_openclawgw "$OPENCLAW_BIN" doctor --lint --json
-run_capture openclaw-secrets-audit run_as_openclawgw "$OPENCLAW_BIN" secrets audit --json
-run_capture sandbox-main run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent main --json
-run_capture sandbox-gmail-reader run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent gmail-reader --json
-run_capture sandbox-email-researcher run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent email-researcher --json
+run_capture openclaw-security-audit run_openclawgw_check openclaw-security-audit
+run_capture openclaw-security-audit-deep run_openclawgw_check openclaw-security-audit-deep
+run_capture openclaw-doctor-lint run_openclawgw_check openclaw-doctor-lint
+run_capture openclaw-secrets-audit run_openclawgw_check openclaw-secrets-audit
+run_capture sandbox-main run_openclawgw_check sandbox-main
+run_capture sandbox-gmail-reader run_openclawgw_check sandbox-gmail-reader
+run_capture sandbox-email-researcher run_openclawgw_check sandbox-email-researcher
 
 run_capture pf-info pfctl -s info
 run_capture pf-rules pfctl -s rules
 run_capture pf-anchors pfctl -s Anchors
 
-run_capture broker-health sudo -u openclawgw -g openclawgw "$NODE_BIN" "$BROKER_CLIENT" health_check '{}'
-run_capture broker-search sudo -u openclawgw -g openclawgw "$NODE_BIN" "$BROKER_CLIENT" search_threads '{"query":"newer_than:30d","limit":1}'
-run_capture f-a3-clean sudo -u openclawgw -g openclawgw "$GATE_SCRIPT" --no-log '{"thread_summary":"discarded by gate","research_request":{"kind":"company_fact","entity":"OpenAI","topic":"products"}}'
-run_capture f-a3-adversarial-suite sudo -u openclawgw -g openclawgw "$NODE_BIN" "$GATE_TEST"
+run_capture broker-health run_openclawgw_check broker-health
+run_capture broker-search run_openclawgw_check broker-search
+run_capture f-a3-clean run_openclawgw_check f-a3-clean
+run_capture f-a3-adversarial-suite run_openclawgw_check f-a3-adversarial-suite
 
 cat > "$OUT_DIR/README.txt" <<EOF
 F-A4 read-only validation completed.

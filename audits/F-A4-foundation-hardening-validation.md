@@ -394,3 +394,61 @@ The generated `rollback.sh` now uses the same wait/retry mechanics and must eith
 ### Closure Impact
 
 F-A4 remains **not closed**. The proxy runtime allow/deny behavior is partially proven by operator evidence, but pf integration, full read-only validation, bounded regression, persistence, reboot validation, and durable evidence gates remain pending.
+
+## Read-Only Validation Harness Identity Defect — 2026-07-15
+
+### Operator Runtime Evidence
+
+Operator evidence supplied after the egress proxy harness correction showed:
+
+- `sudo ./scripts/fa4-operator-readonly-validation.sh` successfully captured read-only service identity and filesystem evidence that did not require a runtime identity switch.
+- The OpenClaw gateway was running as `openclawgw:openclawgw`.
+- The Gmail broker was running as `gmailbroker`.
+- The egress proxy was running as `egressproxy:egressproxy`.
+- Protected OpenClaw paths remained `root:openclawgw` or `openclawgw`-only.
+- Broker socket modes remained restricted.
+- pf remained disabled, with only the Apple pf anchor present.
+- Launchd metadata still reported `OPENCLAW_SERVICE_VERSION=2026.6.5`.
+
+The same run blocked every nested runtime-identity check because the harness attempted commands such as:
+
+```sh
+sudo -u openclawgw -g openclawgw ...
+```
+
+The host denied those calls with:
+
+```text
+Sorry, user root is not allowed to execute ... as openclawgw:openclawgw
+```
+
+This blocked the native OpenClaw audit/doctor/secrets/sandbox checks, Gmail broker health/search regression, and F-A3 clean/adversarial regression from running under the gateway runtime identity.
+
+The evidence directories named by the operator were not readable by the non-privileged `agent` account:
+
+- `/Users/dannybigdeals/fa4-readonly-validation-20260715T175902Z`
+- `/Users/dannybigdeals/fa4-readonly-validation-20260715T180226Z`
+
+### Classification
+
+This is a validation-harness identity-execution defect. No underlying OpenClaw, broker, or F-A3 control failure should be inferred from these sudo denials.
+
+### Tooling Correction Prepared
+
+`scripts/fa4-operator-readonly-validation.sh` now delegates the approved runtime-identity checks to `scripts/fa4-openclawgw-readonly-wrapper.mjs`.
+
+The wrapper:
+
+- accepts exactly one approved operation id;
+- rejects unknown operations and extra arguments;
+- runs only the fixed OpenClaw, broker, and F-A3 validation argv set;
+- initializes `openclawgw` groups, then drops to `openclawgw`;
+- executes commands with `shell:false`;
+- uses a fixed OpenClaw environment;
+- does not expose arbitrary command execution, shell access, caller-controlled paths, or caller-controlled arguments.
+
+The harness also replaces full process-table capture with a narrowly filtered service/identity capture for the OpenClaw gateway, Gmail broker, egress proxy, and their service users.
+
+### Closure Impact
+
+F-A4 remains **not closed**. The corrected read-only validation path is prepared and syntax/static-tested, but it still requires an interactive operator run to capture accepted runtime evidence. pf remains disabled and full F-A4 containment validation remains pending.

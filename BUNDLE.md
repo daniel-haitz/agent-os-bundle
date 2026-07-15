@@ -5,12 +5,12 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 1d974e694e559fe0312ffee0639614c56cdda03c
+private source repository commit: b8bce39e550c3f9708f6bc7c45bc90cf72e0feed
 private source repository branch: main
-generated timestamp: 2026-07-15T17:49:56Z
-publication manifest governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+generated timestamp: 2026-07-15T18:08:54Z
+publication manifest governance commit: b8bce39e550c3f9708f6bc7c45bc90cf72e0feed
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
-bundle-for-claude.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
+bundle-for-claude.sh governance commit: b8bce39e550c3f9708f6bc7c45bc90cf72e0feed
 public bundle repository commit: <not embedded before publication commit exists>
 ```
 
@@ -138,6 +138,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - 2026-07-15 build-lead execution attempt from the non-privileged `agent` context could not run the repair harness because sudo requires an interactive operator password. This is an execution-context boundary, not a bypass target.
 - 2026-07-15 operator evidence confirmed the egress proxy can run as `egressproxy:egressproxy`, listen on `127.0.0.1:13128`, allow `chatgpt.com` CONNECT, deny `example.com` CONNECT with `403`, and record both decisions in `proxy.jsonl`.
 - The egress proxy repair harness had a confirmed launchd bootout/bootstrap race: immediate bootstrap after bootout could fail with `Bootstrap failed: 5: Input/output error`, while a later manual bootstrap succeeded. The harness correction is prepared and syntax-tested; pf integration and full read-only validation remain pending.
+- 2026-07-15 operator read-only validation captured service identity and filesystem evidence, but native OpenClaw, broker, and F-A3 runtime-identity checks were blocked by the harness's nested sudo design. The denials do not prove an underlying control failure. The corrected read-only validation path uses a fixed-operation `openclawgw` identity wrapper and remains to be operator-run.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
@@ -253,7 +254,7 @@ F-B and F-C remain blocked until their enforcement and evidence gates are implem
 
 `audits/F-A4-foundation-hardening-validation.md` captured partial F-A4 foundation evidence on 2026-07-15.
 
-Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy can run and enforce allow/deny behavior after operator bootstrap, but the repair harness reload race required correction before it could be treated as repeatable tooling. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
+Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy can run and enforce allow/deny behavior after operator bootstrap, but the repair harness reload race required correction before it could be treated as repeatable tooling. The operator read-only validation harness also had a runtime-identity execution defect: nested `sudo -u openclawgw -g openclawgw` was denied by host sudo policy when the harness was already running as root. This is a validation-tooling defect, not evidence of an OpenClaw, broker, or F-A3 control failure. pf remains disabled and pf inspection requires the operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
@@ -755,6 +756,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+b8bce39 validation: fix F-A4 runtime identity validation harness
 1d974e6 [claude-code] harden F-A4 egress proxy launchd reload
 808d242 governance: add external agent onboarding bundle protocol
 c09e866 governance: harden F-A4 operator validation pattern
@@ -774,7 +776,6 @@ e39d896 [claude-code] Gmail re-auth DONE (token was dead, re-authed Gmail-scoped
 49e8801 [codex] F-A4.5: record proxy relock trap
 fd5ccba [codex] F-A4.5: correct Gmail broker root cause
 a3d31c3 [codex] F-A4.5: record wall proof and Gmail blockers
-1f16a5c [codex] F-A4: record Phase 5 half-1 state
 ```
 
 ## Repository Tree
@@ -842,6 +843,7 @@ drafts/fa4-phase5/pf.conf.fragment
 drafts/fa4-phase5/phase5-proof-commands.sh
 scripts/bundle-for-claude.sh
 scripts/end-session.sh
+scripts/fa4-openclawgw-readonly-wrapper.mjs
 scripts/fa4-operator-egress-proxy-repair.sh
 scripts/fa4-operator-readonly-validation.sh
 scripts/observability/q1-silent-failures.mjs
@@ -861,16 +863,16 @@ templates/DROP_FORMAT.md
 
 ## Publication validation
 ```text
-manifest commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
-published files: 45
+manifest commit: b8bce39e550c3f9708f6bc7c45bc90cf72e0feed
+published files: 46
 missing files count: 0
 ```
 
 ## Governance enforcement
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
-bundle-for-claude.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
-last validation timestamp: 2026-07-15T17:49:56Z
+bundle-for-claude.sh commit: b8bce39e550c3f9708f6bc7c45bc90cf72e0feed
+last validation timestamp: 2026-07-15T18:08:54Z
 ```
 
 ---
@@ -906,6 +908,7 @@ Critical onboarding document:
 - `scripts/wrap-up.sh`
 - `scripts/bundle-for-claude.sh`
 - `scripts/fa4-operator-readonly-validation.sh`
+- `scripts/fa4-openclawgw-readonly-wrapper.mjs`
 - `scripts/fa4-operator-egress-proxy-repair.sh`
 
 ## Machine-Readable Published Paths
@@ -919,6 +922,7 @@ audits/
 scripts/wrap-up.sh
 scripts/bundle-for-claude.sh
 scripts/fa4-operator-readonly-validation.sh
+scripts/fa4-openclawgw-readonly-wrapper.mjs
 scripts/fa4-operator-egress-proxy-repair.sh
 ```
 ```
@@ -4155,6 +4159,64 @@ The generated `rollback.sh` now uses the same wait/retry mechanics and must eith
 ### Closure Impact
 
 F-A4 remains **not closed**. The proxy runtime allow/deny behavior is partially proven by operator evidence, but pf integration, full read-only validation, bounded regression, persistence, reboot validation, and durable evidence gates remain pending.
+
+## Read-Only Validation Harness Identity Defect — 2026-07-15
+
+### Operator Runtime Evidence
+
+Operator evidence supplied after the egress proxy harness correction showed:
+
+- `sudo ./scripts/fa4-operator-readonly-validation.sh` successfully captured read-only service identity and filesystem evidence that did not require a runtime identity switch.
+- The OpenClaw gateway was running as `openclawgw:openclawgw`.
+- The Gmail broker was running as `gmailbroker`.
+- The egress proxy was running as `egressproxy:egressproxy`.
+- Protected OpenClaw paths remained `root:openclawgw` or `openclawgw`-only.
+- Broker socket modes remained restricted.
+- pf remained disabled, with only the Apple pf anchor present.
+- Launchd metadata still reported `OPENCLAW_SERVICE_VERSION=2026.6.5`.
+
+The same run blocked every nested runtime-identity check because the harness attempted commands such as:
+
+```sh
+sudo -u openclawgw -g openclawgw ...
+```
+
+The host denied those calls with:
+
+```text
+Sorry, user root is not allowed to execute ... as openclawgw:openclawgw
+```
+
+This blocked the native OpenClaw audit/doctor/secrets/sandbox checks, Gmail broker health/search regression, and F-A3 clean/adversarial regression from running under the gateway runtime identity.
+
+The evidence directories named by the operator were not readable by the non-privileged `agent` account:
+
+- `/Users/dannybigdeals/fa4-readonly-validation-20260715T175902Z`
+- `/Users/dannybigdeals/fa4-readonly-validation-20260715T180226Z`
+
+### Classification
+
+This is a validation-harness identity-execution defect. No underlying OpenClaw, broker, or F-A3 control failure should be inferred from these sudo denials.
+
+### Tooling Correction Prepared
+
+`scripts/fa4-operator-readonly-validation.sh` now delegates the approved runtime-identity checks to `scripts/fa4-openclawgw-readonly-wrapper.mjs`.
+
+The wrapper:
+
+- accepts exactly one approved operation id;
+- rejects unknown operations and extra arguments;
+- runs only the fixed OpenClaw, broker, and F-A3 validation argv set;
+- initializes `openclawgw` groups, then drops to `openclawgw`;
+- executes commands with `shell:false`;
+- uses a fixed OpenClaw environment;
+- does not expose arbitrary command execution, shell access, caller-controlled paths, or caller-controlled arguments.
+
+The harness also replaces full process-table capture with a narrowly filtered service/identity capture for the OpenClaw gateway, Gmail broker, egress proxy, and their service users.
+
+### Closure Impact
+
+F-A4 remains **not closed**. The corrected read-only validation path is prepared and syntax/static-tested, but it still requires an interactive operator run to capture accepted runtime evidence. pf remains disabled and full F-A4 containment validation remains pending.
 ```
 
 ### docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md
@@ -11288,6 +11350,7 @@ CRITICAL_PUBLICATION_PATHS=(
   "scripts/wrap-up.sh"
   "scripts/bundle-for-claude.sh"
   "scripts/fa4-operator-readonly-validation.sh"
+  "scripts/fa4-openclawgw-readonly-wrapper.mjs"
   "scripts/fa4-operator-egress-proxy-repair.sh"
 )
 
@@ -11298,8 +11361,8 @@ for required in "${CRITICAL_PUBLICATION_PATHS[@]}"; do
   fi
 done
 
-PUBLISHED_LIST="$(mktemp /tmp/agent-os-published-files-XXXXXX.txt)"
-STALE_CANDIDATES="$(mktemp /tmp/agent-os-stale-published-XXXXXX.txt)"
+PUBLISHED_LIST="$(mktemp /tmp/agent-os-published-files-XXXXXX)"
+STALE_CANDIDATES="$(mktemp /tmp/agent-os-stale-published-XXXXXX)"
 DRY_RUN_OUT=""
 trap 'rm -f "$PUBLISHED_LIST" "$STALE_CANDIDATES" ${DRY_RUN_OUT:-}' EXIT
 MISSING_COUNT=0
@@ -11355,7 +11418,7 @@ fi
 # 2. Write the bundle — onboarding protocol + CONTROL.md + governing rules +
 # git state + manifest-declared canonical files inline.
 if [ "$DRY_RUN" = true ]; then
-  OUT="$(mktemp /tmp/bundle-dry-run-XXXXXX.md)"
+  OUT="$(mktemp /tmp/bundle-dry-run-XXXXXX)"
   DRY_RUN_OUT="$OUT"
 else
   OUT="$BUNDLE_REPO/$BUNDLE_FILE"
@@ -11527,6 +11590,112 @@ echo ""
 echo "Docs base URL:"
 echo "https://raw.githubusercontent.com/$SLUG/$BRANCH/docs/"
 echo "================================"
+```
+
+### scripts/fa4-openclawgw-readonly-wrapper.mjs
+```markdown
+#!/usr/bin/env node
+// Fixed-command OpenClaw runtime-identity validation wrapper for F-A4.
+//
+// This script must be invoked by the operator-owned read-only validation
+// harness as root. It accepts exactly one approved operation id, drops to the
+// openclawgw identity, then executes a fixed argv with shell disabled.
+
+import { spawnSync } from "node:child_process";
+
+const OPENCLAW_BIN = "/Users/agent/.local/bin/openclaw";
+const NODE_BIN = "/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node";
+const BROKER_CLIENT = "/Users/agent/.openclaw/scripts/gmail-broker-client.mjs";
+const GATE_SCRIPT = "/Users/agent/.openclaw/scripts/research-handoff-gate.mjs";
+const GATE_TEST = "/Users/agent/.openclaw/scripts/test-research-handoff-gate.mjs";
+
+const FIXED_ENV = {
+  HOME: "/Users/agent",
+  OPENCLAW_CONFIG_PATH: "/Users/agent/.openclaw/openclaw.json",
+  OPENCLAW_STATE_DIR: "/Users/agent/.openclaw/state",
+  PATH: [
+    "/Users/agent/.local/bin",
+    "/Users/agent/.local/openclaw/tools/node-v22.22.0/bin",
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin",
+  ].join(":"),
+};
+
+const OPERATIONS = Object.freeze({
+  "openclaw-version": [OPENCLAW_BIN, ["--version"]],
+  "openclaw-security-audit": [OPENCLAW_BIN, ["security", "audit", "--json"]],
+  "openclaw-security-audit-deep": [OPENCLAW_BIN, ["security", "audit", "--deep", "--json"]],
+  "openclaw-doctor-lint": [OPENCLAW_BIN, ["doctor", "--lint", "--json"]],
+  "openclaw-secrets-audit": [OPENCLAW_BIN, ["secrets", "audit", "--json"]],
+  "sandbox-main": [OPENCLAW_BIN, ["sandbox", "explain", "--agent", "main", "--json"]],
+  "sandbox-gmail-reader": [OPENCLAW_BIN, ["sandbox", "explain", "--agent", "gmail-reader", "--json"]],
+  "sandbox-email-researcher": [OPENCLAW_BIN, ["sandbox", "explain", "--agent", "email-researcher", "--json"]],
+  "broker-health": [NODE_BIN, [BROKER_CLIENT, "health_check", "{}"]],
+  "broker-search": [NODE_BIN, [BROKER_CLIENT, "search_threads", '{"query":"newer_than:30d","limit":1}']],
+  "f-a3-clean": [
+    GATE_SCRIPT,
+    [
+      "--no-log",
+      '{"thread_summary":"discarded by gate","research_request":{"kind":"company_fact","entity":"OpenAI","topic":"products"}}',
+    ],
+  ],
+  "f-a3-adversarial-suite": [NODE_BIN, [GATE_TEST]],
+});
+
+function failUsage(message) {
+  console.error(`USAGE_REJECTED: ${message}`);
+  console.error(`Approved operations: ${Object.keys(OPERATIONS).join(", ")}`);
+  process.exit(64);
+}
+
+if (process.argv.length !== 3) {
+  failUsage("expected exactly one operation id");
+}
+
+const operationId = process.argv[2];
+const operation = OPERATIONS[operationId];
+if (!operation) {
+  failUsage(`unknown operation id: ${operationId}`);
+}
+
+if (typeof process.getuid === "function" && process.getuid() !== 0) {
+  console.error("IDENTITY_SWITCH_UNAVAILABLE: wrapper must run as root");
+  process.exit(70);
+}
+
+try {
+  if (typeof process.initgroups === "function") {
+    process.initgroups("openclawgw", "openclawgw");
+  }
+  process.setgid("openclawgw");
+  process.setuid("openclawgw");
+} catch (error) {
+  console.error(`IDENTITY_SWITCH_FAILED: ${error.message}`);
+  process.exit(70);
+}
+
+const [command, args] = operation;
+const result = spawnSync(command, args, {
+  env: FIXED_ENV,
+  shell: false,
+  stdio: "inherit",
+});
+
+if (result.error) {
+  console.error(`COMMAND_EXEC_FAILED: ${result.error.message}`);
+  process.exit(71);
+}
+
+if (result.signal) {
+  console.error(`COMMAND_SIGNAL: ${result.signal}`);
+  process.exit(128);
+}
+
+process.exit(result.status ?? 0);
 ```
 
 ### scripts/fa4-operator-egress-proxy-repair.sh
@@ -11912,8 +12081,8 @@ echo "4. Rollback, if required: sudo $OUT_DIR/rollback.sh"
 # F-A4 operator-owned read-only validation harness.
 #
 # Run by the human operator from an admin shell. This script intentionally uses
-# sudo for protected read-only checks while preserving the root-owned OpenClaw
-# tamper lock. It must not print secret values.
+# a fixed-operation identity wrapper for protected read-only checks while
+# preserving the root-owned OpenClaw tamper lock. It must not print secret values.
 
 set -euo pipefail
 
@@ -11931,6 +12100,7 @@ NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 BROKER_CLIENT="/Users/agent/.openclaw/scripts/gmail-broker-client.mjs"
 GATE_SCRIPT="/Users/agent/.openclaw/scripts/research-handoff-gate.mjs"
 GATE_TEST="/Users/agent/.openclaw/scripts/test-research-handoff-gate.mjs"
+OPENCLAWGW_WRAPPER="$REPO_ROOT/scripts/fa4-openclawgw-readonly-wrapper.mjs"
 
 mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
@@ -11958,23 +12128,36 @@ run_capture() {
   } | tee "$OUT_DIR/$name.txt"
 }
 
-run_as_openclawgw() {
-  sudo -u openclawgw -g openclawgw env \
-    HOME=/Users/agent \
-    OPENCLAW_CONFIG_PATH=/Users/agent/.openclaw/openclaw.json \
-    OPENCLAW_STATE_DIR=/Users/agent/.openclaw/state \
-    PATH=/Users/agent/.local/bin:/Users/agent/.local/openclaw/tools/node-v22.22.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin \
-    "$@"
+run_openclawgw_check() {
+  local operation="$1"
+  shift
+  if [ "$#" -ne 0 ]; then
+    echo "ERROR: run_openclawgw_check accepts only a fixed operation id." >&2
+    return 64
+  fi
+  "$NODE_BIN" "$OPENCLAWGW_WRAPPER" "$operation"
+}
+
+process_identity_capture() {
+  ps -axo user,uid,gid,pid,ppid,command | awk '
+    NR == 1 ||
+    /ai\.openclaw\.gateway/ ||
+    /ai\.agent-os\.gmail-broker/ ||
+    /ai\.agent-os-egress-proxy/ ||
+    /openclawgw/ ||
+    /gmailbroker/ ||
+    /egressproxy/
+  '
 }
 
 echo "F-A4 read-only validation capture: $OUT_DIR"
 date -u +%Y-%m-%dT%H:%M:%SZ | tee "$OUT_DIR/timestamp.txt"
 
-run_capture openclaw-version run_as_openclawgw "$OPENCLAW_BIN" --version
+run_capture openclaw-version run_openclawgw_check openclaw-version
 run_capture gateway-launchd launchctl print system/ai.openclaw.gateway
 run_capture broker-launchd launchctl print system/ai.agent-os.gmail-broker
 run_capture egress-proxy-launchd launchctl print system/ai.agent-os-egress-proxy
-run_capture process-identities ps -axo user,uid,pid,ppid,command
+run_capture process-identities process_identity_capture
 run_capture openclaw-path-modes stat -f '%Sp %Su:%Sg %N' \
   /Users/agent/.openclaw \
   /Users/agent/.openclaw/openclaw.json \
@@ -11986,22 +12169,22 @@ run_capture broker-socket-modes stat -f '%Sp %Su:%Sg %N' \
   /var/run/agent-os \
   /var/run/agent-os/gmail-broker.sock
 
-run_capture openclaw-security-audit run_as_openclawgw "$OPENCLAW_BIN" security audit --json
-run_capture openclaw-security-audit-deep run_as_openclawgw "$OPENCLAW_BIN" security audit --deep --json
-run_capture openclaw-doctor-lint run_as_openclawgw "$OPENCLAW_BIN" doctor --lint --json
-run_capture openclaw-secrets-audit run_as_openclawgw "$OPENCLAW_BIN" secrets audit --json
-run_capture sandbox-main run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent main --json
-run_capture sandbox-gmail-reader run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent gmail-reader --json
-run_capture sandbox-email-researcher run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent email-researcher --json
+run_capture openclaw-security-audit run_openclawgw_check openclaw-security-audit
+run_capture openclaw-security-audit-deep run_openclawgw_check openclaw-security-audit-deep
+run_capture openclaw-doctor-lint run_openclawgw_check openclaw-doctor-lint
+run_capture openclaw-secrets-audit run_openclawgw_check openclaw-secrets-audit
+run_capture sandbox-main run_openclawgw_check sandbox-main
+run_capture sandbox-gmail-reader run_openclawgw_check sandbox-gmail-reader
+run_capture sandbox-email-researcher run_openclawgw_check sandbox-email-researcher
 
 run_capture pf-info pfctl -s info
 run_capture pf-rules pfctl -s rules
 run_capture pf-anchors pfctl -s Anchors
 
-run_capture broker-health sudo -u openclawgw -g openclawgw "$NODE_BIN" "$BROKER_CLIENT" health_check '{}'
-run_capture broker-search sudo -u openclawgw -g openclawgw "$NODE_BIN" "$BROKER_CLIENT" search_threads '{"query":"newer_than:30d","limit":1}'
-run_capture f-a3-clean sudo -u openclawgw -g openclawgw "$GATE_SCRIPT" --no-log '{"thread_summary":"discarded by gate","research_request":{"kind":"company_fact","entity":"OpenAI","topic":"products"}}'
-run_capture f-a3-adversarial-suite sudo -u openclawgw -g openclawgw "$NODE_BIN" "$GATE_TEST"
+run_capture broker-health run_openclawgw_check broker-health
+run_capture broker-search run_openclawgw_check broker-search
+run_capture f-a3-clean run_openclawgw_check f-a3-clean
+run_capture f-a3-adversarial-suite run_openclawgw_check f-a3-adversarial-suite
 
 cat > "$OUT_DIR/README.txt" <<EOF
 F-A4 read-only validation completed.

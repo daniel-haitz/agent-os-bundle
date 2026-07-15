@@ -89,6 +89,7 @@ CRITICAL_PUBLICATION_PATHS=(
   "scripts/wrap-up.sh"
   "scripts/bundle-for-claude.sh"
   "scripts/fa4-operator-readonly-validation.sh"
+  "scripts/fa4-openclawgw-readonly-wrapper.mjs"
   "scripts/fa4-operator-egress-proxy-repair.sh"
 )
 
@@ -99,8 +100,8 @@ for required in "${CRITICAL_PUBLICATION_PATHS[@]}"; do
   fi
 done
 
-PUBLISHED_LIST="$(mktemp /tmp/agent-os-published-files-XXXXXX.txt)"
-STALE_CANDIDATES="$(mktemp /tmp/agent-os-stale-published-XXXXXX.txt)"
+PUBLISHED_LIST="$(mktemp /tmp/agent-os-published-files-XXXXXX)"
+STALE_CANDIDATES="$(mktemp /tmp/agent-os-stale-published-XXXXXX)"
 DRY_RUN_OUT=""
 trap 'rm -f "$PUBLISHED_LIST" "$STALE_CANDIDATES" ${DRY_RUN_OUT:-}' EXIT
 MISSING_COUNT=0
@@ -156,7 +157,7 @@ fi
 # 2. Write the bundle — onboarding protocol + CONTROL.md + governing rules +
 # git state + manifest-declared canonical files inline.
 if [ "$DRY_RUN" = true ]; then
-  OUT="$(mktemp /tmp/bundle-dry-run-XXXXXX.md)"
+  OUT="$(mktemp /tmp/bundle-dry-run-XXXXXX)"
   DRY_RUN_OUT="$OUT"
 else
   OUT="$BUNDLE_REPO/$BUNDLE_FILE"
