@@ -34,6 +34,8 @@ UID_MAX=599
 GID_MIN=740
 GID_MAX=799
 OPENCLAW_BIN="${OPENCLAW_BIN:-/Users/agent/.local/bin/openclaw}"
+NODE_BIN="${NODE_BIN:-/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node}"
+OPENCLAW_ENTRYPOINT="${OPENCLAW_ENTRYPOINT:-/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist/index.js}"
 CONFIG="${CONFIG:-/Users/agent/.openclaw/openclaw.json}"
 STATE_DIR="${STATE_DIR:-/Users/agent/.openclaw/state}"
 BROKER_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker.plist"
@@ -173,6 +175,26 @@ group_real_name() {
 
 group_generated_uid() {
   ds_read "/Groups/$GROUP_NAME" GeneratedUID 2>/dev/null || true
+}
+
+resolve_openclaw_command() {
+  OPENCLAW_CMD=()
+  if [ -x "$OPENCLAW_BIN" ]; then
+    OPENCLAW_CMD=("$OPENCLAW_BIN")
+    return 0
+  fi
+  if [ -x "$NODE_BIN" ] && [ -r "$OPENCLAW_ENTRYPOINT" ]; then
+    OPENCLAW_CMD=("$NODE_BIN" "$OPENCLAW_ENTRYPOINT")
+    return 0
+  fi
+  fail_nogo "OpenClaw health executable not found at $OPENCLAW_BIN or $NODE_BIN with entrypoint $OPENCLAW_ENTRYPOINT"
+}
+
+run_openclaw_health_check() {
+  resolve_openclaw_command
+  echo "OPENCLAW HEALTH COMMAND RESOLVED: PASS"
+  HOME=/Users/agent OPENCLAW_CONFIG_PATH="$CONFIG" OPENCLAW_STATE_DIR="$STATE_DIR" "${OPENCLAW_CMD[@]}" health >/dev/null 2>&1 \
+    || fail_nogo "gateway health check failed through resolved OpenClaw health command"
 }
 
 all_user_ids() {
@@ -472,7 +494,7 @@ verify_canonical_final_state() {
   [ ! -e "$BROKER_PLIST" ] || fail_nogo "broker launchd plist already exists"
   [ ! -e "$BROKER_RUNDIR_PLIST" ] || fail_nogo "broker rundir launchd plist already exists"
   [ ! -e "$RUNTIME_SOCKET" ] || fail_nogo "broker runtime socket already exists"
-  HOME=/Users/agent OPENCLAW_CONFIG_PATH="$CONFIG" OPENCLAW_STATE_DIR="$STATE_DIR" "$OPENCLAW_BIN" health >/dev/null 2>&1 || fail_nogo "gateway health check failed"
+  run_openclaw_health_check
   echo "BROKER USER CREATED OR VALIDATED: PASS"
   echo "BROKER GROUP CREATED OR VALIDATED: PASS"
   echo "ACCOUNT ATTRIBUTES CANONICAL: PASS"
@@ -766,6 +788,17 @@ FAKE
 [ "${AGENT_OS_FIXTURE_OPENCLAW_FAIL:-0}" = "1" ] && exit 55
 exit 0
 FAKE
+  cat > "$fakebin/node" <<'FAKE'
+#!/usr/bin/env bash
+[ "${AGENT_OS_FIXTURE_OPENCLAW_FAIL:-0}" = "1" ] && exit 55
+entry="${1:-}"
+shift || true
+[ -r "$entry" ] || exit 56
+exit 0
+FAKE
+  cat > "$fakebin/openclaw-entrypoint.js" <<'FAKE'
+// fixture OpenClaw entrypoint
+FAKE
   cat > "$fakebin/rmdir" <<'FAKE'
 #!/usr/bin/env bash
 rmdir "$1"
@@ -793,7 +826,9 @@ FAKE
       AGENT_OS_TEST_INSTALL="$fakebin/install" \
       AGENT_OS_TEST_STAT="$fakebin/stat" \
       AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
-      OPENCLAW_BIN="$fakebin/openclaw" \
+      OPENCLAW_BIN="${AGENT_OS_FIXTURE_OPENCLAW_BIN:-$fakebin/openclaw}" \
+      NODE_BIN="${AGENT_OS_FIXTURE_NODE_BIN:-$fakebin/node}" \
+      OPENCLAW_ENTRYPOINT="${AGENT_OS_FIXTURE_OPENCLAW_ENTRYPOINT:-$fakebin/openclaw-entrypoint.js}" \
       AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
       AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
       bash "$0" --out-dir="$test_root/out" "$@" > "$test_root/output" 2>&1
@@ -805,7 +840,9 @@ FAKE
     AGENT_OS_TEST_INSTALL="$fakebin/install" \
     AGENT_OS_TEST_STAT="$fakebin/stat" \
     AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
-    OPENCLAW_BIN="$fakebin/openclaw" \
+    OPENCLAW_BIN="${AGENT_OS_FIXTURE_OPENCLAW_BIN:-$fakebin/openclaw}" \
+    NODE_BIN="${AGENT_OS_FIXTURE_NODE_BIN:-$fakebin/node}" \
+    OPENCLAW_ENTRYPOINT="${AGENT_OS_FIXTURE_OPENCLAW_ENTRYPOINT:-$fakebin/openclaw-entrypoint.js}" \
     AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
     AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
     bash "$0" "$mode" --out-dir="$test_root/out" "$@" > "$test_root/output" 2>&1
@@ -886,8 +923,28 @@ FAKE
   set +e; run_fixture --dry-run; status=$?; set -e
   [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: canonical existing dry-run failed" >&2; cat "$test_root/output" >&2; exit 1; }
   assert_grep "BROKER USER CREATED OR VALIDATED: PASS" "$test_root/output"
+  assert_grep "OPENCLAW HEALTH COMMAND RESOLVED: PASS" "$test_root/output"
   assert_grep "IDENTITY BOOTSTRAP DRY RUN: GO" "$test_root/output"
   echo "SELF TEST canonical-existing-dry-run-validation: PASS"
+
+  set +e
+  AGENT_OS_FIXTURE_OPENCLAW_BIN="$test_root/missing-openclaw" run_fixture --dry-run
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: node entrypoint fallback rejected" >&2; cat "$test_root/output" >&2; exit 1; }
+  assert_grep "OPENCLAW HEALTH COMMAND RESOLVED: PASS" "$test_root/output"
+  echo "SELF TEST openclaw-node-entrypoint-fallback: PASS"
+
+  set +e
+  AGENT_OS_FIXTURE_OPENCLAW_BIN="$test_root/missing-openclaw" \
+  AGENT_OS_FIXTURE_NODE_BIN="$test_root/missing-node" \
+  AGENT_OS_FIXTURE_OPENCLAW_ENTRYPOINT="$test_root/missing-entrypoint.js" \
+  run_fixture --dry-run
+  status=$?
+  set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: missing OpenClaw executable accepted" >&2; exit 1; }
+  assert_grep "OpenClaw health executable not found" "$test_root/output"
+  echo "SELF TEST missing-openclaw-executable-rejected: PASS"
 
   set +e; AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
   [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: multiline RealName rejected" >&2; cat "$test_root/output" >&2; exit 1; }
@@ -969,6 +1026,7 @@ FAKE
   set +e; AGENT_OS_FIXTURE_OPENCLAW_FAIL=1 run_fixture apply; status=$?; set -e
   [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: apply validation failure succeeded" >&2; exit 1; }
   assert_grep "IDENTITY BOOTSTRAP VALIDATION: FAIL" "$test_root/output"
+  assert_grep "gateway health check failed through resolved OpenClaw health command" "$test_root/output"
   assert_not_grep "IDENTITY BOOTSTRAP DRY RUN: NO-GO" "$test_root/output"
   assert_file_present "$test_root/users/openai-credential-broker/UniqueID"
   assert_file_present "$test_root/groups/openai-credential-broker/PrimaryGroupID"

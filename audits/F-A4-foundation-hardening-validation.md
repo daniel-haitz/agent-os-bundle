@@ -521,6 +521,8 @@ Live bootstrap evidence from `/Users/dannybigdeals/fa4-openai-credential-broker-
 
 Subsequent dry-run evidence showed `dscl` may render requested attributes with namespace labels such as `dsAttrTypeNative:IsHidden: 1`. The bootstrap parser now accepts exact terminal attribute labels in bare, `dsAttrTypeNative:`, and `dsAttrTypeStandard:` forms while preserving single-line, multiline, and multi-value parsing.
 
+Subsequent non-mutating validation failed only at the gateway health check because the validation environment invoked OpenClaw in a sudo/root context where `openclaw` was not available from `PATH` (`exit=127`). The gateway process itself remained running under launchd. The bootstrap validator now resolves OpenClaw deterministically using `/Users/agent/.local/bin/openclaw` first, then the installed bundled Node entrypoint `/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node /Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist/index.js`, with `HOME=/Users/agent`, `OPENCLAW_CONFIG_PATH=/Users/agent/.openclaw/openclaw.json`, and `OPENCLAW_STATE_DIR=/Users/agent/.openclaw/state`. Command-resolution failure is now reported separately from a real gateway health failure.
+
 ### Closure Impact
 
 F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the previous runtime-identity validation defect, but OpenClaw containment findings, pf activation, stale launchd metadata, persistence/reboot validation, and durable evidence gates remain open until operator remediation and validation evidence pass.
