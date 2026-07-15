@@ -29,6 +29,8 @@ Critical onboarding document:
 - `scripts/bundle-for-claude.sh`
 - `scripts/fa4-operator-readonly-validation.sh`
 - `scripts/fa4-openclawgw-readonly-wrapper.mjs`
+- `scripts/fa4-openclawgw-health-probe.sh`
+- `scripts/fa4-openclawgw-health-probe.mjs`
 - `scripts/fa4-operator-openclaw-containment-remediate.sh`
 - `scripts/fa4-operator-openclaw-containment-readiness.sh`
 - `scripts/fa4-openai-secretref-resolver.mjs`
@@ -49,6 +51,8 @@ scripts/wrap-up.sh
 scripts/bundle-for-claude.sh
 scripts/fa4-operator-readonly-validation.sh
 scripts/fa4-openclawgw-readonly-wrapper.mjs
+scripts/fa4-openclawgw-health-probe.sh
+scripts/fa4-openclawgw-health-probe.mjs
 scripts/fa4-operator-openclaw-containment-remediate.sh
 scripts/fa4-operator-openclaw-containment-readiness.sh
 scripts/fa4-openai-secretref-resolver.mjs

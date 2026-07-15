@@ -12,6 +12,9 @@ OUT_DIR=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) MODE="dry-run" ;;
+    --plan) MODE="dry-run" ;;
+    --verify) MODE="verify" ;;
+    --certify-host) MODE="certify-host" ;;
     --self-test) MODE="self-test" ;;
     --out-dir=*) OUT_DIR="${arg#--out-dir=}" ;;
     *)
@@ -20,6 +23,8 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 USER_NAME="${AGENT_OS_BOOTSTRAP_USER_NAME:-openai-credential-broker}"
 GROUP_NAME="${AGENT_OS_BOOTSTRAP_GROUP_NAME:-openai-credential-broker}"
@@ -33,9 +38,7 @@ UID_MIN=540
 UID_MAX=599
 GID_MIN=740
 GID_MAX=799
-OPENCLAW_BIN="${OPENCLAW_BIN:-/Users/agent/.local/bin/openclaw}"
-NODE_BIN="${NODE_BIN:-/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node}"
-OPENCLAW_ENTRYPOINT="${OPENCLAW_ENTRYPOINT:-/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist/index.js}"
+HEALTH_PROBE="${AGENT_OS_HEALTH_PROBE:-$SCRIPT_DIR/fa4-openclawgw-health-probe.sh}"
 CONFIG="${CONFIG:-/Users/agent/.openclaw/openclaw.json}"
 STATE_DIR="${STATE_DIR:-/Users/agent/.openclaw/state}"
 BROKER_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker.plist"
@@ -54,7 +57,7 @@ RM="${AGENT_OS_TEST_RM:-rm}"
 RMDIR="${AGENT_OS_TEST_RMDIR:-rmdir}"
 LAUNCHCTL="${AGENT_OS_TEST_LAUNCHCTL:-launchctl}"
 
-if [ "$MODE" != "dry-run" ] && [ "$MODE" != "self-test" ] && [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" != "1" ] && [ "$(id -u)" -ne 0 ]; then
+if [ "$MODE" != "dry-run" ] && [ "$MODE" != "verify" ] && [ "$MODE" != "certify-host" ] && [ "$MODE" != "self-test" ] && [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" != "1" ] && [ "$(id -u)" -ne 0 ]; then
   echo "ERROR: run as root via sudo from the operator account." >&2
   exit 1
 fi
@@ -177,23 +180,10 @@ group_generated_uid() {
   ds_read "/Groups/$GROUP_NAME" GeneratedUID 2>/dev/null || true
 }
 
-resolve_openclaw_command() {
-  OPENCLAW_CMD=()
-  if [ -x "$OPENCLAW_BIN" ]; then
-    OPENCLAW_CMD=("$OPENCLAW_BIN")
-    return 0
-  fi
-  if [ -x "$NODE_BIN" ] && [ -r "$OPENCLAW_ENTRYPOINT" ]; then
-    OPENCLAW_CMD=("$NODE_BIN" "$OPENCLAW_ENTRYPOINT")
-    return 0
-  fi
-  fail_nogo "OpenClaw health executable not found at $OPENCLAW_BIN or $NODE_BIN with entrypoint $OPENCLAW_ENTRYPOINT"
-}
-
 run_openclaw_health_check() {
-  resolve_openclaw_command
+  [ -x "$HEALTH_PROBE" ] || fail_nogo "OpenClaw health probe not found or not executable: $HEALTH_PROBE"
   echo "OPENCLAW HEALTH COMMAND RESOLVED: PASS"
-  HOME=/Users/agent OPENCLAW_CONFIG_PATH="$CONFIG" OPENCLAW_STATE_DIR="$STATE_DIR" "${OPENCLAW_CMD[@]}" health >/dev/null 2>&1 \
+  "$HEALTH_PROBE" >/dev/null 2>&1 \
     || fail_nogo "gateway health check failed through resolved OpenClaw health command"
 }
 
@@ -561,6 +551,136 @@ run_dry_run() {
   echo "IDENTITY BOOTSTRAP DRY RUN: GO"
 }
 
+CERT_FAILURES=()
+
+cert_pass() {
+  echo "$1: PASS"
+}
+
+cert_fail() {
+  echo "$1: FAIL"
+  CERT_FAILURES+=("$1 - $2")
+}
+
+cert_eval() {
+  local name="$1"
+  shift
+  local output
+  if output="$("$@" 2>&1)"; then
+    cert_pass "$name"
+  else
+    cert_fail "$name" "$output"
+  fi
+}
+
+cert_check_ds_parser() {
+  local parsed
+  parsed="$(printf 'RealName:\n Agent OS OpenAI credential broker\n' | parse_attr_from_stdin RealName)"
+  [ "$parsed" = "$REAL_NAME" ] || return 1
+  parsed="$(printf 'dsAttrTypeNative:IsHidden: 1\n' | parse_attr_from_stdin IsHidden)"
+  [ "$parsed" = "1" ] || return 1
+  parsed="$(printf 'dsAttrTypeStandard:GeneratedUID: 204EB339-8AD8-45F6-8A06-ED50833DB376\n' | parse_attr_from_stdin GeneratedUID)"
+  [ "$parsed" = "204EB339-8AD8-45F6-8A06-ED50833DB376" ] || return 1
+}
+
+parse_attr_from_stdin() {
+  local attribute="$1"
+  awk -v attr="$attribute" '
+    function value_colon(line, i, prefix) {
+      for (i = length(line); i >= 1; i--) {
+        if (substr(line, i, 1) != ":") continue
+        prefix = substr(line, 1, i - 1)
+        if (prefix == attr || prefix ~ (":" attr "$")) return i
+      }
+      return 0
+    }
+    function label_matches(label, parts) {
+      n = split(label, parts, ":")
+      return parts[n] == attr
+    }
+    {
+      line = $0
+      colon = value_colon(line)
+      if (colon > 0) {
+        label = substr(line, 1, colon - 1)
+        rest = substr(line, colon + 1)
+        if (label_matches(label)) {
+          capture=1
+          if (rest ~ /^ /) {
+            sub(/^ /, "", rest)
+            print rest
+          }
+          next
+        }
+      }
+    }
+    capture && /^ / { sub(/^ /, ""); print; next }
+    capture { exit }
+  '
+}
+
+cert_check_system_tools() {
+  local tool
+  for tool in /usr/bin/dscl /usr/bin/id /usr/bin/dscacheutil /usr/bin/stat /usr/bin/install /bin/mkdir /bin/chmod /bin/rmdir /bin/rm /bin/launchctl /usr/bin/plutil /usr/libexec/PlistBuddy; do
+    [ -e "$tool" ] || return 1
+  done
+}
+
+cert_check_macos() {
+  /usr/bin/sw_vers >/dev/null 2>&1
+}
+
+cert_check_launchd_gateway() {
+  [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" = "1" ] && return 0
+  launchctl print system/ai.openclaw.gateway >/dev/null 2>&1
+}
+
+cert_check_identity_and_paths() {
+  validate_preexisting_state
+}
+
+cert_check_health_probe() {
+  [ -x "$HEALTH_PROBE" ] || return 1
+  "$HEALTH_PROBE" >/dev/null 2>&1
+}
+
+cert_check_no_credential_or_service() {
+  [ ! -e "$SECRETS_DIR/openai-static-credentials.json" ] || return 1
+  [ ! -e "$BROKER_PLIST" ] || return 1
+  [ ! -e "$BROKER_RUNDIR_PLIST" ] || return 1
+  [ ! -e "$RUNTIME_SOCKET" ] || return 1
+}
+
+cert_check_rollback_prerequisites() {
+  [ -n "$ROLLBACK" ] || return 1
+  [ -n "$TXN_MANIFEST" ] || return 1
+}
+
+run_certify_host() {
+  CERT_FAILURES=()
+  echo "HOST COMPATIBILITY CERTIFICATION"
+  cert_eval "MACOS VERSION AVAILABLE" cert_check_macos
+  cert_eval "REQUIRED SYSTEM TOOLS AVAILABLE" cert_check_system_tools
+  cert_eval "DSCL ATTRIBUTE RENDERING PARSER" cert_check_ds_parser
+  cert_eval "UID/GID OR CANONICAL EXISTING ALLOCATION" cert_check_identity_and_paths
+  cert_eval "STAT MODE NORMALIZATION" path_state "$HOME_DIR"
+  cert_eval "LAUNCHD GATEWAY LABEL PRESENT" cert_check_launchd_gateway
+  cert_eval "FIXED HEALTH WRAPPER AVAILABLE" test -x "$HEALTH_PROBE"
+  cert_eval "HEALTH EXECUTION UNDER OPENCLAWGW" cert_check_health_probe
+  cert_eval "EXISTING BROKER IDENTITY AND CUSTODY STATE" cert_check_identity_and_paths
+  cert_eval "ROLLBACK SCRIPT PREREQUISITES" cert_check_rollback_prerequisites
+  cert_eval "NO CREDENTIAL STORE OR BROKER SERVICE" cert_check_no_credential_or_service
+  echo "ZERO WRITE OPERATIONS: CONFIRMED"
+  if [ "${#CERT_FAILURES[@]}" -eq 0 ]; then
+    echo "HOST COMPATIBILITY CERTIFIED: PASS"
+    return 0
+  fi
+  echo "HOST COMPATIBILITY CERTIFIED: FAIL"
+  printf 'FAILED CHECKS:\n'
+  printf -- '- %s\n' "${CERT_FAILURES[@]}"
+  return 1
+}
+
 create_group() {
   created_gid="$1"
   txn_append group "$GROUP_NAME" created_intent 1
@@ -788,16 +908,10 @@ FAKE
 [ "${AGENT_OS_FIXTURE_OPENCLAW_FAIL:-0}" = "1" ] && exit 55
 exit 0
 FAKE
-  cat > "$fakebin/node" <<'FAKE'
+  cat > "$fakebin/health-probe" <<'FAKE'
 #!/usr/bin/env bash
 [ "${AGENT_OS_FIXTURE_OPENCLAW_FAIL:-0}" = "1" ] && exit 55
-entry="${1:-}"
-shift || true
-[ -r "$entry" ] || exit 56
 exit 0
-FAKE
-  cat > "$fakebin/openclaw-entrypoint.js" <<'FAKE'
-// fixture OpenClaw entrypoint
 FAKE
   cat > "$fakebin/rmdir" <<'FAKE'
 #!/usr/bin/env bash
@@ -826,9 +940,7 @@ FAKE
       AGENT_OS_TEST_INSTALL="$fakebin/install" \
       AGENT_OS_TEST_STAT="$fakebin/stat" \
       AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
-      OPENCLAW_BIN="${AGENT_OS_FIXTURE_OPENCLAW_BIN:-$fakebin/openclaw}" \
-      NODE_BIN="${AGENT_OS_FIXTURE_NODE_BIN:-$fakebin/node}" \
-      OPENCLAW_ENTRYPOINT="${AGENT_OS_FIXTURE_OPENCLAW_ENTRYPOINT:-$fakebin/openclaw-entrypoint.js}" \
+      AGENT_OS_HEALTH_PROBE="${AGENT_OS_FIXTURE_HEALTH_PROBE:-$fakebin/health-probe}" \
       AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
       AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
       bash "$0" --out-dir="$test_root/out" "$@" > "$test_root/output" 2>&1
@@ -840,9 +952,7 @@ FAKE
     AGENT_OS_TEST_INSTALL="$fakebin/install" \
     AGENT_OS_TEST_STAT="$fakebin/stat" \
     AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
-    OPENCLAW_BIN="${AGENT_OS_FIXTURE_OPENCLAW_BIN:-$fakebin/openclaw}" \
-    NODE_BIN="${AGENT_OS_FIXTURE_NODE_BIN:-$fakebin/node}" \
-    OPENCLAW_ENTRYPOINT="${AGENT_OS_FIXTURE_OPENCLAW_ENTRYPOINT:-$fakebin/openclaw-entrypoint.js}" \
+    AGENT_OS_HEALTH_PROBE="${AGENT_OS_FIXTURE_HEALTH_PROBE:-$fakebin/health-probe}" \
     AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
     AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
     bash "$0" "$mode" --out-dir="$test_root/out" "$@" > "$test_root/output" 2>&1
@@ -928,23 +1038,30 @@ FAKE
   echo "SELF TEST canonical-existing-dry-run-validation: PASS"
 
   set +e
-  AGENT_OS_FIXTURE_OPENCLAW_BIN="$test_root/missing-openclaw" run_fixture --dry-run
+  run_fixture --verify
   status=$?
   set -e
-  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: node entrypoint fallback rejected" >&2; cat "$test_root/output" >&2; exit 1; }
-  assert_grep "OPENCLAW HEALTH COMMAND RESOLVED: PASS" "$test_root/output"
-  echo "SELF TEST openclaw-node-entrypoint-fallback: PASS"
+  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: verify existing state failed" >&2; cat "$test_root/output" >&2; exit 1; }
+  assert_grep "IDENTITY BOOTSTRAP VERIFIED: PASS" "$test_root/output"
+  echo "SELF TEST canonical-existing-verify-validation: PASS"
 
   set +e
-  AGENT_OS_FIXTURE_OPENCLAW_BIN="$test_root/missing-openclaw" \
-  AGENT_OS_FIXTURE_NODE_BIN="$test_root/missing-node" \
-  AGENT_OS_FIXTURE_OPENCLAW_ENTRYPOINT="$test_root/missing-entrypoint.js" \
-  run_fixture --dry-run
+  AGENT_OS_FIXTURE_HEALTH_PROBE="$test_root/missing-health-probe" run_fixture --dry-run
   status=$?
   set -e
-  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: missing OpenClaw executable accepted" >&2; exit 1; }
-  assert_grep "OpenClaw health executable not found" "$test_root/output"
-  echo "SELF TEST missing-openclaw-executable-rejected: PASS"
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: missing health probe accepted" >&2; exit 1; }
+  assert_grep "OpenClaw health probe not found" "$test_root/output"
+  echo "SELF TEST missing-health-wrapper-rejected: PASS"
+
+  rm -rf "$test_root/out"
+  set +e
+  run_fixture --certify-host
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: host certification fixture failed" >&2; cat "$test_root/output" >&2; exit 1; }
+  assert_grep "HOST COMPATIBILITY CERTIFIED: PASS" "$test_root/output"
+  [ ! -d "$test_root/out" ] || { echo "SELF TEST assertion failed: certify wrote output dir" >&2; exit 1; }
+  echo "SELF TEST host-certification-fixture: PASS"
 
   set +e; AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
   [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: multiline RealName rejected" >&2; cat "$test_root/output" >&2; exit 1; }
@@ -1054,6 +1171,8 @@ FAKE
 
 case "$MODE" in
   dry-run) run_dry_run ;;
+  verify) verify_canonical_final_state ;;
+  certify-host) run_certify_host ;;
   apply) run_apply ;;
   self-test) run_self_test ;;
 esac

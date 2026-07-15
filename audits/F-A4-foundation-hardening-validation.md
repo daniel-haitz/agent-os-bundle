@@ -501,7 +501,7 @@ The same validation reported these blockers:
 
 ### OpenAI Credential Broker Identity Bootstrap Hardening
 
-The dedicated `openai-credential-broker` account is absent in the current live state, so containment readiness remains NO-GO until the identity bootstrap is reviewed and run. The hardened bootstrap script is `scripts/fa4-operator-openai-credential-broker-bootstrap.sh`.
+The dedicated `openai-credential-broker` account was created by the operator bootstrap attempt, and subsequent no-mutation validation showed the account/custody state is canonical except for validator defects described below. Containment readiness remains NO-GO until the host compatibility certification and identity verification gates pass. The hardened bootstrap script is `scripts/fa4-operator-openai-credential-broker-bootstrap.sh`.
 
 Canonical account model:
 
@@ -521,7 +521,9 @@ Live bootstrap evidence from `/Users/dannybigdeals/fa4-openai-credential-broker-
 
 Subsequent dry-run evidence showed `dscl` may render requested attributes with namespace labels such as `dsAttrTypeNative:IsHidden: 1`. The bootstrap parser now accepts exact terminal attribute labels in bare, `dsAttrTypeNative:`, and `dsAttrTypeStandard:` forms while preserving single-line, multiline, and multi-value parsing.
 
-Subsequent non-mutating validation failed only at the gateway health check because the validation environment invoked OpenClaw in a sudo/root context where `openclaw` was not available from `PATH` (`exit=127`). The gateway process itself remained running under launchd. The bootstrap validator now resolves OpenClaw deterministically using `/Users/agent/.local/bin/openclaw` first, then the installed bundled Node entrypoint `/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node /Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist/index.js`, with `HOME=/Users/agent`, `OPENCLAW_CONFIG_PATH=/Users/agent/.openclaw/openclaw.json`, and `OPENCLAW_STATE_DIR=/Users/agent/.openclaw/state`. Command-resolution failure is now reported separately from a real gateway health failure.
+Subsequent non-mutating validation failed only at the gateway health check because the validation environment invoked OpenClaw in a sudo/root context where `openclaw` was not available from `PATH` (`exit=127`). The gateway process itself remained running under launchd. The bootstrap validator now delegates health validation to `scripts/fa4-openclawgw-health-probe.sh`, which reads the installed `ai.openclaw.gateway` LaunchDaemon configuration, validates `UserName=openclawgw`, `GroupName=openclawgw`, `ProgramArguments`, and the gateway OpenClaw environment, then invokes `scripts/fa4-openclawgw-health-probe.mjs` to drop to the `openclawgw` runtime identity and run only the fixed OpenClaw `health` operation. Command-resolution failure is reported separately from a real gateway health failure.
+
+The bootstrap now also exposes a no-mutation `--certify-host` gate that aggregates host compatibility checks before another operator execution. It checks macOS/tool availability, Directory Services parser rendering forms, UID/GID or canonical existing allocation, launchd gateway presence, the fixed health wrapper, health execution under `openclawgw`, existing broker identity/custody state, rollback prerequisites, and absence of credential store or broker service artifacts. It reports all failures and ends with either `HOST COMPATIBILITY CERTIFIED: PASS` or `HOST COMPATIBILITY CERTIFIED: FAIL`.
 
 ### Closure Impact
 
