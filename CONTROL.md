@@ -56,7 +56,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The egress proxy repair harness had a confirmed launchd bootout/bootstrap race: immediate bootstrap after bootout could fail with `Bootstrap failed: 5: Input/output error`, while a later manual bootstrap succeeded. The harness correction is prepared and syntax-tested; pf integration and full read-only validation remain pending.
 - 2026-07-15 operator read-only validation captured service identity and filesystem evidence, but native OpenClaw, broker, and F-A3 runtime-identity checks were blocked by the harness's nested sudo design. The denials do not prove an underlying control failure. The corrected read-only validation path uses a fixed-operation `openclawgw` identity wrapper and remains to be operator-run.
 - 2026-07-15T184542Z operator read-only validation with the corrected identity wrapper proved OpenClaw version, gateway/broker/proxy identities, OpenClaw path modes, broker socket modes, broker health/search, and F-A3 clean/adversarial regressions. It also found bounded OpenClaw containment blockers: unsafe `ollama/qwen3-coder:30b` default fallback web access, gmail-reader shell/process exposure, plaintext OpenAI static API-key surfaces, pf disabled, stale launchd version metadata, and legacy config-health residue.
-- `scripts/fa4-operator-openclaw-containment-remediate.sh` is prepared for the next bounded correction: remove the unsafe local-model fallback, harden gmail-reader tool policy, and migrate supported OpenAI static API-key fields to file-backed SecretRefs without changing pf or closing F-A4. It requires operator root execution because the live config and auth-profile store are intentionally root/service protected.
+- The file-backed SecretRef path is rejected for OpenAI static keys under the live root/openclawgw boundary: OpenClaw requires owner-only file provider resolution by the resolving UID, which conflicts with root-owned tamper custody and openclawgw runtime resolution. The replacement path is an exec SecretRef provider using a fixed root-owned resolver and a dedicated local OpenAI credential broker; this preserves broker custody and avoids gateway-writable credential files. This remains an F-A4 remediation path, not closure.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
@@ -176,7 +176,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Run `scripts/fa4-operator-openclaw-containment-remediate.sh` to correct unsafe local-model fallback, gmail-reader shell/process exposure, and supported plaintext OpenAI API-key storage.
+1. Run `scripts/fa4-operator-openclaw-containment-readiness.sh` to validate the exec SecretRef provider plus dedicated OpenAI credential broker path without live credential/config/auth mutation; only then run the remediation harness if it returns GO.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
@@ -193,7 +193,7 @@ Required results:
 
 1. Unsafe `ollama/qwen3-coder:30b` default fallback web access is removed or denied.
 2. gmail-reader has no general process capability and no general shell path beyond an explicitly validated fixed broker-client surface.
-3. Supported OpenAI static API-key surfaces use SecretRefs and `openclaw secrets audit --check` no longer reports those plaintext findings.
+3. Supported OpenAI static API-key surfaces use exec-backed SecretRefs through the dedicated local credential broker, and `openclaw secrets audit --json` reports no plaintext, unresolved, or shadowed OpenAI static-key findings.
 4. Native OpenClaw security/secrets/sandbox validation runs through the approved read-only path.
 5. Corrected egress proxy repair harness runs repeatably, and proxy/pf evidence is captured through the approved operator path.
 6. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.

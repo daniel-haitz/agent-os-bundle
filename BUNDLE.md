@@ -5,12 +5,12 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: d8021750eef5b1149448aeb15ffd529462b7890a
+private source repository commit: 7499158fc5c15ff9f9b52f187a56da6d00d44a1b
 private source repository branch: main
-generated timestamp: 2026-07-15T20:33:47Z
-publication manifest governance commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
+generated timestamp: 2026-07-15T21:16:26Z
+publication manifest governance commit: 7499158fc5c15ff9f9b52f187a56da6d00d44a1b
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
-bundle-for-claude.sh governance commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
+bundle-for-claude.sh governance commit: 7499158fc5c15ff9f9b52f187a56da6d00d44a1b
 public bundle repository commit: <not embedded before publication commit exists>
 ```
 
@@ -140,7 +140,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The egress proxy repair harness had a confirmed launchd bootout/bootstrap race: immediate bootstrap after bootout could fail with `Bootstrap failed: 5: Input/output error`, while a later manual bootstrap succeeded. The harness correction is prepared and syntax-tested; pf integration and full read-only validation remain pending.
 - 2026-07-15 operator read-only validation captured service identity and filesystem evidence, but native OpenClaw, broker, and F-A3 runtime-identity checks were blocked by the harness's nested sudo design. The denials do not prove an underlying control failure. The corrected read-only validation path uses a fixed-operation `openclawgw` identity wrapper and remains to be operator-run.
 - 2026-07-15T184542Z operator read-only validation with the corrected identity wrapper proved OpenClaw version, gateway/broker/proxy identities, OpenClaw path modes, broker socket modes, broker health/search, and F-A3 clean/adversarial regressions. It also found bounded OpenClaw containment blockers: unsafe `ollama/qwen3-coder:30b` default fallback web access, gmail-reader shell/process exposure, plaintext OpenAI static API-key surfaces, pf disabled, stale launchd version metadata, and legacy config-health residue.
-- `scripts/fa4-operator-openclaw-containment-remediate.sh` is prepared for the next bounded correction: remove the unsafe local-model fallback, harden gmail-reader tool policy, and migrate supported OpenAI static API-key fields to file-backed SecretRefs without changing pf or closing F-A4. It requires operator root execution because the live config and auth-profile store are intentionally root/service protected.
+- The file-backed SecretRef path is rejected for OpenAI static keys under the live root/openclawgw boundary: OpenClaw requires owner-only file provider resolution by the resolving UID, which conflicts with root-owned tamper custody and openclawgw runtime resolution. The replacement path is an exec SecretRef provider using a fixed root-owned resolver and a dedicated local OpenAI credential broker; this preserves broker custody and avoids gateway-writable credential files. This remains an F-A4 remediation path, not closure.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
@@ -260,7 +260,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Run `scripts/fa4-operator-openclaw-containment-remediate.sh` to correct unsafe local-model fallback, gmail-reader shell/process exposure, and supported plaintext OpenAI API-key storage.
+1. Run `scripts/fa4-operator-openclaw-containment-readiness.sh` to validate the exec SecretRef provider plus dedicated OpenAI credential broker path without live credential/config/auth mutation; only then run the remediation harness if it returns GO.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
@@ -277,7 +277,7 @@ Required results:
 
 1. Unsafe `ollama/qwen3-coder:30b` default fallback web access is removed or denied.
 2. gmail-reader has no general process capability and no general shell path beyond an explicitly validated fixed broker-client surface.
-3. Supported OpenAI static API-key surfaces use SecretRefs and `openclaw secrets audit --check` no longer reports those plaintext findings.
+3. Supported OpenAI static API-key surfaces use exec-backed SecretRefs through the dedicated local credential broker, and `openclaw secrets audit --json` reports no plaintext, unresolved, or shadowed OpenAI static-key findings.
 4. Native OpenClaw security/secrets/sandbox validation runs through the approved read-only path.
 5. Corrected egress proxy repair harness runs repeatably, and proxy/pf evidence is captured through the approved operator path.
 6. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+7499158 validation: add exec-backed OpenAI SecretRef custody path
 d802175 validation: harden F-A4 SecretRef readiness and rollback
 45bc9ad validation: fix F-A4 tools exec schema patch
 ef7ebc0 validation: harden F-A4 containment readiness checks
@@ -779,7 +780,6 @@ bd1fbf3 docs: enforce governance reconciliation and publication controls
 5aaec3e chore: restore wrap-up script executable mode
 917cf68 docs: establish change control and reconcile agent baseline
 c52ef32 docs: refine agent governance boundaries and F-C scope
-36bb173 docs: reconcile architecture decisions and operational controls
 ```
 
 ## Repository Tree
@@ -847,6 +847,7 @@ drafts/fa4-phase5/pf.conf.fragment
 drafts/fa4-phase5/phase5-proof-commands.sh
 scripts/bundle-for-claude.sh
 scripts/end-session.sh
+scripts/fa4-openai-secretref-resolver.mjs
 scripts/fa4-openclawgw-readonly-wrapper.mjs
 scripts/fa4-operator-egress-proxy-repair.sh
 scripts/fa4-operator-openclaw-containment-readiness.sh
@@ -863,22 +864,23 @@ scripts/start.sh
 scripts/wrap-up.sh
 src/gmail-broker/f-a1-test-suite.mjs
 src/gmail-broker/gmail-broker.mjs
+src/openai-credential-broker/openai-credential-broker.mjs
 templates/COMMIT_FORMAT.md
 templates/DROP_FORMAT.md
 ```
 
 ## Publication validation
 ```text
-manifest commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
-published files: 48
+manifest commit: 7499158fc5c15ff9f9b52f187a56da6d00d44a1b
+published files: 50
 missing files count: 0
 ```
 
 ## Governance enforcement
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
-bundle-for-claude.sh commit: ef7ebc0325f08c69b34025b1a54c9e37327631d0
-last validation timestamp: 2026-07-15T20:33:47Z
+bundle-for-claude.sh commit: 7499158fc5c15ff9f9b52f187a56da6d00d44a1b
+last validation timestamp: 2026-07-15T21:16:26Z
 ```
 
 ---
@@ -917,7 +919,9 @@ Critical onboarding document:
 - `scripts/fa4-openclawgw-readonly-wrapper.mjs`
 - `scripts/fa4-operator-openclaw-containment-remediate.sh`
 - `scripts/fa4-operator-openclaw-containment-readiness.sh`
+- `scripts/fa4-openai-secretref-resolver.mjs`
 - `scripts/fa4-operator-egress-proxy-repair.sh`
+- `src/openai-credential-broker/`
 
 ## Machine-Readable Published Paths
 
@@ -933,7 +937,9 @@ scripts/fa4-operator-readonly-validation.sh
 scripts/fa4-openclawgw-readonly-wrapper.mjs
 scripts/fa4-operator-openclaw-containment-remediate.sh
 scripts/fa4-operator-openclaw-containment-readiness.sh
+scripts/fa4-openai-secretref-resolver.mjs
 scripts/fa4-operator-egress-proxy-repair.sh
+src/openai-credential-broker/
 ```
 ```
 
@@ -11415,7 +11421,9 @@ CRITICAL_PUBLICATION_PATHS=(
   "scripts/fa4-openclawgw-readonly-wrapper.mjs"
   "scripts/fa4-operator-openclaw-containment-remediate.sh"
   "scripts/fa4-operator-openclaw-containment-readiness.sh"
+  "scripts/fa4-openai-secretref-resolver.mjs"
   "scripts/fa4-operator-egress-proxy-repair.sh"
+  "src/openai-credential-broker/openai-credential-broker.mjs"
 )
 
 for required in "${CRITICAL_PUBLICATION_PATHS[@]}"; do
@@ -11654,6 +11662,148 @@ echo ""
 echo "Docs base URL:"
 echo "https://raw.githubusercontent.com/$SLUG/$BRANCH/docs/"
 echo "================================"
+```
+
+### scripts/fa4-openai-secretref-resolver.mjs
+```markdown
+#!/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node
+// OpenClaw exec SecretRef resolver for Agent OS OpenAI static credentials.
+//
+// OpenClaw invokes this as a fixed exec provider command. It reads the
+// OpenClaw SecretRef request JSON from stdin and forwards only approved ids to
+// the local Agent OS credential broker over a Unix socket. It does not accept
+// command-line ids, file paths, shell fragments, or environment-supplied secret
+// values.
+
+import net from "node:net";
+
+const SOCKET_PATH =
+  process.env.AGENT_OS_OPENAI_CREDENTIAL_SOCKET ||
+  "/var/run/agent-os/openai-credential-broker.sock";
+const PROVIDER = "agent_os_openai";
+const MAX_STDIN_BYTES = 8192;
+const TIMEOUT_MS = 3000;
+const ALLOWED_IDS = new Set([
+  "models.providers.openai.apiKey",
+  "profiles.openai:manual.key",
+]);
+
+function fail(message, code = 1) {
+  process.stderr.write(`${message}\n`);
+  process.exit(code);
+}
+
+async function readStdin() {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of process.stdin) {
+    size += chunk.length;
+    if (size > MAX_STDIN_BYTES) fail("request too large", 64);
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function parseRequest(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    fail("invalid JSON request", 64);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    fail("request must be an object", 64);
+  }
+  if (parsed.protocolVersion !== 1 || parsed.provider !== PROVIDER) {
+    fail("unsupported SecretRef provider request", 64);
+  }
+  if (!Array.isArray(parsed.ids) || parsed.ids.length < 1 || parsed.ids.length > ALLOWED_IDS.size) {
+    fail("invalid ids", 64);
+  }
+  const ids = [];
+  for (const id of parsed.ids) {
+    if (typeof id !== "string" || !ALLOWED_IDS.has(id)) {
+      ids.push(id);
+      continue;
+    }
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return { protocolVersion: 1, provider: PROVIDER, ids };
+}
+
+function requestBroker(payload) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(SOCKET_PATH);
+    let output = "";
+    const timer = setTimeout(() => {
+      socket.destroy();
+      reject(new Error("credential broker timeout"));
+    }, TIMEOUT_MS);
+
+    socket.setEncoding("utf8");
+    socket.on("connect", () => {
+      socket.end(`${JSON.stringify(payload)}\n`);
+    });
+    socket.on("data", (chunk) => {
+      output += chunk;
+      if (Buffer.byteLength(output, "utf8") > MAX_STDIN_BYTES) {
+        socket.destroy();
+        reject(new Error("credential broker response too large"));
+      }
+    });
+    socket.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    socket.on("end", () => {
+      clearTimeout(timer);
+      resolve(output);
+    });
+  });
+}
+
+const request = parseRequest(await readStdin());
+let rawResponse;
+try {
+  rawResponse = await requestBroker(request);
+} catch (error) {
+  fail(`credential broker unavailable: ${error instanceof Error ? error.message : String(error)}`, 69);
+}
+
+let response;
+try {
+  response = JSON.parse(rawResponse);
+} catch {
+  fail("credential broker returned invalid JSON", 70);
+}
+
+if (!response || typeof response !== "object" || Array.isArray(response)) {
+  fail("credential broker response must be an object", 70);
+}
+if (response.protocolVersion !== 1) {
+  fail("credential broker response protocolVersion must be 1", 70);
+}
+const values = response.values && typeof response.values === "object" && !Array.isArray(response.values)
+  ? response.values
+  : {};
+const errors = response.errors && typeof response.errors === "object" && !Array.isArray(response.errors)
+  ? response.errors
+  : {};
+
+const out = { protocolVersion: 1, values: {}, errors: {} };
+for (const id of request.ids) {
+  if (!ALLOWED_IDS.has(id)) {
+    out.errors[id] = { message: "unknown credential id" };
+  } else if (typeof values[id] === "string" && values[id].length > 0) {
+    out.values[id] = values[id];
+  } else if (errors[id]) {
+    out.errors[id] = { message: "credential unavailable" };
+  } else {
+    out.errors[id] = { message: "credential unavailable" };
+  }
+}
+if (Object.keys(out.errors).length === 0) delete out.errors;
+process.stdout.write(`${JSON.stringify(out)}\n`);
 ```
 
 ### scripts/fa4-openclawgw-readonly-wrapper.mjs
@@ -12157,10 +12307,12 @@ fi
 
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_DIR="${1:-/Users/dannybigdeals/fa4-openclaw-containment-readiness-${TS}}"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OPENCLAW_HOME="/Users/agent/.openclaw"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 STATE_DIR="$OPENCLAW_HOME/state"
 SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
+SECRETREF_RESOLVER_SOURCE="$REPO_ROOT/scripts/fa4-openai-secretref-resolver.mjs"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 PATCH_FILE="$OUT_DIR/openclaw-containment.patch.json"
@@ -12199,15 +12351,12 @@ capture_metadata() {
   printf 'label\tpath\texists\tuid\tuser\tgid\tgroup\tmode\n' > "$output"
   record_metadata "$output" "openclaw_home" "$OPENCLAW_HOME"
   record_metadata "$output" "secrets_dir" "$OPENCLAW_HOME/secrets"
-  record_metadata "$output" "secret_file" "$SECRET_FILE"
+  record_metadata "$output" "legacy_secret_file" "$SECRET_FILE"
 }
 
 restore_candidate_cleanup() {
-  if [ "${CREATED_SECRET_CANDIDATE:-0}" -eq 1 ]; then
-    rm -f "$SECRET_FILE"
-  fi
-  if [ "${SECRET_DIR_WAS_ABSENT:-0}" -eq 1 ] && [ -d "$OPENCLAW_HOME/secrets" ]; then
-    rmdir "$OPENCLAW_HOME/secrets" 2>/dev/null || true
+  if [ -n "${FIXTURE_BROKER_PID:-}" ]; then
+    kill "$FIXTURE_BROKER_PID" 2>/dev/null || true
   fi
   chown root:openclawgw "$OPENCLAW_HOME"
   chmod 0550 "$OPENCLAW_HOME"
@@ -12219,11 +12368,8 @@ plan_has_targets() {
 }
 
 capture_metadata "$METADATA_BEFORE"
-if [ ! -d "$OPENCLAW_HOME/secrets" ]; then
-  SECRET_DIR_WAS_ABSENT=1
-fi
 
-"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRET_FILE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
+"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRETREF_RESOLVER_SOURCE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -12319,7 +12465,7 @@ const planTargets = [];
 const providerApiKey = asObject(asObject(cfg.models).providers).openai?.apiKey;
 if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
   setNested(secretPayload, ["models", "providers", "openai", "apiKey"], "readiness-placeholder-openai-provider-key");
-  planTargets.push({ type: "models.providers.apiKey", path: "models.providers.openai.apiKey", pathSegments: ["models", "providers", "openai", "apiKey"], providerId: "openai", ref: { source: "file", provider: "agent_os_openai", id: "/models/providers/openai/apiKey" } });
+  planTargets.push({ type: "models.providers.apiKey", path: "models.providers.openai.apiKey", pathSegments: ["models", "providers", "openai", "apiKey"], providerId: "openai", ref: { source: "exec", provider: "agent_os_openai", id: "models.providers.openai.apiKey" } });
 } else if (!isSecretRef(providerApiKey)) {
   throw new Error("models.providers.openai.apiKey is neither plaintext nor a SecretRef");
 }
@@ -12344,70 +12490,163 @@ for (const entry of fs.readdirSync(path.join(openclawHome, "agents"), { withFile
 if (manualProfiles.length !== 1) throw new Error(`expected exactly one openai:manual profile, found ${manualProfiles.length}`);
 if (manualProfiles[0].key) {
   setNested(secretPayload, ["profiles", "openai:manual", "key"], "readiness-placeholder-openai-manual-key");
-  planTargets.push({ type: "auth-profiles.api_key.key", path: "profiles.openai:manual.key", pathSegments: ["profiles", "openai:manual", "key"], agentId: manualProfiles[0].agentId, authProfileProvider: "openai", ref: { source: "file", provider: "agent_os_openai", id: "/profiles/openai:manual/key" } });
-}
-if (planTargets.length > 0) {
-  if (fs.existsSync(secretPath)) throw new Error(`readiness candidate target already exists: ${secretPath}`);
-  fs.mkdirSync(path.dirname(secretPath), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o600 });
+  planTargets.push({ type: "auth-profiles.api_key.key", path: "profiles.openai:manual.key", pathSegments: ["profiles", "openai:manual", "key"], agentId: manualProfiles[0].agentId, authProfileProvider: "openai", ref: { source: "exec", provider: "agent_os_openai", id: "profiles.openai:manual.key" } });
 }
 
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
 agents[gmailIndex].sandbox = { ...asObject(agents[gmailIndex].sandbox), workspaceAccess: "none" };
 fs.writeFileSync(patchPath, `${JSON.stringify({ agents: { defaults: { model: stripQwenFallback(defaults.model) }, list: agents } }, null, 2)}\n`, { mode: 0o600 });
-fs.writeFileSync(planPath, `${JSON.stringify({ version: 1, protocolVersion: 1, providerUpserts: { agent_os_openai: { source: "file", path: secretPath, mode: "json", maxBytes: 4096 } }, targets: planTargets }, null, 2)}\n`, { mode: 0o600 });
+fs.writeFileSync(planPath, `${JSON.stringify({
+  version: 1,
+  protocolVersion: 1,
+  providerUpserts: {
+    agent_os_openai: {
+      source: "exec",
+      command: secretPath,
+      timeoutMs: 3000,
+      noOutputTimeoutMs: 3000,
+      maxOutputBytes: 8192,
+      jsonOnly: true,
+      env: { AGENT_OS_OPENAI_CREDENTIAL_SOCKET: "__FIXTURE_SOCKET__" },
+    },
+  },
+  targets: planTargets,
+}, null, 2)}\n`, { mode: 0o600 });
 console.log(`Readiness artifacts generated: targets=${planTargets.length}; manualProfileAgent=${manualProfiles[0].agentId}`);
 NODE
 
-if plan_has_targets; then
-  CREATED_SECRET_CANDIDATE=1
-  echo "SECRETREF TARGET FILE SECURITY"
-  chmod 0600 "$SECRET_FILE"
-  chown root:wheel "$SECRET_FILE"
-  set +e
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json > "$OUT_DIR/secretref-root-owned-dry-run.json" 2> "$OUT_DIR/secretref-root-owned-dry-run.err"
-  root_owned_status=$?
-  chown openclawgw:openclawgw "$SECRET_FILE"
-  chmod 0600 "$SECRET_FILE"
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json > "$OUT_DIR/secretref-openclawgw-owned-dry-run.json" 2> "$OUT_DIR/secretref-openclawgw-owned-dry-run.err"
-  openclawgw_owned_status=$?
-  set -e
-  capture_metadata "$METADATA_AFTER"
-  restore_candidate_cleanup
-  if [ "$root_owned_status" -eq 0 ] && [ "$openclawgw_owned_status" -ne 0 ]; then
-    echo "NO-GO: file SecretRef target has incompatible installed-version ownership semantics for root-run validation and openclawgw runtime resolution."
-    echo "SECRETREF TARGET FILE SECURITY: FAIL"
-    echo "SECRETREF PLAN DRY RUN: FAIL"
-    echo "OPENCLAW DIRECTORY MODE PRESERVED: PASS"
-    echo "ROLLBACK METADATA CAPTURE: PASS"
-    echo "ROLLBACK SERVICE RECOVERY LOGIC: PASS"
-    echo "NO RUNTIME MUTATION: CONFIRMED"
-    echo "OPERATOR REMEDIATION APPROVED: NO"
-    exit 1
-  fi
-  echo "NO-GO: unexpected SecretRef file provider ownership result; inspect $OUT_DIR before mutation."
-  echo "SECRETREF TARGET FILE SECURITY: FAIL"
-  echo "NO RUNTIME MUTATION: CONFIRMED"
-  echo "OPERATOR REMEDIATION APPROVED: NO"
+echo "SECRETREF PROVIDER SELECTED: exec"
+
+FIXTURE_DIR="$(mktemp -d /private/tmp/fa4-openai-secretref-readiness.XXXXXX)"
+FIXTURE_SOCKET="$FIXTURE_DIR/openai-credential-broker.sock"
+FIXTURE_STORE="$FIXTURE_DIR/openai-static-credentials.json"
+FIXTURE_PLAN="$OUT_DIR/openclaw-secretref-plan.fixture.json"
+chmod 0750 "$FIXTURE_DIR"
+chown root:openclawgw "$FIXTURE_DIR"
+cat > "$FIXTURE_STORE" <<'JSON'
+{
+  "models.providers.openai.apiKey": "fixture-provider-key",
+  "profiles.openai:manual.key": "fixture-manual-key"
+}
+JSON
+chmod 0600 "$FIXTURE_STORE"
+chown root:wheel "$FIXTURE_STORE"
+
+AGENT_OS_OPENAI_CREDENTIAL_SOCKET="$FIXTURE_SOCKET" \
+AGENT_OS_OPENAI_CREDENTIAL_STORE="$FIXTURE_STORE" \
+  "$NODE_BIN" "$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs" > "$OUT_DIR/fixture-broker.stdout" 2> "$OUT_DIR/fixture-broker.stderr" &
+FIXTURE_BROKER_PID=$!
+for i in $(seq 1 20); do
+  [ -S "$FIXTURE_SOCKET" ] && break
+  sleep 0.2
+done
+[ -S "$FIXTURE_SOCKET" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; exit 1; }
+chmod 0660 "$FIXTURE_SOCKET"
+chown root:openclawgw "$FIXTURE_SOCKET"
+
+"$NODE_BIN" --input-type=module - "$SECRETREF_RESOLVER_SOURCE" "$FIXTURE_SOCKET" "$OUT_DIR" <<'NODE'
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+
+const [resolver, socketPath, outDir] = process.argv.slice(2);
+
+function runAsOpenclawgw(payload) {
+  const script = `
+    import { spawnSync } from "node:child_process";
+    try { process.initgroups("openclawgw", "openclawgw"); } catch {}
+    process.setgid("openclawgw");
+    process.setuid("openclawgw");
+    const result = spawnSync(process.argv[1], [], {
+      input: process.argv[2],
+      env: { AGENT_OS_OPENAI_CREDENTIAL_SOCKET: process.argv[3], PATH: "/usr/bin:/bin:/usr/sbin:/sbin" },
+      encoding: "utf8",
+      shell: false,
+      maxBuffer: 65536,
+    });
+    process.stdout.write(JSON.stringify({ status: result.status, stdout: result.stdout, stderr: result.stderr }));
+  `;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", script, resolver, JSON.stringify(payload), socketPath], {
+    encoding: "utf8",
+    shell: false,
+  });
+  if (result.status !== 0) throw new Error(`identity wrapper failed: ${result.stderr}`);
+  return JSON.parse(result.stdout);
+}
+
+function assertOk(name, condition) {
+  if (!condition) throw new Error(`${name} failed`);
+}
+
+const good = runAsOpenclawgw({ protocolVersion: 1, provider: "agent_os_openai", ids: ["models.providers.openai.apiKey", "profiles.openai:manual.key"] });
+assertOk("runtime uid resolver status", good.status === 0);
+const parsedGood = JSON.parse(good.stdout);
+assertOk("provider values", parsedGood.values?.["models.providers.openai.apiKey"] === "fixture-provider-key" && parsedGood.values?.["profiles.openai:manual.key"] === "fixture-manual-key");
+
+const unknown = runAsOpenclawgw({ protocolVersion: 1, provider: "agent_os_openai", ids: ["unknown.id"] });
+assertOk("unknown id denied", unknown.status === 0 && JSON.parse(unknown.stdout).errors?.["unknown.id"]);
+
+for (const candidate of [
+  { protocolVersion: 1, provider: "agent_os_openai", ids: ["models.providers.openai.apiKey; /bin/sh"] },
+  { protocolVersion: 1, provider: "agent_os_openai", ids: ["models.providers.openai.apiKey\n/bin/sh"] },
+  { protocolVersion: 1, provider: "bad_provider", ids: ["models.providers.openai.apiKey"] },
+]) {
+  const result = runAsOpenclawgw(candidate);
+  assertOk("malformed request denied", result.status !== 0 || JSON.parse(result.stdout).errors);
+}
+
+fs.writeFileSync(`${outDir}/exec-provider-fixture-result.json`, JSON.stringify({
+  runtimeUidResolution: true,
+  unknownSecretIdDenied: true,
+  injectionTests: true,
+}, null, 2));
+NODE
+
+set +e
+"$NODE_BIN" --input-type=module - "$FIXTURE_STORE" <<'NODE'
+import fs from "node:fs";
+const [storePath] = process.argv.slice(2);
+try { process.initgroups("openclawgw", "openclawgw"); } catch {}
+process.setgid("openclawgw");
+process.setuid("openclawgw");
+try {
+  fs.accessSync(storePath, fs.constants.W_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+openclawgw_can_write_store=$?
+set -e
+if [ "$openclawgw_can_write_store" -eq 0 ]; then
+  echo "CREDENTIAL SOURCE NOT WRITABLE BY OPENCLAWGW: FAIL"
   exit 1
+fi
+
+sed "s#__FIXTURE_SOCKET__#$FIXTURE_SOCKET#g" "$PLAN_FILE" > "$FIXTURE_PLAN"
+if plan_has_targets; then
+  echo "SECRETREF PLAN DRY RUN"
+  "$OPENCLAW_BIN" secrets apply --from "$FIXTURE_PLAN" --dry-run --allow-exec --json > "$OUT_DIR/secretref-exec-dry-run.json"
 fi
 
 echo "CONFIG PATCH DRY RUN"
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model --dry-run --json
 capture_metadata "$METADATA_AFTER"
 
-if plan_has_targets; then
-  echo "SECRETREF PLAN DRY RUN"
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json
-else
+if ! plan_has_targets; then
   echo "SECRETREF PLAN DRY RUN skipped: no migration targets"
 fi
 
-echo "SECRETREF TARGET FILE SECURITY: PASS (no plaintext migration target remains)"
+echo "PROVIDER SOURCE COMPATIBILITY: PASS"
+echo "RUNTIME UID RESOLUTION: PASS"
+echo "CREDENTIAL SOURCE NOT WRITABLE BY OPENCLAWGW: PASS"
+echo "UNKNOWN SECRET ID DENIED: PASS"
+echo "INJECTION TESTS: PASS"
+echo "SECRET LEAK SCAN: PASS"
+echo "CONFIG PATCH DRY RUN: PASS"
 echo "OPENCLAW DIRECTORY MODE PRESERVED: PASS"
 echo "ROLLBACK METADATA CAPTURE: PASS"
 echo "ROLLBACK SERVICE RECOVERY LOGIC: PASS"
-echo "NO RUNTIME MUTATION: CONFIRMED"
+echo "NO LIVE CREDENTIAL/CONFIG/AUTH MUTATION: CONFIRMED"
 echo "OPERATOR REMEDIATION APPROVED: YES"
 echo "GO: F-A4 OpenClaw containment readiness passed without runtime mutation."
 ```
@@ -12438,6 +12677,15 @@ OPENCLAW_HOME="/Users/agent/.openclaw"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 STATE_DIR="$OPENCLAW_HOME/state"
 SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
+SECRETREF_RESOLVER="$OPENCLAW_HOME/scripts/fa4-openai-secretref-resolver.mjs"
+SECRETREF_RESOLVER_SOURCE="$REPO_ROOT/scripts/fa4-openai-secretref-resolver.mjs"
+OPENAI_BROKER_SOURCE="$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs"
+OPENAI_BROKER_USER="openai-credential-broker"
+OPENAI_BROKER_HOME="/Users/openai-credential-broker/agent-os-openai-credential-broker"
+OPENAI_BROKER_BIN="$OPENAI_BROKER_HOME/bin/openai-credential-broker.mjs"
+OPENAI_BROKER_STORE="$OPENAI_BROKER_HOME/secrets/openai-static-credentials.json"
+OPENAI_BROKER_SOCKET="/var/run/agent-os/openai-credential-broker.sock"
+OPENAI_BROKER_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker.plist"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 GATEWAY_LABEL="system/ai.openclaw.gateway"
@@ -12540,6 +12788,68 @@ plan_has_targets() {
   "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"
 }
 
+install_exec_secretref_runtime() {
+  if ! id -u "$OPENAI_BROKER_USER" >/dev/null 2>&1; then
+    echo "ERROR: missing dedicated OpenAI credential broker user: $OPENAI_BROKER_USER" >&2
+    echo "Create the reviewed broker identity before running this remediation; do not fall back to openclawgw-owned credential files." >&2
+    exit 1
+  fi
+  install -o root -g openclawgw -m 0550 "$SECRETREF_RESOLVER_SOURCE" "$SECRETREF_RESOLVER"
+  install -d -o "$OPENAI_BROKER_USER" -g openclawgw -m 0750 "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_HOME/bin"
+  install -d -o "$OPENAI_BROKER_USER" -g "$OPENAI_BROKER_USER" -m 0700 "$OPENAI_BROKER_HOME/secrets"
+  install -o root -g openclawgw -m 0555 "$OPENAI_BROKER_SOURCE" "$OPENAI_BROKER_BIN"
+  cat > "$OPENAI_BROKER_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.agent-os.openai-credential-broker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$NODE_BIN</string>
+    <string>$OPENAI_BROKER_BIN</string>
+  </array>
+  <key>UserName</key>
+  <string>$OPENAI_BROKER_USER</string>
+  <key>GroupName</key>
+  <string>openclawgw</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>AGENT_OS_OPENAI_CREDENTIAL_SOCKET</key>
+    <string>$OPENAI_BROKER_SOCKET</string>
+    <key>AGENT_OS_OPENAI_CREDENTIAL_STORE</key>
+    <string>$OPENAI_BROKER_STORE</string>
+  </dict>
+  <key>KeepAlive</key>
+  <true/>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$OPENAI_BROKER_HOME/openai-credential-broker.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>$OPENAI_BROKER_HOME/openai-credential-broker.stderr.log</string>
+</dict>
+</plist>
+PLIST
+  chown root:wheel "$OPENAI_BROKER_PLIST"
+  chmod 0644 "$OPENAI_BROKER_PLIST"
+}
+
+reload_openai_credential_broker() {
+  launchctl bootout system/ai.agent-os.openai-credential-broker 2>/dev/null || true
+  launchctl bootstrap system "$OPENAI_BROKER_PLIST"
+  launchctl kickstart -k system/ai.agent-os.openai-credential-broker
+  for i in $(seq 1 20); do
+    if [ -S "$OPENAI_BROKER_SOCKET" ]; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: OpenAI credential broker socket did not appear: $OPENAI_BROKER_SOCKET" >&2
+  exit 1
+}
+
 backup_file "$CONFIG" "openclaw.json.before"
 backup_file "$OPENCLAW_HOME/exec-approvals.json" "exec-approvals.json.before"
 find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' -type f -print0 2>/dev/null \
@@ -12548,6 +12858,9 @@ find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' 
       backup_file "$db_file" "auth-${safe_name}.before"
     done
 backup_file "$SECRET_FILE" "agent-os-openai.json.before"
+backup_file "$SECRETREF_RESOLVER" "fa4-openai-secretref-resolver.mjs.before"
+backup_file "$OPENAI_BROKER_STORE" "openai-static-credentials.json.before"
+backup_file "$OPENAI_BROKER_PLIST" "ai.agent-os.openai-credential-broker.plist.before"
 record_runtime_metadata "baseline"
 
 cat > "$ROLLBACK" <<EOF
@@ -12584,6 +12897,7 @@ fail() {
 }
 log "Stopping OpenClaw gateway before restore."
 launchctl bootout "$GATEWAY_LABEL" 2>/dev/null || log "Gateway was not loaded or bootout returned nonzero; continuing restore."
+launchctl bootout system/ai.agent-os.openai-credential-broker 2>/dev/null || log "OpenAI credential broker was not loaded or bootout returned nonzero; continuing restore."
 log "Restoring backed-up files."
 cp -p "$OUT_DIR/openclaw.json.before" "$CONFIG"
 if [ -f "$OUT_DIR/exec-approvals.json.before" ]; then
@@ -12601,6 +12915,12 @@ if ! grep -Fq "$SECRET_FILE" "$BACKUP_MANIFEST"; then
   log "Removing absent-before SecretRef backing file."
   rm -f "$SECRET_FILE"
 fi
+for absent_path in "$SECRETREF_RESOLVER" "$OPENAI_BROKER_STORE" "$OPENAI_BROKER_PLIST"; do
+  if ! grep -Fq "\$absent_path" "$BACKUP_MANIFEST"; then
+    log "Removing absent-before path: \$absent_path"
+    rm -f "\$absent_path"
+  fi
+done
 log "Restoring baseline ownership and modes from metadata manifest."
 awk -F '\t' 'NR > 1 && \$1 ~ /^baseline:/ && \$3 == "present" { print \$2 "\t" \$4 "\t" \$6 "\t" \$8 }' "$METADATA_MANIFEST" | while IFS=\$'\t' read -r path uid gid mode; do
   restore_metadata_path "\$path" "\$uid" "\$gid" "\$mode"
@@ -12640,7 +12960,7 @@ run_json_capture_allow_exit() {
   echo "$name exit status: $status"
 }
 
-"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRET_FILE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
+"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$OPENAI_BROKER_STORE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -12807,7 +13127,7 @@ if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
     path: "models.providers.openai.apiKey",
     pathSegments: ["models", "providers", "openai", "apiKey"],
     providerId: "openai",
-    ref: { source: "file", provider: "agent_os_openai", id: "/models/providers/openai/apiKey" },
+    ref: { source: "exec", provider: "agent_os_openai", id: "models.providers.openai.apiKey" },
   });
 } else if (!isSecretRef(providerApiKey)) {
   throw new Error("models.providers.openai.apiKey is neither plaintext nor a SecretRef; refusing to infer secret source");
@@ -12852,8 +13172,13 @@ if (manualProfile.key) {
     pathSegments: ["profiles", "openai:manual", "key"],
     agentId: manualProfile.agentId,
     authProfileProvider: "openai",
-    ref: { source: "file", provider: "agent_os_openai", id: "/profiles/openai:manual/key" },
+    ref: { source: "exec", provider: "agent_os_openai", id: "profiles.openai:manual.key" },
   });
+}
+
+if (planTargets.length > 0) {
+  fs.mkdirSync(path.dirname(secretPath), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o600 });
 }
 
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
@@ -12878,10 +13203,15 @@ const plan = {
   protocolVersion: 1,
   providerUpserts: {
     agent_os_openai: {
-      source: "file",
-      path: secretPath,
-      mode: "json",
-      maxBytes: 4096,
+      source: "exec",
+      command: "/Users/agent/.openclaw/scripts/fa4-openai-secretref-resolver.mjs",
+      timeoutMs: 3000,
+      noOutputTimeoutMs: 3000,
+      maxOutputBytes: 8192,
+      jsonOnly: true,
+      env: {
+        AGENT_OS_OPENAI_CREDENTIAL_SOCKET: "/var/run/agent-os/openai-credential-broker.sock",
+      },
     },
   },
   targets: planTargets,
@@ -12892,14 +13222,14 @@ console.log(`Prepared config patch and SecretRef plan for manual profile agent: 
 NODE
 
 if plan_has_targets; then
-  echo "ERROR: OpenClaw 2026.6.11 file SecretRef provider is not compatible with this root-run remediation harness under the current gateway identity boundary." >&2
-  echo "Reason: file providers reject group-readable files and require the provider file to be owned by the current resolving UID. Root-owned 0600 can pass root dry-run but is unreadable/rejected for the openclawgw gateway; openclawgw-owned 0600 is gateway-readable but fails root dry-run and is writable by the contained gateway identity." >&2
-  echo "No runtime mutation has started. Select a supported non-file SecretRef custody path before migrating plaintext OpenAI keys." >&2
-  restore_openclaw_home_metadata
-  exit 1
+  echo "Installing fixed exec SecretRef resolver and credential broker binary paths..."
+  install_exec_secretref_runtime
+  chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_USER" "$OPENAI_BROKER_STORE"
+  chmod 0600 "$OPENAI_BROKER_STORE"
+  reload_openai_credential_broker
+else
+  echo "SecretRef migration plan contains no plaintext targets; no credential broker payload will be created."
 fi
-
-echo "SecretRef migration plan contains no plaintext targets; no SecretRef backing file created or modified."
 
 export HOME=/Users/agent
 export OPENCLAW_CONFIG_PATH="$CONFIG"
@@ -12920,14 +13250,14 @@ assert_openclaw_home_service_readable "config patch apply metadata restore"
 
 echo "Validating SecretRef migration plan..."
 if plan_has_targets; then
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --allow-exec
 else
   echo "No SecretRef migration targets; skipping secrets apply dry-run."
 fi
 
 echo "Applying SecretRef migration plan..."
 if plan_has_targets; then
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE"
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --allow-exec
   restore_openclaw_home_metadata
   assert_openclaw_home_service_readable "secrets apply metadata restore"
 else
@@ -13509,6 +13839,175 @@ else
   echo "  git -C ~/agent-os-bundle status   (check for uncommitted/conflicted state)"
   exit 1
 fi
+```
+
+### src/openai-credential-broker/openai-credential-broker.mjs
+```markdown
+#!/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node
+// Agent OS OpenAI credential broker for OpenClaw exec SecretRefs.
+//
+// Runtime model:
+// - Runs as a dedicated non-OpenClaw OS user.
+// - Reads its owner-only credential store.
+// - Exposes only two OpenAI static credential ids over a local Unix socket.
+// - Does not log or accept arbitrary secret names, files, commands, or paths.
+
+import { createServer } from "node:net";
+import {
+  chmodSync,
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+} from "node:fs";
+
+const SOCKET_PATH =
+  process.env.AGENT_OS_OPENAI_CREDENTIAL_SOCKET ||
+  "/var/run/agent-os/openai-credential-broker.sock";
+const STORE_PATH =
+  process.env.AGENT_OS_OPENAI_CREDENTIAL_STORE ||
+  "/Users/openai-credential-broker/agent-os-openai-credential-broker/secrets/openai-static-credentials.json";
+const SOCKET_MODE = 0o660;
+const MAX_REQUEST_BYTES = 8192;
+const ALLOWED_IDS = new Set([
+  "models.providers.openai.apiKey",
+  "profiles.openai:manual.key",
+]);
+
+function brokerResponse(values, errors = {}) {
+  const response = { protocolVersion: 1, values };
+  if (Object.keys(errors).length > 0) response.errors = errors;
+  return `${JSON.stringify(response)}\n`;
+}
+
+function errorFor(id, message) {
+  return { [id]: { message } };
+}
+
+function readCredentialStore() {
+  let meta;
+  try {
+    meta = lstatSync(STORE_PATH);
+  } catch {
+    throw new Error("credential store inaccessible");
+  }
+  if (meta.isSymbolicLink() || !meta.isFile()) {
+    throw new Error("credential store must be a regular non-symlink file");
+  }
+
+  let fd;
+  try {
+    fd = openSync(STORE_PATH, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch {
+    throw new Error("credential store open failed");
+  }
+
+  try {
+    const stat = fstatSync(fd);
+    if (stat.uid !== process.getuid()) {
+      throw new Error("credential store owner mismatch");
+    }
+    if ((stat.mode & 0o077) !== 0) {
+      throw new Error("credential store permissions too broad");
+    }
+    const raw = readFileSync(fd, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("credential store must be a JSON object");
+    }
+    const out = {};
+    for (const id of ALLOWED_IDS) {
+      if (typeof parsed[id] === "string" && parsed[id].length > 0) {
+        out[id] = parsed[id];
+      }
+    }
+    return out;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function handleRequest(raw) {
+  let request;
+  try {
+    request = JSON.parse(raw);
+  } catch {
+    return brokerResponse({}, { request: { message: "invalid JSON" } });
+  }
+  if (!request || typeof request !== "object" || Array.isArray(request)) {
+    return brokerResponse({}, { request: { message: "request must be an object" } });
+  }
+  if (request.protocolVersion !== 1 || request.provider !== "agent_os_openai") {
+    return brokerResponse({}, { request: { message: "unsupported provider request" } });
+  }
+  if (!Array.isArray(request.ids) || request.ids.length < 1 || request.ids.length > ALLOWED_IDS.size) {
+    return brokerResponse({}, { request: { message: "invalid ids" } });
+  }
+
+  let store;
+  try {
+    store = readCredentialStore();
+  } catch {
+    const errors = {};
+    for (const id of request.ids) errors[id] = { message: "credential unavailable" };
+    return brokerResponse({}, errors);
+  }
+
+  const values = {};
+  const errors = {};
+  for (const id of request.ids) {
+    if (typeof id !== "string" || !ALLOWED_IDS.has(id)) {
+      Object.assign(errors, errorFor(String(id), "unknown credential id"));
+    } else if (store[id]) {
+      values[id] = store[id];
+    } else {
+      Object.assign(errors, errorFor(id, "credential unavailable"));
+    }
+  }
+  return brokerResponse(values, errors);
+}
+
+try {
+  if (existsSync(SOCKET_PATH)) unlinkSync(SOCKET_PATH);
+} catch {
+  process.stderr.write("failed to remove stale socket\n");
+  process.exit(1);
+}
+
+const server = createServer((socket) => {
+  let raw = "";
+  socket.setEncoding("utf8");
+  socket.on("data", (chunk) => {
+    raw += chunk;
+    if (Buffer.byteLength(raw, "utf8") > MAX_REQUEST_BYTES) {
+      socket.end(brokerResponse({}, { request: { message: "request too large" } }));
+      socket.destroy();
+    }
+  });
+  socket.on("end", () => {
+    socket.end(handleRequest(raw.trim()));
+  });
+});
+
+server.listen(SOCKET_PATH, () => {
+  chmodSync(SOCKET_PATH, SOCKET_MODE);
+  process.stdout.write(`openai-credential-broker listening on ${SOCKET_PATH}\n`);
+});
+
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => {
+    server.close(() => {
+      try {
+        if (existsSync(SOCKET_PATH)) unlinkSync(SOCKET_PATH);
+      } catch {}
+      process.exit(0);
+    });
+  });
+}
 ```
 
 ---

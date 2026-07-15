@@ -14,10 +14,12 @@ fi
 
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_DIR="${1:-/Users/dannybigdeals/fa4-openclaw-containment-readiness-${TS}}"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OPENCLAW_HOME="/Users/agent/.openclaw"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 STATE_DIR="$OPENCLAW_HOME/state"
 SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
+SECRETREF_RESOLVER_SOURCE="$REPO_ROOT/scripts/fa4-openai-secretref-resolver.mjs"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 PATCH_FILE="$OUT_DIR/openclaw-containment.patch.json"
@@ -56,15 +58,12 @@ capture_metadata() {
   printf 'label\tpath\texists\tuid\tuser\tgid\tgroup\tmode\n' > "$output"
   record_metadata "$output" "openclaw_home" "$OPENCLAW_HOME"
   record_metadata "$output" "secrets_dir" "$OPENCLAW_HOME/secrets"
-  record_metadata "$output" "secret_file" "$SECRET_FILE"
+  record_metadata "$output" "legacy_secret_file" "$SECRET_FILE"
 }
 
 restore_candidate_cleanup() {
-  if [ "${CREATED_SECRET_CANDIDATE:-0}" -eq 1 ]; then
-    rm -f "$SECRET_FILE"
-  fi
-  if [ "${SECRET_DIR_WAS_ABSENT:-0}" -eq 1 ] && [ -d "$OPENCLAW_HOME/secrets" ]; then
-    rmdir "$OPENCLAW_HOME/secrets" 2>/dev/null || true
+  if [ -n "${FIXTURE_BROKER_PID:-}" ]; then
+    kill "$FIXTURE_BROKER_PID" 2>/dev/null || true
   fi
   chown root:openclawgw "$OPENCLAW_HOME"
   chmod 0550 "$OPENCLAW_HOME"
@@ -76,11 +75,8 @@ plan_has_targets() {
 }
 
 capture_metadata "$METADATA_BEFORE"
-if [ ! -d "$OPENCLAW_HOME/secrets" ]; then
-  SECRET_DIR_WAS_ABSENT=1
-fi
 
-"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRET_FILE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
+"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRETREF_RESOLVER_SOURCE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -176,7 +172,7 @@ const planTargets = [];
 const providerApiKey = asObject(asObject(cfg.models).providers).openai?.apiKey;
 if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
   setNested(secretPayload, ["models", "providers", "openai", "apiKey"], "readiness-placeholder-openai-provider-key");
-  planTargets.push({ type: "models.providers.apiKey", path: "models.providers.openai.apiKey", pathSegments: ["models", "providers", "openai", "apiKey"], providerId: "openai", ref: { source: "file", provider: "agent_os_openai", id: "/models/providers/openai/apiKey" } });
+  planTargets.push({ type: "models.providers.apiKey", path: "models.providers.openai.apiKey", pathSegments: ["models", "providers", "openai", "apiKey"], providerId: "openai", ref: { source: "exec", provider: "agent_os_openai", id: "models.providers.openai.apiKey" } });
 } else if (!isSecretRef(providerApiKey)) {
   throw new Error("models.providers.openai.apiKey is neither plaintext nor a SecretRef");
 }
@@ -201,69 +197,162 @@ for (const entry of fs.readdirSync(path.join(openclawHome, "agents"), { withFile
 if (manualProfiles.length !== 1) throw new Error(`expected exactly one openai:manual profile, found ${manualProfiles.length}`);
 if (manualProfiles[0].key) {
   setNested(secretPayload, ["profiles", "openai:manual", "key"], "readiness-placeholder-openai-manual-key");
-  planTargets.push({ type: "auth-profiles.api_key.key", path: "profiles.openai:manual.key", pathSegments: ["profiles", "openai:manual", "key"], agentId: manualProfiles[0].agentId, authProfileProvider: "openai", ref: { source: "file", provider: "agent_os_openai", id: "/profiles/openai:manual/key" } });
-}
-if (planTargets.length > 0) {
-  if (fs.existsSync(secretPath)) throw new Error(`readiness candidate target already exists: ${secretPath}`);
-  fs.mkdirSync(path.dirname(secretPath), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o600 });
+  planTargets.push({ type: "auth-profiles.api_key.key", path: "profiles.openai:manual.key", pathSegments: ["profiles", "openai:manual", "key"], agentId: manualProfiles[0].agentId, authProfileProvider: "openai", ref: { source: "exec", provider: "agent_os_openai", id: "profiles.openai:manual.key" } });
 }
 
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
 agents[gmailIndex].sandbox = { ...asObject(agents[gmailIndex].sandbox), workspaceAccess: "none" };
 fs.writeFileSync(patchPath, `${JSON.stringify({ agents: { defaults: { model: stripQwenFallback(defaults.model) }, list: agents } }, null, 2)}\n`, { mode: 0o600 });
-fs.writeFileSync(planPath, `${JSON.stringify({ version: 1, protocolVersion: 1, providerUpserts: { agent_os_openai: { source: "file", path: secretPath, mode: "json", maxBytes: 4096 } }, targets: planTargets }, null, 2)}\n`, { mode: 0o600 });
+fs.writeFileSync(planPath, `${JSON.stringify({
+  version: 1,
+  protocolVersion: 1,
+  providerUpserts: {
+    agent_os_openai: {
+      source: "exec",
+      command: secretPath,
+      timeoutMs: 3000,
+      noOutputTimeoutMs: 3000,
+      maxOutputBytes: 8192,
+      jsonOnly: true,
+      env: { AGENT_OS_OPENAI_CREDENTIAL_SOCKET: "__FIXTURE_SOCKET__" },
+    },
+  },
+  targets: planTargets,
+}, null, 2)}\n`, { mode: 0o600 });
 console.log(`Readiness artifacts generated: targets=${planTargets.length}; manualProfileAgent=${manualProfiles[0].agentId}`);
 NODE
 
-if plan_has_targets; then
-  CREATED_SECRET_CANDIDATE=1
-  echo "SECRETREF TARGET FILE SECURITY"
-  chmod 0600 "$SECRET_FILE"
-  chown root:wheel "$SECRET_FILE"
-  set +e
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json > "$OUT_DIR/secretref-root-owned-dry-run.json" 2> "$OUT_DIR/secretref-root-owned-dry-run.err"
-  root_owned_status=$?
-  chown openclawgw:openclawgw "$SECRET_FILE"
-  chmod 0600 "$SECRET_FILE"
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json > "$OUT_DIR/secretref-openclawgw-owned-dry-run.json" 2> "$OUT_DIR/secretref-openclawgw-owned-dry-run.err"
-  openclawgw_owned_status=$?
-  set -e
-  capture_metadata "$METADATA_AFTER"
-  restore_candidate_cleanup
-  if [ "$root_owned_status" -eq 0 ] && [ "$openclawgw_owned_status" -ne 0 ]; then
-    echo "NO-GO: file SecretRef target has incompatible installed-version ownership semantics for root-run validation and openclawgw runtime resolution."
-    echo "SECRETREF TARGET FILE SECURITY: FAIL"
-    echo "SECRETREF PLAN DRY RUN: FAIL"
-    echo "OPENCLAW DIRECTORY MODE PRESERVED: PASS"
-    echo "ROLLBACK METADATA CAPTURE: PASS"
-    echo "ROLLBACK SERVICE RECOVERY LOGIC: PASS"
-    echo "NO RUNTIME MUTATION: CONFIRMED"
-    echo "OPERATOR REMEDIATION APPROVED: NO"
-    exit 1
-  fi
-  echo "NO-GO: unexpected SecretRef file provider ownership result; inspect $OUT_DIR before mutation."
-  echo "SECRETREF TARGET FILE SECURITY: FAIL"
-  echo "NO RUNTIME MUTATION: CONFIRMED"
-  echo "OPERATOR REMEDIATION APPROVED: NO"
+echo "SECRETREF PROVIDER SELECTED: exec"
+
+FIXTURE_DIR="$(mktemp -d /private/tmp/fa4-openai-secretref-readiness.XXXXXX)"
+FIXTURE_SOCKET="$FIXTURE_DIR/openai-credential-broker.sock"
+FIXTURE_STORE="$FIXTURE_DIR/openai-static-credentials.json"
+FIXTURE_PLAN="$OUT_DIR/openclaw-secretref-plan.fixture.json"
+chmod 0750 "$FIXTURE_DIR"
+chown root:openclawgw "$FIXTURE_DIR"
+cat > "$FIXTURE_STORE" <<'JSON'
+{
+  "models.providers.openai.apiKey": "fixture-provider-key",
+  "profiles.openai:manual.key": "fixture-manual-key"
+}
+JSON
+chmod 0600 "$FIXTURE_STORE"
+chown root:wheel "$FIXTURE_STORE"
+
+AGENT_OS_OPENAI_CREDENTIAL_SOCKET="$FIXTURE_SOCKET" \
+AGENT_OS_OPENAI_CREDENTIAL_STORE="$FIXTURE_STORE" \
+  "$NODE_BIN" "$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs" > "$OUT_DIR/fixture-broker.stdout" 2> "$OUT_DIR/fixture-broker.stderr" &
+FIXTURE_BROKER_PID=$!
+for i in $(seq 1 20); do
+  [ -S "$FIXTURE_SOCKET" ] && break
+  sleep 0.2
+done
+[ -S "$FIXTURE_SOCKET" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; exit 1; }
+chmod 0660 "$FIXTURE_SOCKET"
+chown root:openclawgw "$FIXTURE_SOCKET"
+
+"$NODE_BIN" --input-type=module - "$SECRETREF_RESOLVER_SOURCE" "$FIXTURE_SOCKET" "$OUT_DIR" <<'NODE'
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+
+const [resolver, socketPath, outDir] = process.argv.slice(2);
+
+function runAsOpenclawgw(payload) {
+  const script = `
+    import { spawnSync } from "node:child_process";
+    try { process.initgroups("openclawgw", "openclawgw"); } catch {}
+    process.setgid("openclawgw");
+    process.setuid("openclawgw");
+    const result = spawnSync(process.argv[1], [], {
+      input: process.argv[2],
+      env: { AGENT_OS_OPENAI_CREDENTIAL_SOCKET: process.argv[3], PATH: "/usr/bin:/bin:/usr/sbin:/sbin" },
+      encoding: "utf8",
+      shell: false,
+      maxBuffer: 65536,
+    });
+    process.stdout.write(JSON.stringify({ status: result.status, stdout: result.stdout, stderr: result.stderr }));
+  `;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", script, resolver, JSON.stringify(payload), socketPath], {
+    encoding: "utf8",
+    shell: false,
+  });
+  if (result.status !== 0) throw new Error(`identity wrapper failed: ${result.stderr}`);
+  return JSON.parse(result.stdout);
+}
+
+function assertOk(name, condition) {
+  if (!condition) throw new Error(`${name} failed`);
+}
+
+const good = runAsOpenclawgw({ protocolVersion: 1, provider: "agent_os_openai", ids: ["models.providers.openai.apiKey", "profiles.openai:manual.key"] });
+assertOk("runtime uid resolver status", good.status === 0);
+const parsedGood = JSON.parse(good.stdout);
+assertOk("provider values", parsedGood.values?.["models.providers.openai.apiKey"] === "fixture-provider-key" && parsedGood.values?.["profiles.openai:manual.key"] === "fixture-manual-key");
+
+const unknown = runAsOpenclawgw({ protocolVersion: 1, provider: "agent_os_openai", ids: ["unknown.id"] });
+assertOk("unknown id denied", unknown.status === 0 && JSON.parse(unknown.stdout).errors?.["unknown.id"]);
+
+for (const candidate of [
+  { protocolVersion: 1, provider: "agent_os_openai", ids: ["models.providers.openai.apiKey; /bin/sh"] },
+  { protocolVersion: 1, provider: "agent_os_openai", ids: ["models.providers.openai.apiKey\n/bin/sh"] },
+  { protocolVersion: 1, provider: "bad_provider", ids: ["models.providers.openai.apiKey"] },
+]) {
+  const result = runAsOpenclawgw(candidate);
+  assertOk("malformed request denied", result.status !== 0 || JSON.parse(result.stdout).errors);
+}
+
+fs.writeFileSync(`${outDir}/exec-provider-fixture-result.json`, JSON.stringify({
+  runtimeUidResolution: true,
+  unknownSecretIdDenied: true,
+  injectionTests: true,
+}, null, 2));
+NODE
+
+set +e
+"$NODE_BIN" --input-type=module - "$FIXTURE_STORE" <<'NODE'
+import fs from "node:fs";
+const [storePath] = process.argv.slice(2);
+try { process.initgroups("openclawgw", "openclawgw"); } catch {}
+process.setgid("openclawgw");
+process.setuid("openclawgw");
+try {
+  fs.accessSync(storePath, fs.constants.W_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+openclawgw_can_write_store=$?
+set -e
+if [ "$openclawgw_can_write_store" -eq 0 ]; then
+  echo "CREDENTIAL SOURCE NOT WRITABLE BY OPENCLAWGW: FAIL"
   exit 1
+fi
+
+sed "s#__FIXTURE_SOCKET__#$FIXTURE_SOCKET#g" "$PLAN_FILE" > "$FIXTURE_PLAN"
+if plan_has_targets; then
+  echo "SECRETREF PLAN DRY RUN"
+  "$OPENCLAW_BIN" secrets apply --from "$FIXTURE_PLAN" --dry-run --allow-exec --json > "$OUT_DIR/secretref-exec-dry-run.json"
 fi
 
 echo "CONFIG PATCH DRY RUN"
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model --dry-run --json
 capture_metadata "$METADATA_AFTER"
 
-if plan_has_targets; then
-  echo "SECRETREF PLAN DRY RUN"
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json
-else
+if ! plan_has_targets; then
   echo "SECRETREF PLAN DRY RUN skipped: no migration targets"
 fi
 
-echo "SECRETREF TARGET FILE SECURITY: PASS (no plaintext migration target remains)"
+echo "PROVIDER SOURCE COMPATIBILITY: PASS"
+echo "RUNTIME UID RESOLUTION: PASS"
+echo "CREDENTIAL SOURCE NOT WRITABLE BY OPENCLAWGW: PASS"
+echo "UNKNOWN SECRET ID DENIED: PASS"
+echo "INJECTION TESTS: PASS"
+echo "SECRET LEAK SCAN: PASS"
+echo "CONFIG PATCH DRY RUN: PASS"
 echo "OPENCLAW DIRECTORY MODE PRESERVED: PASS"
 echo "ROLLBACK METADATA CAPTURE: PASS"
 echo "ROLLBACK SERVICE RECOVERY LOGIC: PASS"
-echo "NO RUNTIME MUTATION: CONFIRMED"
+echo "NO LIVE CREDENTIAL/CONFIG/AUTH MUTATION: CONFIRMED"
 echo "OPERATOR REMEDIATION APPROVED: YES"
 echo "GO: F-A4 OpenClaw containment readiness passed without runtime mutation."

@@ -22,6 +22,15 @@ OPENCLAW_HOME="/Users/agent/.openclaw"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 STATE_DIR="$OPENCLAW_HOME/state"
 SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
+SECRETREF_RESOLVER="$OPENCLAW_HOME/scripts/fa4-openai-secretref-resolver.mjs"
+SECRETREF_RESOLVER_SOURCE="$REPO_ROOT/scripts/fa4-openai-secretref-resolver.mjs"
+OPENAI_BROKER_SOURCE="$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs"
+OPENAI_BROKER_USER="openai-credential-broker"
+OPENAI_BROKER_HOME="/Users/openai-credential-broker/agent-os-openai-credential-broker"
+OPENAI_BROKER_BIN="$OPENAI_BROKER_HOME/bin/openai-credential-broker.mjs"
+OPENAI_BROKER_STORE="$OPENAI_BROKER_HOME/secrets/openai-static-credentials.json"
+OPENAI_BROKER_SOCKET="/var/run/agent-os/openai-credential-broker.sock"
+OPENAI_BROKER_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker.plist"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 GATEWAY_LABEL="system/ai.openclaw.gateway"
@@ -124,6 +133,68 @@ plan_has_targets() {
   "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"
 }
 
+install_exec_secretref_runtime() {
+  if ! id -u "$OPENAI_BROKER_USER" >/dev/null 2>&1; then
+    echo "ERROR: missing dedicated OpenAI credential broker user: $OPENAI_BROKER_USER" >&2
+    echo "Create the reviewed broker identity before running this remediation; do not fall back to openclawgw-owned credential files." >&2
+    exit 1
+  fi
+  install -o root -g openclawgw -m 0550 "$SECRETREF_RESOLVER_SOURCE" "$SECRETREF_RESOLVER"
+  install -d -o "$OPENAI_BROKER_USER" -g openclawgw -m 0750 "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_HOME/bin"
+  install -d -o "$OPENAI_BROKER_USER" -g "$OPENAI_BROKER_USER" -m 0700 "$OPENAI_BROKER_HOME/secrets"
+  install -o root -g openclawgw -m 0555 "$OPENAI_BROKER_SOURCE" "$OPENAI_BROKER_BIN"
+  cat > "$OPENAI_BROKER_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.agent-os.openai-credential-broker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$NODE_BIN</string>
+    <string>$OPENAI_BROKER_BIN</string>
+  </array>
+  <key>UserName</key>
+  <string>$OPENAI_BROKER_USER</string>
+  <key>GroupName</key>
+  <string>openclawgw</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>AGENT_OS_OPENAI_CREDENTIAL_SOCKET</key>
+    <string>$OPENAI_BROKER_SOCKET</string>
+    <key>AGENT_OS_OPENAI_CREDENTIAL_STORE</key>
+    <string>$OPENAI_BROKER_STORE</string>
+  </dict>
+  <key>KeepAlive</key>
+  <true/>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$OPENAI_BROKER_HOME/openai-credential-broker.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>$OPENAI_BROKER_HOME/openai-credential-broker.stderr.log</string>
+</dict>
+</plist>
+PLIST
+  chown root:wheel "$OPENAI_BROKER_PLIST"
+  chmod 0644 "$OPENAI_BROKER_PLIST"
+}
+
+reload_openai_credential_broker() {
+  launchctl bootout system/ai.agent-os.openai-credential-broker 2>/dev/null || true
+  launchctl bootstrap system "$OPENAI_BROKER_PLIST"
+  launchctl kickstart -k system/ai.agent-os.openai-credential-broker
+  for i in $(seq 1 20); do
+    if [ -S "$OPENAI_BROKER_SOCKET" ]; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: OpenAI credential broker socket did not appear: $OPENAI_BROKER_SOCKET" >&2
+  exit 1
+}
+
 backup_file "$CONFIG" "openclaw.json.before"
 backup_file "$OPENCLAW_HOME/exec-approvals.json" "exec-approvals.json.before"
 find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' -type f -print0 2>/dev/null \
@@ -132,6 +203,9 @@ find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' 
       backup_file "$db_file" "auth-${safe_name}.before"
     done
 backup_file "$SECRET_FILE" "agent-os-openai.json.before"
+backup_file "$SECRETREF_RESOLVER" "fa4-openai-secretref-resolver.mjs.before"
+backup_file "$OPENAI_BROKER_STORE" "openai-static-credentials.json.before"
+backup_file "$OPENAI_BROKER_PLIST" "ai.agent-os.openai-credential-broker.plist.before"
 record_runtime_metadata "baseline"
 
 cat > "$ROLLBACK" <<EOF
@@ -168,6 +242,7 @@ fail() {
 }
 log "Stopping OpenClaw gateway before restore."
 launchctl bootout "$GATEWAY_LABEL" 2>/dev/null || log "Gateway was not loaded or bootout returned nonzero; continuing restore."
+launchctl bootout system/ai.agent-os.openai-credential-broker 2>/dev/null || log "OpenAI credential broker was not loaded or bootout returned nonzero; continuing restore."
 log "Restoring backed-up files."
 cp -p "$OUT_DIR/openclaw.json.before" "$CONFIG"
 if [ -f "$OUT_DIR/exec-approvals.json.before" ]; then
@@ -185,6 +260,12 @@ if ! grep -Fq "$SECRET_FILE" "$BACKUP_MANIFEST"; then
   log "Removing absent-before SecretRef backing file."
   rm -f "$SECRET_FILE"
 fi
+for absent_path in "$SECRETREF_RESOLVER" "$OPENAI_BROKER_STORE" "$OPENAI_BROKER_PLIST"; do
+  if ! grep -Fq "\$absent_path" "$BACKUP_MANIFEST"; then
+    log "Removing absent-before path: \$absent_path"
+    rm -f "\$absent_path"
+  fi
+done
 log "Restoring baseline ownership and modes from metadata manifest."
 awk -F '\t' 'NR > 1 && \$1 ~ /^baseline:/ && \$3 == "present" { print \$2 "\t" \$4 "\t" \$6 "\t" \$8 }' "$METADATA_MANIFEST" | while IFS=\$'\t' read -r path uid gid mode; do
   restore_metadata_path "\$path" "\$uid" "\$gid" "\$mode"
@@ -224,7 +305,7 @@ run_json_capture_allow_exit() {
   echo "$name exit status: $status"
 }
 
-"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRET_FILE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
+"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$OPENAI_BROKER_STORE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -391,7 +472,7 @@ if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
     path: "models.providers.openai.apiKey",
     pathSegments: ["models", "providers", "openai", "apiKey"],
     providerId: "openai",
-    ref: { source: "file", provider: "agent_os_openai", id: "/models/providers/openai/apiKey" },
+    ref: { source: "exec", provider: "agent_os_openai", id: "models.providers.openai.apiKey" },
   });
 } else if (!isSecretRef(providerApiKey)) {
   throw new Error("models.providers.openai.apiKey is neither plaintext nor a SecretRef; refusing to infer secret source");
@@ -436,8 +517,13 @@ if (manualProfile.key) {
     pathSegments: ["profiles", "openai:manual", "key"],
     agentId: manualProfile.agentId,
     authProfileProvider: "openai",
-    ref: { source: "file", provider: "agent_os_openai", id: "/profiles/openai:manual/key" },
+    ref: { source: "exec", provider: "agent_os_openai", id: "profiles.openai:manual.key" },
   });
+}
+
+if (planTargets.length > 0) {
+  fs.mkdirSync(path.dirname(secretPath), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o600 });
 }
 
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
@@ -462,10 +548,15 @@ const plan = {
   protocolVersion: 1,
   providerUpserts: {
     agent_os_openai: {
-      source: "file",
-      path: secretPath,
-      mode: "json",
-      maxBytes: 4096,
+      source: "exec",
+      command: "/Users/agent/.openclaw/scripts/fa4-openai-secretref-resolver.mjs",
+      timeoutMs: 3000,
+      noOutputTimeoutMs: 3000,
+      maxOutputBytes: 8192,
+      jsonOnly: true,
+      env: {
+        AGENT_OS_OPENAI_CREDENTIAL_SOCKET: "/var/run/agent-os/openai-credential-broker.sock",
+      },
     },
   },
   targets: planTargets,
@@ -476,14 +567,14 @@ console.log(`Prepared config patch and SecretRef plan for manual profile agent: 
 NODE
 
 if plan_has_targets; then
-  echo "ERROR: OpenClaw 2026.6.11 file SecretRef provider is not compatible with this root-run remediation harness under the current gateway identity boundary." >&2
-  echo "Reason: file providers reject group-readable files and require the provider file to be owned by the current resolving UID. Root-owned 0600 can pass root dry-run but is unreadable/rejected for the openclawgw gateway; openclawgw-owned 0600 is gateway-readable but fails root dry-run and is writable by the contained gateway identity." >&2
-  echo "No runtime mutation has started. Select a supported non-file SecretRef custody path before migrating plaintext OpenAI keys." >&2
-  restore_openclaw_home_metadata
-  exit 1
+  echo "Installing fixed exec SecretRef resolver and credential broker binary paths..."
+  install_exec_secretref_runtime
+  chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_USER" "$OPENAI_BROKER_STORE"
+  chmod 0600 "$OPENAI_BROKER_STORE"
+  reload_openai_credential_broker
+else
+  echo "SecretRef migration plan contains no plaintext targets; no credential broker payload will be created."
 fi
-
-echo "SecretRef migration plan contains no plaintext targets; no SecretRef backing file created or modified."
 
 export HOME=/Users/agent
 export OPENCLAW_CONFIG_PATH="$CONFIG"
@@ -504,14 +595,14 @@ assert_openclaw_home_service_readable "config patch apply metadata restore"
 
 echo "Validating SecretRef migration plan..."
 if plan_has_targets; then
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --allow-exec
 else
   echo "No SecretRef migration targets; skipping secrets apply dry-run."
 fi
 
 echo "Applying SecretRef migration plan..."
 if plan_has_targets; then
-  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE"
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --allow-exec
   restore_openclaw_home_metadata
   assert_openclaw_home_service_readable "secrets apply metadata restore"
 else
