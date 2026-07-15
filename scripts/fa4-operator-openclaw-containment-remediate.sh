@@ -31,6 +31,7 @@ PLAN_FILE="$OUT_DIR/openclaw-secretref-plan.json"
 ROLLBACK="$OUT_DIR/rollback.sh"
 LOG="$OUT_DIR/remediation.log"
 BACKUP_MANIFEST="$OUT_DIR/backup-manifest.tsv"
+METADATA_MANIFEST="$OUT_DIR/metadata-manifest.tsv"
 SECRETS_AUDIT_JSON="$OUT_DIR/secrets-audit-post.json"
 SECURITY_AUDIT_JSON="$OUT_DIR/security-audit-post.json"
 SECURITY_AUDIT_DEEP_JSON="$OUT_DIR/security-audit-deep-post.json"
@@ -41,6 +42,7 @@ mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
 exec > >(tee "$LOG") 2>&1
 printf 'source\tbackup\n' > "$BACKUP_MANIFEST"
+printf 'label\tpath\texists\tuid\tuser\tgid\tgroup\tmode\n' > "$METADATA_MANIFEST"
 
 echo "F-A4 OpenClaw containment remediation started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Output: $OUT_DIR"
@@ -68,6 +70,60 @@ backup_file() {
   fi
 }
 
+record_metadata() {
+  local label="$1"
+  local target="$2"
+  if [ -e "$target" ]; then
+    stat -f '%u	%Su	%g	%Sg	%Lp' "$target" \
+      | awk -v label="$label" -v path="$target" -F '\t' '{ printf "%s\t%s\tpresent\t%s\t%s\t%s\t%s\t%04o\n", label, path, $1, $2, $3, $4, $5 }' \
+      >> "$METADATA_MANIFEST"
+  else
+    printf '%s\t%s\tabsent\t\t\t\t\t\n' "$label" "$target" >> "$METADATA_MANIFEST"
+  fi
+}
+
+current_mode() {
+  local target="$1"
+  if [ -e "$target" ]; then
+    stat -f '%Su:%Sg %04Lp' "$target"
+  else
+    printf 'absent'
+  fi
+}
+
+assert_openclaw_home_service_readable() {
+  local stage="$1"
+  local actual
+  actual="$(current_mode "$OPENCLAW_HOME")"
+  if [ "$actual" != "root:openclawgw 0550" ]; then
+    echo "ERROR: $OPENCLAW_HOME mode drift after $stage: $actual; expected root:openclawgw 0550." >&2
+    echo "ROLLBACK AVAILABLE: sudo $ROLLBACK" >&2
+    exit 1
+  fi
+}
+
+restore_openclaw_home_metadata() {
+  chown root:openclawgw "$OPENCLAW_HOME"
+  chmod 0550 "$OPENCLAW_HOME"
+}
+
+record_runtime_metadata() {
+  local stage="$1"
+  echo "Metadata checkpoint: $stage"
+  record_metadata "$stage:openclaw_home" "$OPENCLAW_HOME"
+  record_metadata "$stage:secrets_dir" "$OPENCLAW_HOME/secrets"
+  record_metadata "$stage:openclaw_json" "$CONFIG"
+  record_metadata "$stage:secret_file" "$SECRET_FILE"
+  find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' -type f -print0 2>/dev/null \
+    | while IFS= read -r -d '' db_file; do
+        record_metadata "$stage:auth_sqlite" "$db_file"
+      done
+}
+
+plan_has_targets() {
+  "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"
+}
+
 backup_file "$CONFIG" "openclaw.json.before"
 backup_file "$OPENCLAW_HOME/exec-approvals.json" "exec-approvals.json.before"
 find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' -type f -print0 2>/dev/null \
@@ -76,6 +132,7 @@ find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' 
       backup_file "$db_file" "auth-${safe_name}.before"
     done
 backup_file "$SECRET_FILE" "agent-os-openai.json.before"
+record_runtime_metadata "baseline"
 
 cat > "$ROLLBACK" <<EOF
 #!/usr/bin/env bash
@@ -84,26 +141,74 @@ if [ "\$(id -u)" -ne 0 ]; then
   echo "ERROR: run rollback as root." >&2
   exit 1
 fi
-launchctl bootout "$GATEWAY_LABEL" 2>/dev/null || true
+log() { printf '[%s] %s\n' "\$(date -u +%Y-%m-%dT%H:%M:%SZ)" "\$*"; }
+show_modes() {
+  for p in "$OPENCLAW_HOME" "$OPENCLAW_HOME/secrets" "$CONFIG" "$SECRET_FILE"; do
+    if [ -e "\$p" ]; then
+      stat -f '%N %Su:%Sg %04Lp' "\$p" || true
+    else
+      echo "\$p absent"
+    fi
+  done
+}
+restore_metadata_path() {
+  local path="\$1"
+  local uid="\$2"
+  local gid="\$3"
+  local mode="\$4"
+  [ -e "\$path" ] || return 0
+  chown "\$uid:\$gid" "\$path"
+  chmod "\$mode" "\$path"
+}
+fail() {
+  log "ROLLBACK FAILED: \$*"
+  show_modes
+  launchctl print "$GATEWAY_LABEL" 2>/dev/null | tail -80 || true
+  exit 1
+}
+log "Stopping OpenClaw gateway before restore."
+launchctl bootout "$GATEWAY_LABEL" 2>/dev/null || log "Gateway was not loaded or bootout returned nonzero; continuing restore."
+log "Restoring backed-up files."
 cp -p "$OUT_DIR/openclaw.json.before" "$CONFIG"
 if [ -f "$OUT_DIR/exec-approvals.json.before" ]; then
   cp -p "$OUT_DIR/exec-approvals.json.before" "$OPENCLAW_HOME/exec-approvals.json"
 fi
-awk -F '\t' 'NR > 1 { print }' "$BACKUP_MANIFEST" | while IFS=$'\t' read -r source backup; do
+awk -F '\t' 'NR > 1 { print }' "$BACKUP_MANIFEST" | while IFS=\$'\t' read -r source backup; do
   [ -n "\$source" ] || continue
   [ -n "\$backup" ] || continue
   if [ -f "\$backup" ]; then
+    mkdir -p "\$(dirname "\$source")"
     cp -p "\$backup" "\$source"
   fi
 done
 if ! grep -Fq "$SECRET_FILE" "$BACKUP_MANIFEST"; then
+  log "Removing absent-before SecretRef backing file."
   rm -f "$SECRET_FILE"
 fi
-if [ -f "$GATEWAY_PLIST" ]; then
-  launchctl bootstrap system "$GATEWAY_PLIST" 2>/dev/null || true
+log "Restoring baseline ownership and modes from metadata manifest."
+awk -F '\t' 'NR > 1 && \$1 ~ /^baseline:/ && \$3 == "present" { print \$2 "\t" \$4 "\t" \$6 "\t" \$8 }' "$METADATA_MANIFEST" | while IFS=\$'\t' read -r path uid gid mode; do
+  restore_metadata_path "\$path" "\$uid" "\$gid" "\$mode"
+done
+actual="\$(stat -f '%Su:%Sg %04Lp' "$OPENCLAW_HOME")"
+[ "\$actual" = "root:openclawgw 0550" ] || fail "$OPENCLAW_HOME restored as \$actual, expected root:openclawgw 0550"
+log "Bootstrapping gateway."
+if [ ! -f "$GATEWAY_PLIST" ]; then
+  fail "gateway plist missing: $GATEWAY_PLIST"
 fi
-launchctl kickstart -k "$GATEWAY_LABEL"
-echo "Rollback restored saved config/auth/secret artifacts and kickstarted gateway."
+launchctl bootstrap system "$GATEWAY_PLIST" || fail "launchctl bootstrap failed"
+launchctl kickstart -k "$GATEWAY_LABEL" || fail "launchctl kickstart failed"
+for i in \$(seq 1 20); do
+  if launchctl print "$GATEWAY_LABEL" 2>/dev/null | grep -Eq 'state = running|state = ready'; then
+    if launchctl print "$GATEWAY_LABEL" 2>/dev/null | grep -Eq 'openclawgw'; then
+      if HOME=/Users/agent OPENCLAW_CONFIG_PATH="$CONFIG" OPENCLAW_STATE_DIR="$STATE_DIR" PATH="/Users/agent/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin" "$OPENCLAW_BIN" health >/dev/null 2>&1; then
+        log "ROLLBACK VERIFIED: PASS"
+        exit 0
+      fi
+    fi
+  fi
+  sleep 1
+done
+fail "gateway did not return to healthy openclawgw service state"
 EOF
 chmod 0700 "$ROLLBACK"
 
@@ -335,10 +440,6 @@ if (manualProfile.key) {
   });
 }
 
-if (planTargets.length > 0) {
-  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o440 });
-}
-
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
 agents[gmailIndex].sandbox = {
   ...asObject(agents[gmailIndex].sandbox),
@@ -374,13 +475,15 @@ fs.writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}\n`, { mode: 0o600 }
 console.log(`Prepared config patch and SecretRef plan for manual profile agent: ${manualProfile.agentId}; targets=${planTargets.length}`);
 NODE
 
-if [ -f "$SECRET_FILE" ]; then
-  chown root:openclawgw "$SECRET_FILE"
-  chmod 0440 "$SECRET_FILE"
-  echo "Created SecretRef backing file at $SECRET_FILE with root:openclawgw 0440."
-else
-  echo "SecretRef backing file already represented by existing refs; no new secret file created."
+if plan_has_targets; then
+  echo "ERROR: OpenClaw 2026.6.11 file SecretRef provider is not compatible with this root-run remediation harness under the current gateway identity boundary." >&2
+  echo "Reason: file providers reject group-readable files and require the provider file to be owned by the current resolving UID. Root-owned 0600 can pass root dry-run but is unreadable/rejected for the openclawgw gateway; openclawgw-owned 0600 is gateway-readable but fails root dry-run and is writable by the contained gateway identity." >&2
+  echo "No runtime mutation has started. Select a supported non-file SecretRef custody path before migrating plaintext OpenAI keys." >&2
+  restore_openclaw_home_metadata
+  exit 1
 fi
+
+echo "SecretRef migration plan contains no plaintext targets; no SecretRef backing file created or modified."
 
 export HOME=/Users/agent
 export OPENCLAW_CONFIG_PATH="$CONFIG"
@@ -388,22 +491,29 @@ export OPENCLAW_STATE_DIR="$STATE_DIR"
 export PATH="/Users/agent/.local/bin:/Users/agent/.local/openclaw/tools/node-v22.22.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 echo "Validating config patch..."
+record_runtime_metadata "before_config_dry_run"
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model --dry-run
+assert_openclaw_home_service_readable "config patch dry-run"
 
 echo "Applying config patch..."
 MUTATION_STARTED=1
+record_runtime_metadata "before_config_apply"
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model
+restore_openclaw_home_metadata
+assert_openclaw_home_service_readable "config patch apply metadata restore"
 
 echo "Validating SecretRef migration plan..."
-if "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"; then
+if plan_has_targets; then
   "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run
 else
   echo "No SecretRef migration targets; skipping secrets apply dry-run."
 fi
 
 echo "Applying SecretRef migration plan..."
-if "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"; then
+if plan_has_targets; then
   "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE"
+  restore_openclaw_home_metadata
+  assert_openclaw_home_service_readable "secrets apply metadata restore"
 else
   echo "No SecretRef migration targets; skipping secrets apply."
 fi

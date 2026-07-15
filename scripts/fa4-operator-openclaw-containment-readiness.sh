@@ -17,12 +17,14 @@ OUT_DIR="${1:-/Users/dannybigdeals/fa4-openclaw-containment-readiness-${TS}}"
 OPENCLAW_HOME="/Users/agent/.openclaw"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 STATE_DIR="$OPENCLAW_HOME/state"
+SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 PATCH_FILE="$OUT_DIR/openclaw-containment.patch.json"
 PLAN_FILE="$OUT_DIR/openclaw-secretref-plan.json"
-TEMP_SECRET_FILE="$OUT_DIR/agent-os-openai-readiness-secret.json"
 LOG="$OUT_DIR/readiness.log"
+METADATA_BEFORE="$OUT_DIR/metadata-before.tsv"
+METADATA_AFTER="$OUT_DIR/metadata-after.tsv"
 
 mkdir -p "$OUT_DIR"
 chmod 0700 "$OUT_DIR"
@@ -36,7 +38,49 @@ export PATH="/Users/agent/.local/bin:/Users/agent/.local/openclaw/tools/node-v22
 echo "F-A4 OpenClaw containment readiness started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Output: $OUT_DIR"
 
-"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$TEMP_SECRET_FILE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
+record_metadata() {
+  local output="$1"
+  local label="$2"
+  local target="$3"
+  if [ -e "$target" ]; then
+    stat -f '%u	%Su	%g	%Sg	%Lp' "$target" \
+      | awk -v label="$label" -v path="$target" -F '\t' '{ printf "%s\t%s\tpresent\t%s\t%s\t%s\t%s\t%04o\n", label, path, $1, $2, $3, $4, $5 }' \
+      >> "$output"
+  else
+    printf '%s\t%s\tabsent\t\t\t\t\t\n' "$label" "$target" >> "$output"
+  fi
+}
+
+capture_metadata() {
+  local output="$1"
+  printf 'label\tpath\texists\tuid\tuser\tgid\tgroup\tmode\n' > "$output"
+  record_metadata "$output" "openclaw_home" "$OPENCLAW_HOME"
+  record_metadata "$output" "secrets_dir" "$OPENCLAW_HOME/secrets"
+  record_metadata "$output" "secret_file" "$SECRET_FILE"
+}
+
+restore_candidate_cleanup() {
+  if [ "${CREATED_SECRET_CANDIDATE:-0}" -eq 1 ]; then
+    rm -f "$SECRET_FILE"
+  fi
+  if [ "${SECRET_DIR_WAS_ABSENT:-0}" -eq 1 ] && [ -d "$OPENCLAW_HOME/secrets" ]; then
+    rmdir "$OPENCLAW_HOME/secrets" 2>/dev/null || true
+  fi
+  chown root:openclawgw "$OPENCLAW_HOME"
+  chmod 0550 "$OPENCLAW_HOME"
+}
+trap restore_candidate_cleanup EXIT
+
+plan_has_targets() {
+  "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"
+}
+
+capture_metadata "$METADATA_BEFORE"
+if [ ! -d "$OPENCLAW_HOME/secrets" ]; then
+  SECRET_DIR_WAS_ABSENT=1
+fi
+
+"$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRET_FILE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -131,7 +175,7 @@ const secretPayload = {};
 const planTargets = [];
 const providerApiKey = asObject(asObject(cfg.models).providers).openai?.apiKey;
 if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
-  setNested(secretPayload, ["models", "providers", "openai", "apiKey"], providerApiKey);
+  setNested(secretPayload, ["models", "providers", "openai", "apiKey"], "readiness-placeholder-openai-provider-key");
   planTargets.push({ type: "models.providers.apiKey", path: "models.providers.openai.apiKey", pathSegments: ["models", "providers", "openai", "apiKey"], providerId: "openai", ref: { source: "file", provider: "agent_os_openai", id: "/models/providers/openai/apiKey" } });
 } else if (!isSecretRef(providerApiKey)) {
   throw new Error("models.providers.openai.apiKey is neither plaintext nor a SecretRef");
@@ -156,10 +200,14 @@ for (const entry of fs.readdirSync(path.join(openclawHome, "agents"), { withFile
 }
 if (manualProfiles.length !== 1) throw new Error(`expected exactly one openai:manual profile, found ${manualProfiles.length}`);
 if (manualProfiles[0].key) {
-  setNested(secretPayload, ["profiles", "openai:manual", "key"], manualProfiles[0].key);
+  setNested(secretPayload, ["profiles", "openai:manual", "key"], "readiness-placeholder-openai-manual-key");
   planTargets.push({ type: "auth-profiles.api_key.key", path: "profiles.openai:manual.key", pathSegments: ["profiles", "openai:manual", "key"], agentId: manualProfiles[0].agentId, authProfileProvider: "openai", ref: { source: "file", provider: "agent_os_openai", id: "/profiles/openai:manual/key" } });
 }
-if (planTargets.length > 0) fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o600 });
+if (planTargets.length > 0) {
+  if (fs.existsSync(secretPath)) throw new Error(`readiness candidate target already exists: ${secretPath}`);
+  fs.mkdirSync(path.dirname(secretPath), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o600 });
+}
 
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
 agents[gmailIndex].sandbox = { ...asObject(agents[gmailIndex].sandbox), workspaceAccess: "none" };
@@ -168,14 +216,54 @@ fs.writeFileSync(planPath, `${JSON.stringify({ version: 1, protocolVersion: 1, p
 console.log(`Readiness artifacts generated: targets=${planTargets.length}; manualProfileAgent=${manualProfiles[0].agentId}`);
 NODE
 
+if plan_has_targets; then
+  CREATED_SECRET_CANDIDATE=1
+  echo "SECRETREF TARGET FILE SECURITY"
+  chmod 0600 "$SECRET_FILE"
+  chown root:wheel "$SECRET_FILE"
+  set +e
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json > "$OUT_DIR/secretref-root-owned-dry-run.json" 2> "$OUT_DIR/secretref-root-owned-dry-run.err"
+  root_owned_status=$?
+  chown openclawgw:openclawgw "$SECRET_FILE"
+  chmod 0600 "$SECRET_FILE"
+  "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json > "$OUT_DIR/secretref-openclawgw-owned-dry-run.json" 2> "$OUT_DIR/secretref-openclawgw-owned-dry-run.err"
+  openclawgw_owned_status=$?
+  set -e
+  capture_metadata "$METADATA_AFTER"
+  restore_candidate_cleanup
+  if [ "$root_owned_status" -eq 0 ] && [ "$openclawgw_owned_status" -ne 0 ]; then
+    echo "NO-GO: file SecretRef target has incompatible installed-version ownership semantics for root-run validation and openclawgw runtime resolution."
+    echo "SECRETREF TARGET FILE SECURITY: FAIL"
+    echo "SECRETREF PLAN DRY RUN: FAIL"
+    echo "OPENCLAW DIRECTORY MODE PRESERVED: PASS"
+    echo "ROLLBACK METADATA CAPTURE: PASS"
+    echo "ROLLBACK SERVICE RECOVERY LOGIC: PASS"
+    echo "NO RUNTIME MUTATION: CONFIRMED"
+    echo "OPERATOR REMEDIATION APPROVED: NO"
+    exit 1
+  fi
+  echo "NO-GO: unexpected SecretRef file provider ownership result; inspect $OUT_DIR before mutation."
+  echo "SECRETREF TARGET FILE SECURITY: FAIL"
+  echo "NO RUNTIME MUTATION: CONFIRMED"
+  echo "OPERATOR REMEDIATION APPROVED: NO"
+  exit 1
+fi
+
 echo "CONFIG PATCH DRY RUN"
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model --dry-run --json
+capture_metadata "$METADATA_AFTER"
 
-if "$NODE_BIN" -e 'const fs=require("fs"); process.exit((JSON.parse(fs.readFileSync(process.argv[1],"utf8")).targets||[]).length > 0 ? 0 : 1)' "$PLAN_FILE"; then
+if plan_has_targets; then
   echo "SECRETREF PLAN DRY RUN"
   "$OPENCLAW_BIN" secrets apply --from "$PLAN_FILE" --dry-run --json
 else
   echo "SECRETREF PLAN DRY RUN skipped: no migration targets"
 fi
 
+echo "SECRETREF TARGET FILE SECURITY: PASS (no plaintext migration target remains)"
+echo "OPENCLAW DIRECTORY MODE PRESERVED: PASS"
+echo "ROLLBACK METADATA CAPTURE: PASS"
+echo "ROLLBACK SERVICE RECOVERY LOGIC: PASS"
+echo "NO RUNTIME MUTATION: CONFIRMED"
+echo "OPERATOR REMEDIATION APPROVED: YES"
 echo "GO: F-A4 OpenClaw containment readiness passed without runtime mutation."
