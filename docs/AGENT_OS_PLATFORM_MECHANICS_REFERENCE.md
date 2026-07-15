@@ -1,8 +1,8 @@
 # OpenClaw Platform Mechanics Reference
 
-**Purpose:** the platform-specific behavior of OpenClaw 2026.6.5 — runtime, exec, sandbox, egress, auth, observability, cron — mapped from the docs and issue tracker AHEAD of building, so build drops start from a *verified config recipe* instead of discovering incompatibilities mid-run. This is the artifact that closes the "we keep finding platform answers reactively" gap.
+**Purpose:** the platform-specific behavior of the current OpenClaw baseline, reconciled to OpenClaw 2026.6.11 — runtime, exec, sandbox, egress, auth, observability, cron — mapped from the docs and issue tracker AHEAD of building, so build drops start from a *verified config recipe* instead of discovering incompatibilities mid-run. This is the artifact that closes the "we keep finding platform answers reactively" gap.
 
-**Status:** v1, 2026-06-14. Companion to the End-State Architecture (the platform-mechanics gate references this file). Living document — deepen each section before its phase; update when OpenClaw version changes (mechanics are version-specific — this is 2026.6.5).
+**Status:** v1, 2026-06-14; reconciled 2026-07-14 to OpenClaw 2026.6.11 (e085fa1). Companion to the End-State Architecture (the platform-mechanics gate references this file). Living document — deepen each section before its phase; update when OpenClaw version changes. Historical 2026.6.5 findings remain labeled as historical evidence.
 
 **The rule it enforces:** No build drop for a phase is written until that phase's section here is filled and marked VERIFIED. Principles research ≠ platform research. The landmines below were all discoverable in docs; finding them via failed runs is the failure mode this prevents.
 
@@ -217,7 +217,7 @@ Historical field baseline, retained for comparison rather than as current Gmail 
 | Phase | Section | Status |
 |---|---|---|
 | Email loop runtime/exec | §1, §2 | VERIFIED AGAIN 2026-07-14 — local confined reader, one broker-client allowlist, `ask:off`; June 14 Codex `auto` result is historical |
-| Foundation 2 — egress/sandbox | §3, §4 | IN BUILD — operator-owned managed proxy + pf backstop built/proven; not integrated. Direct Codex Apps Gmail bypass removal precedes final proxy/pf acceptance. |
+| Foundation 2 — egress/sandbox | §3, §4 | Deferred capability. Required F-A4 dependency. Operator-owned managed proxy + pf backstop were built/proven but are not integrated. Direct Codex Apps Gmail bypass removal precedes final proxy/pf acceptance. |
 | Foundation 3 — observability | §5 | RESEARCHED — design direction set; confirm OTel plugin choice before build |
 | Foundation 4 — action-policy/exec | §2, §6 | RESEARCHED — standing orders + exec model mapped |
 | Secrets/credential proxy | §7 | IMPLEMENTED FOR GMAIL — dedicated `gmailbroker` capability broker; direct connector complete-mediation gap remains open |

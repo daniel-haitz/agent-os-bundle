@@ -37,6 +37,7 @@ This document supersedes research notes and discussion artifacts for approved ar
 | Plugin, MCP, and connector governance is required | ADOPT |
 | Current Gmail reader/researcher model assignments documented | ADOPT |
 | Change-control standard establishes mandatory reconciliation between runtime state, operational state, evidence, and canonical documentation. | ADOPT |
+| Change-control standard is adopted as an enforced operating model. | ADOPT |
 | Cedar becomes the initial policy engine | DEFER |
 | OPA becomes the initial policy engine | REJECT |
 
@@ -452,6 +453,22 @@ The email researcher handles external research after the F-A3 schema gate and do
 - Model assignment does not prove complete mediation; the direct Gmail connector bypass remains an F-A4 blocker until removed and negative-tested.
 - Changes to either model assignment require read-only runtime evidence, regression of F-A1/F-A3-relevant gates, and documentation reconciliation.
 - The local reader model reduces dependency on external model transport for broker-mediated Gmail reading, but F-A4 egress containment remains required before sensitive-data holds can lift.
+
+## ADR-014 — OpenClaw 2026.6.11 baseline
+
+See `docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md`.
+
+## ADR-015 — Change Control Standard adoption
+
+### Decision
+
+`docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md` is adopted as mandatory operating control, not advisory documentation.
+
+### Consequences
+
+- Runtime, security, architecture, documentation, and capability changes must follow the required lifecycle.
+- Wrap-up and publication tooling must check baseline drift, evidence linkage, open gates, publication manifest coverage, and obligation preservation.
+- Documentation changes cannot remove obligations, evidence, blockers, or phase gates without classification.
 
 ## Resulting roadmap
 

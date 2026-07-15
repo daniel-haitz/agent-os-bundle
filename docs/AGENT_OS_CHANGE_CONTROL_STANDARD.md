@@ -1,6 +1,6 @@
 # Agent OS Change Control Standard
 
-**Status:** Proposed governance standard. Effective only after approval and commit to the canonical repository.
+**Status:** Approved governance standard. Effective upon approval and commit to the canonical repository.
 
 ## Purpose
 
@@ -79,6 +79,8 @@ Every removed item must be classified as one of:
 - **Superseded** — with ADR reference.
 
 No silent deletion is allowed.
+
+Security-critical obligations are tracked in `docs/AGENT_OS_OBLIGATION_REGISTER.md`. Refactors must preserve, close, move, retire, or supersede every listed obligation.
 
 If a document is compressed, split, renamed, or converted into an index, every active obligation, open blocker, phase gate, credential boundary, connector risk, approval rule, and runtime baseline must remain discoverable from canonical documents.
 
