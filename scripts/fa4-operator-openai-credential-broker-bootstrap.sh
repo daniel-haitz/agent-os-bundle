@@ -83,7 +83,14 @@ ensure_output_dir() {
 }
 
 ds_read() {
-  "$DSCL" . -read "$1" "$2" 2>/dev/null | awk '{$1=""; sub(/^ /,""); print}'
+  local record="$1"
+  local attribute="$2"
+  "$DSCL" . -read "$record" "$attribute" 2>/dev/null | awk -v attr="$attribute" '
+    $0 == attr ":" { capture=1; next }
+    index($0, attr ": ") == 1 { print substr($0, length(attr) + 3); next }
+    capture && /^ / { sub(/^ /, ""); print; next }
+    capture { exit }
+  '
 }
 
 ds_record_exists() {
@@ -126,12 +133,20 @@ user_hidden() {
   ds_read "/Users/$USER_NAME" IsHidden | awk '{print $1}'
 }
 
+user_generated_uid() {
+  ds_read "/Users/$USER_NAME" GeneratedUID 2>/dev/null || true
+}
+
 user_password() {
   ds_read "/Users/$USER_NAME" Password | awk '{print $1}'
 }
 
 group_real_name() {
   ds_read "/Groups/$GROUP_NAME" RealName
+}
+
+group_generated_uid() {
+  ds_read "/Groups/$GROUP_NAME" GeneratedUID 2>/dev/null || true
 }
 
 all_user_ids() {
@@ -231,9 +246,22 @@ print_baseline_stdout() {
 }
 
 fail_nogo() {
-  echo "IDENTITY BOOTSTRAP DRY RUN: NO-GO"
-  echo "NO-GO: $*" >&2
+  if [ "$MODE" = "dry-run" ]; then
+    echo "IDENTITY BOOTSTRAP DRY RUN: NO-GO"
+    echo "NO-GO: $*" >&2
+  else
+    echo "IDENTITY BOOTSTRAP VALIDATION: FAIL"
+    echo "VALIDATION FAILURE: $*" >&2
+  fi
   exit 1
+}
+
+validate_uuid_if_present() {
+  local value="$1"
+  local label="$2"
+  [ -z "$value" ] && return 0
+  printf '%s\n' "$value" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$' \
+    || fail_nogo "$label is present but not a valid UUID"
 }
 
 validate_range() {
@@ -262,6 +290,7 @@ assert_path_absent_or_canonical() {
 validate_existing_group() {
   [ "$(group_gid)" -ge "$GID_MIN" ] && [ "$(group_gid)" -le "$GID_MAX" ] || fail_nogo "pre-existing group gid is outside canonical range"
   [ "$(group_real_name)" = "$REAL_NAME" ] || fail_nogo "pre-existing group RealName mismatch"
+  validate_uuid_if_present "$(group_generated_uid)" "pre-existing group GeneratedUID"
 }
 
 validate_existing_user() {
@@ -271,6 +300,7 @@ validate_existing_user() {
   [ "$(user_shell)" = "$SHELL_PATH" ] || fail_nogo "pre-existing user shell mismatch"
   [ "$(user_real_name)" = "$REAL_NAME" ] || fail_nogo "pre-existing user RealName mismatch"
   [ "$(user_hidden)" = "1" ] || fail_nogo "pre-existing user is not hidden"
+  validate_uuid_if_present "$(user_generated_uid)" "pre-existing user GeneratedUID"
   [ "$(user_password)" = "*" ] || fail_nogo "pre-existing user password marker mismatch"
   if "$ID" -Gn "$USER_NAME" | tr ' ' '\n' | grep -Eq '^(admin|wheel|staff)$'; then
     fail_nogo "pre-existing user has a broad supplementary group"
@@ -404,19 +434,19 @@ EOF
 }
 
 verify_canonical_final_state() {
-  group_exists || { echo "BROKER GROUP CREATED OR VALIDATED: FAIL"; exit 1; }
-  user_exists || { echo "BROKER USER CREATED OR VALIDATED: FAIL"; exit 1; }
+  group_exists || fail_nogo "broker group is absent"
+  user_exists || fail_nogo "broker user is absent"
   validate_existing_group
   validate_existing_user
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$HOME_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || { echo "CUSTODY ROOT OWNER/MODE: FAIL"; exit 1; }
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$ROOT_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || { echo "CUSTODY ROOT OWNER/MODE: FAIL"; exit 1; }
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$BIN_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || { echo "CUSTODY ROOT OWNER/MODE: FAIL"; exit 1; }
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$SECRETS_DIR")" = "$USER_NAME:$GROUP_NAME 0700" ] || { echo "CUSTODY ROOT OWNER/MODE: FAIL"; exit 1; }
-  [ ! -e "$SECRETS_DIR/openai-static-credentials.json" ] || { echo "NO CREDENTIAL CREATED: FAIL"; exit 1; }
-  [ ! -e "$BROKER_PLIST" ] || { echo "NO BROKER SERVICE INSTALLED: FAIL"; exit 1; }
-  [ ! -e "$BROKER_RUNDIR_PLIST" ] || { echo "NO BROKER SERVICE INSTALLED: FAIL"; exit 1; }
-  [ ! -e "$RUNTIME_SOCKET" ] || { echo "NO BROKER SERVICE INSTALLED: FAIL"; exit 1; }
-  HOME=/Users/agent OPENCLAW_CONFIG_PATH="$CONFIG" OPENCLAW_STATE_DIR="$STATE_DIR" "$OPENCLAW_BIN" health >/dev/null 2>&1 || { echo "GATEWAY HEALTH UNCHANGED: FAIL"; exit 1; }
+  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$HOME_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "home directory ownership/mode mismatch"
+  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$ROOT_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "custody root ownership/mode mismatch"
+  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$BIN_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "broker bin directory ownership/mode mismatch"
+  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$SECRETS_DIR")" = "$USER_NAME:$GROUP_NAME 0700" ] || fail_nogo "broker secrets directory ownership/mode mismatch"
+  [ ! -e "$SECRETS_DIR/openai-static-credentials.json" ] || fail_nogo "credential store already exists"
+  [ ! -e "$BROKER_PLIST" ] || fail_nogo "broker launchd plist already exists"
+  [ ! -e "$BROKER_RUNDIR_PLIST" ] || fail_nogo "broker rundir launchd plist already exists"
+  [ ! -e "$RUNTIME_SOCKET" ] || fail_nogo "broker runtime socket already exists"
+  HOME=/Users/agent OPENCLAW_CONFIG_PATH="$CONFIG" OPENCLAW_STATE_DIR="$STATE_DIR" "$OPENCLAW_BIN" health >/dev/null 2>&1 || fail_nogo "gateway health check failed"
   echo "BROKER USER CREATED OR VALIDATED: PASS"
   echo "BROKER GROUP CREATED OR VALIDATED: PASS"
   echo "ACCOUNT ATTRIBUTES CANONICAL: PASS"
@@ -452,6 +482,11 @@ rollback_on_error() {
 run_dry_run() {
   validate_preexisting_state
   print_baseline_stdout
+  if user_exists && group_exists; then
+    verify_canonical_final_state
+    echo "IDENTITY BOOTSTRAP DRY RUN: GO"
+    return 0
+  fi
   local proposed_gid proposed_uid
   if group_exists; then
     proposed_gid="$(group_gid)"
@@ -569,6 +604,7 @@ run_apply() {
   install_dir_track "$BIN_DIR" 0750
   install_dir_track "$SECRETS_DIR" 0700
   generate_rollback
+  trap - ERR
   verify_canonical_final_state
 }
 
@@ -603,7 +639,11 @@ case "$op" in
     [ -d "$dir" ] || exit 1
     if [ -n "$attr" ]; then
       [ -f "$dir/$attr" ] || exit 1
-      printf '%s: %s\n' "$attr" "$(cat "$dir/$attr")"
+      if [ "${AGENT_OS_FIXTURE_MULTILINE_REALNAME:-0}" = "1" ] && [ "$attr" = "RealName" ]; then
+        printf '%s:\n %s\n' "$attr" "$(cat "$dir/$attr")"
+      else
+        printf '%s: %s\n' "$attr" "$(cat "$dir/$attr")"
+      fi
     else
       [ -d "$dir" ] && exit 0
       for f in "$dir"/*; do [ -f "$f" ] && printf '%s: %s\n' "$(basename "$f")" "$(cat "$f")"; done
@@ -639,7 +679,11 @@ FAKE
   cat > "$fakebin/id" <<'FAKE'
 #!/usr/bin/env bash
 if [ "$1" = "-Gn" ]; then
-  if [ "${AGENT_OS_FIXTURE_BROAD_GROUP:-0}" = "1" ]; then echo "openai-credential-broker staff"; else echo "openai-credential-broker"; fi
+  if [ "${AGENT_OS_FIXTURE_BROAD_GROUP:-0}" = "1" ]; then
+    echo "openai-credential-broker everyone localaccounts _lpoperator com.apple.sharepoint.group.1 staff"
+  else
+    echo "openai-credential-broker everyone localaccounts _lpoperator com.apple.sharepoint.group.1"
+  fi
 elif [ "$1" = "-u" ]; then
   echo 540
 elif [ "$1" = "-g" ]; then
@@ -689,6 +733,7 @@ esac
 FAKE
   cat > "$fakebin/openclaw" <<'FAKE'
 #!/usr/bin/env bash
+[ "${AGENT_OS_FIXTURE_OPENCLAW_FAIL:-0}" = "1" ] && exit 55
 exit 0
 FAKE
   cat > "$fakebin/rmdir" <<'FAKE'
@@ -738,6 +783,24 @@ FAKE
   assert_file_absent() { [ ! -e "$1" ] || { echo "SELF TEST assertion failed: expected absent $1" >&2; cat "$test_root/output" >&2 || true; exit 1; }; }
   assert_file_present() { [ -e "$1" ] || { echo "SELF TEST assertion failed: expected present $1" >&2; cat "$test_root/output" >&2 || true; exit 1; }; }
   assert_grep() { grep -q "$1" "$2" || { echo "SELF TEST assertion failed: missing $1" >&2; cat "$2" >&2; exit 1; }; }
+  assert_not_grep() { ! grep -q "$1" "$2" || { echo "SELF TEST assertion failed: unexpected $1" >&2; cat "$2" >&2; exit 1; }; }
+  parse_literal_attr() {
+    local attr="$1"
+    awk -v attr="$attr" '
+      $0 == attr ":" { capture=1; next }
+      index($0, attr ": ") == 1 { print substr($0, length(attr) + 3); next }
+      capture && /^ / { sub(/^ /, ""); print; next }
+      capture { exit }
+    '
+  }
+
+  printf 'RealName:\n Agent OS OpenAI credential broker\n' | parse_literal_attr RealName > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: multiline parser literal" >&2; exit 1; }
+  printf 'RealName: Agent OS OpenAI credential broker\n' | parse_literal_attr RealName > "$test_root/parser.out"
+  [ "$(cat "$test_root/parser.out")" = "$REAL_NAME" ] || { echo "SELF TEST assertion failed: single-line parser literal" >&2; exit 1; }
+  printf 'GroupMembership:\n everyone\n localaccounts\n _lpoperator\n' | parse_literal_attr GroupMembership > "$test_root/parser.out"
+  [ "$(wc -l < "$test_root/parser.out" | tr -d ' ')" = "3" ] || { echo "SELF TEST assertion failed: multivalue parser literal" >&2; exit 1; }
+  echo "SELF TEST dscl-attribute-parser-literals: PASS"
 
   reset_fixture
   output="$(run_fixture --dry-run)"
@@ -756,11 +819,22 @@ FAKE
   assert_grep "IDENTITY BOOTSTRAP VERIFIED: PASS" "$test_root/output"
   echo "SELF TEST successful-rerun-idempotent: PASS"
 
+  set +e; run_fixture --dry-run; status=$?; set -e
+  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: canonical existing dry-run failed" >&2; cat "$test_root/output" >&2; exit 1; }
+  assert_grep "BROKER USER CREATED OR VALIDATED: PASS" "$test_root/output"
+  assert_grep "IDENTITY BOOTSTRAP DRY RUN: GO" "$test_root/output"
+  echo "SELF TEST canonical-existing-dry-run-validation: PASS"
+
+  set +e; AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
+  [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: multiline RealName rejected" >&2; cat "$test_root/output" >&2; exit 1; }
+  echo "SELF TEST multiline-realname-parser: PASS"
+
   reset_fixture
   mkdir -p "$test_root/users/openai-credential-broker"
   echo 999 > "$test_root/users/openai-credential-broker/UniqueID"
   set +e; run_fixture --dry-run; status=$?; set -e
   [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: conflicting user accepted" >&2; exit 1; }
+  assert_grep "IDENTITY BOOTSTRAP DRY RUN: NO-GO" "$test_root/output"
   echo "SELF TEST conflicting-user-record: PASS"
 
   reset_fixture
@@ -821,6 +895,15 @@ FAKE
   set +e; bash "$test_root/out/rollback.sh" > "$test_root/rollback-output" 2>&1; status=$?; set -e
   [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: rollback accepted changed UID" >&2; exit 1; }
   echo "SELF TEST rollback-refuses-changed-uid: PASS"
+
+  reset_fixture
+  set +e; AGENT_OS_FIXTURE_OPENCLAW_FAIL=1 run_fixture apply; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: apply validation failure succeeded" >&2; exit 1; }
+  assert_grep "IDENTITY BOOTSTRAP VALIDATION: FAIL" "$test_root/output"
+  assert_not_grep "IDENTITY BOOTSTRAP DRY RUN: NO-GO" "$test_root/output"
+  assert_file_present "$test_root/users/openai-credential-broker/UniqueID"
+  assert_file_present "$test_root/groups/openai-credential-broker/PrimaryGroupID"
+  echo "SELF TEST apply-validation-failure-label-preserves-state: PASS"
 
   reset_fixture
   mkdir -p "$test_root/groups/openai-credential-broker"
