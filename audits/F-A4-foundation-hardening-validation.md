@@ -508,7 +508,7 @@ Canonical account model:
 - User: `openai-credential-broker`.
 - Primary group: `openai-credential-broker`.
 - UID allocation range: `540-599`, matching the local Agent OS convention where `openclawgw` and `egressproxy` use service UIDs in the mid-500 range.
-- GID allocation range: `740-799`, above the existing Gmail broker groups (`gmailbroker`/`gmailbroker-clients`) and reserved for Agent OS service-specific broker groups.
+- GID allocation range: `740-799`, above the existing Gmail broker groups (`gmailbroker`/`gmailbroker-clients`) and used as an Agent OS allocation range for service-specific broker groups. This is not claimed as a macOS-reserved range.
 - Home: `/Users/openai-credential-broker`, because this broker owns a persistent non-login custody root analogous to the existing `gmailbroker` custody pattern.
 - Shell: `/usr/bin/false`.
 - Login-disabled markers: `Password: *`, `AuthenticationAuthority: ;DisabledUser;`, `IsHidden: 1`, and a generated `GeneratedUID`.

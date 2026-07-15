@@ -5,7 +5,7 @@
 # does not install credentials, change OpenClaw config/auth state, start broker
 # services, alter pf, or modify proxy policy.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 MODE="apply"
 OUT_DIR=""
@@ -21,10 +21,10 @@ for arg in "$@"; do
   esac
 done
 
-USER_NAME="openai-credential-broker"
-GROUP_NAME="openai-credential-broker"
+USER_NAME="${AGENT_OS_BOOTSTRAP_USER_NAME:-openai-credential-broker}"
+GROUP_NAME="${AGENT_OS_BOOTSTRAP_GROUP_NAME:-openai-credential-broker}"
 REAL_NAME="Agent OS OpenAI credential broker"
-HOME_DIR="/Users/openai-credential-broker"
+HOME_DIR="${AGENT_OS_BOOTSTRAP_HOME_DIR:-/Users/openai-credential-broker}"
 ROOT_DIR="$HOME_DIR/agent-os-openai-credential-broker"
 BIN_DIR="$ROOT_DIR/bin"
 SECRETS_DIR="$ROOT_DIR/secrets"
@@ -33,9 +33,9 @@ UID_MIN=540
 UID_MAX=599
 GID_MIN=740
 GID_MAX=799
-OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
-CONFIG="/Users/agent/.openclaw/openclaw.json"
-STATE_DIR="/Users/agent/.openclaw/state"
+OPENCLAW_BIN="${OPENCLAW_BIN:-/Users/agent/.local/bin/openclaw}"
+CONFIG="${CONFIG:-/Users/agent/.openclaw/openclaw.json}"
+STATE_DIR="${STATE_DIR:-/Users/agent/.openclaw/state}"
 BROKER_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker.plist"
 BROKER_RUNDIR_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker-rundir.plist"
 RUNTIME_SOCKET="/var/run/agent-os/openai-credential-broker/openai-credential-broker.sock"
@@ -53,7 +53,7 @@ RMDIR="${AGENT_OS_TEST_RMDIR:-rmdir}"
 UUIDGEN="${AGENT_OS_TEST_UUIDGEN:-uuidgen}"
 LAUNCHCTL="${AGENT_OS_TEST_LAUNCHCTL:-launchctl}"
 
-if [ "$MODE" != "dry-run" ] && [ "$MODE" != "self-test" ] && [ "$(id -u)" -ne 0 ]; then
+if [ "$MODE" != "dry-run" ] && [ "$MODE" != "self-test" ] && [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" != "1" ] && [ "$(id -u)" -ne 0 ]; then
   echo "ERROR: run as root via sudo from the operator account." >&2
   exit 1
 fi
@@ -63,11 +63,11 @@ if [ -z "$OUT_DIR" ]; then
   OUT_DIR="/Users/dannybigdeals/fa4-openai-credential-broker-bootstrap-${TS}"
 fi
 MANIFEST="$OUT_DIR/bootstrap-manifest.tsv"
+TXN_MANIFEST="$OUT_DIR/bootstrap-transaction.tsv"
 ROLLBACK="$OUT_DIR/rollback.sh"
 LOG="$OUT_DIR/bootstrap.log"
-CREATED_GROUP=0
-CREATED_USER=0
-CREATED_PATHS=()
+created_uid=""
+created_gid=""
 
 log() {
   printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"
@@ -77,7 +77,7 @@ ensure_output_dir() {
   if [ "$MODE" = "dry-run" ] || [ "$MODE" = "apply" ]; then
     mkdir -p "$OUT_DIR"
     chmod 0700 "$OUT_DIR"
-    if [ "$MODE" = "apply" ]; then
+    if [ "$MODE" = "apply" ] && [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" != "1" ]; then
       exec > >(tee "$LOG") 2>&1
     fi
   fi
@@ -199,6 +199,27 @@ record_baseline() {
   done
 }
 
+init_transaction_manifest() {
+  printf 'kind\tname\tattribute\tvalue\n' > "$TXN_MANIFEST"
+}
+
+txn_append() {
+  local tmp="$TXN_MANIFEST.tmp.$$"
+  cat "$TXN_MANIFEST" > "$tmp"
+  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$tmp"
+  mv "$tmp" "$TXN_MANIFEST"
+}
+
+txn_has() {
+  local kind="$1"
+  local name="$2"
+  local attribute="${3:-}"
+  awk -F '\t' -v kind="$kind" -v name="$name" -v attribute="$attribute" '
+    NR > 1 && $1 == kind && $2 == name && (attribute == "" || $3 == attribute) { found=1 }
+    END { exit found ? 0 : 1 }
+  ' "$TXN_MANIFEST"
+}
+
 print_baseline_stdout() {
   echo "Proposed baseline manifest:"
   printf 'kind\tname\texists\tattributes\n'
@@ -297,54 +318,96 @@ HOME_DIR="$HOME_DIR"
 ROOT_DIR="$ROOT_DIR"
 BIN_DIR="$BIN_DIR"
 SECRETS_DIR="$SECRETS_DIR"
-CREATED_USER="$CREATED_USER"
-CREATED_GROUP="$CREATED_GROUP"
-CREATED_UID="${created_uid:-}"
-CREATED_GID="${created_gid:-}"
-CREATED_PATHS="${CREATED_PATHS[*]:-}"
+TXN_MANIFEST="$TXN_MANIFEST"
+APPROVED_PATHS="$SECRETS_DIR
+$BIN_DIR
+$ROOT_DIR
+$HOME_DIR"
+DSCL="$DSCL"
+RMDIR="$RMDIR"
 log() { printf '[%s] %s\n' "\$(date -u +%Y-%m-%dT%H:%M:%SZ)" "\$*"; }
-ds_value() { dscl . -read "\$1" "\$2" 2>/dev/null | awk '{\$1=""; sub(/^ /,""); print}'; }
+ds_value() { "\$DSCL" . -read "\$1" "\$2" 2>/dev/null | awk '{\$1=""; sub(/^ /,""); print}'; }
+txn_has() {
+  local kind="\$1"
+  local name="\$2"
+  local attribute="\${3:-}"
+  awk -F '\t' -v kind="\$kind" -v name="\$name" -v attribute="\$attribute" '
+    NR > 1 && \$1 == kind && \$2 == name && (attribute == "" || \$3 == attribute) { found=1 }
+    END { exit found ? 0 : 1 }
+  ' "\$TXN_MANIFEST"
+}
+txn_value() {
+  local kind="\$1"
+  local name="\$2"
+  local attribute="\$3"
+  awk -F '\t' -v kind="\$kind" -v name="\$name" -v attribute="\$attribute" '
+    NR > 1 && \$1 == kind && \$2 == name && \$3 == attribute { value=\$4 }
+    END { print value }
+  ' "\$TXN_MANIFEST"
+}
+is_approved_path() {
+  local path="\$1"
+  [ -n "\$path" ] || return 1
+  case "\$path" in *..*|*'//'*) return 1 ;; esac
+  printf '%s\n' "\$APPROVED_PATHS" | grep -Fxq "\$path"
+}
 verify_user_match() {
-  [ "\$CREATED_USER" = "1" ] || return 0
-  dscl . -read "/Users/\$USER_NAME" >/dev/null 2>&1 || return 0
-  uid="\$(ds_value "/Users/\$USER_NAME" UniqueID | awk '{print \$1}')"
-  home="\$(ds_value "/Users/\$USER_NAME" NFSHomeDirectory)"
-  shell="\$(ds_value "/Users/\$USER_NAME" UserShell | awk '{print \$1}')"
-  [ "\$uid" = "\$CREATED_UID" ] || { echo "ERROR: refusing to delete user with mismatched uid: \$uid" >&2; exit 1; }
-  [ "\$home" = "\$HOME_DIR" ] || { echo "ERROR: refusing to delete user with mismatched home: \$home" >&2; exit 1; }
-  [ "\$shell" = "$SHELL_PATH" ] || { echo "ERROR: refusing to delete user with mismatched shell: \$shell" >&2; exit 1; }
+  txn_has user "\$USER_NAME" created_intent || txn_has user "\$USER_NAME" created || return 0
+  "\$DSCL" . -read "/Users/\$USER_NAME" >/dev/null 2>&1 || return 0
+  uid_raw="\$(ds_value "/Users/\$USER_NAME" UniqueID 2>/dev/null || true)"
+  uid="\$(printf '%s\n' "\$uid_raw" | awk '{print \$1}')"
+  created_uid="\$(txn_value user "\$USER_NAME" uid)"
+  home="\$(ds_value "/Users/\$USER_NAME" NFSHomeDirectory 2>/dev/null || true)"
+  shell_raw="\$(ds_value "/Users/\$USER_NAME" UserShell 2>/dev/null || true)"
+  shell="\$(printf '%s\n' "\$shell_raw" | awk '{print \$1}')"
+  [ -z "\$created_uid" ] || [ "\$uid" = "\$created_uid" ] || { echo "ERROR: refusing to delete user with mismatched uid: \$uid" >&2; exit 1; }
+  [ -z "\$home" ] || [ "\$home" = "\$HOME_DIR" ] || { echo "ERROR: refusing to delete user with mismatched home: \$home" >&2; exit 1; }
+  [ -z "\$shell" ] || [ "\$shell" = "$SHELL_PATH" ] || { echo "ERROR: refusing to delete user with mismatched shell: \$shell" >&2; exit 1; }
 }
 verify_group_match() {
-  [ "\$CREATED_GROUP" = "1" ] || return 0
-  dscl . -read "/Groups/\$GROUP_NAME" >/dev/null 2>&1 || return 0
-  gid="\$(ds_value "/Groups/\$GROUP_NAME" PrimaryGroupID | awk '{print \$1}')"
-  [ "\$gid" = "\$CREATED_GID" ] || { echo "ERROR: refusing to delete group with mismatched gid: \$gid" >&2; exit 1; }
+  txn_has group "\$GROUP_NAME" created_intent || txn_has group "\$GROUP_NAME" created || return 0
+  "\$DSCL" . -read "/Groups/\$GROUP_NAME" >/dev/null 2>&1 || return 0
+  gid_raw="\$(ds_value "/Groups/\$GROUP_NAME" PrimaryGroupID 2>/dev/null || true)"
+  gid="\$(printf '%s\n' "\$gid_raw" | awk '{print \$1}')"
+  created_gid="\$(txn_value group "\$GROUP_NAME" gid)"
+  [ -z "\$created_gid" ] || [ "\$gid" = "\$created_gid" ] || { echo "ERROR: refusing to delete group with mismatched gid: \$gid" >&2; exit 1; }
 }
 log "Starting OpenAI credential broker identity rollback."
+[ -f "\$TXN_MANIFEST" ] || { echo "BOOTSTRAP ROLLBACK FAILED" >&2; echo "missing transaction manifest: \$TXN_MANIFEST" >&2; exit 91; }
 verify_user_match
 verify_group_match
-for path in \$CREATED_PATHS; do
+awk -F '\t' 'NR > 1 && \$1 == "path" && \$3 == "created" { print \$2 }' "\$TXN_MANIFEST" | awk 'NF' | sort -r | while IFS= read -r path; do
+  if ! is_approved_path "\$path"; then
+    echo "BOOTSTRAP ROLLBACK FAILED" >&2
+    echo "refusing unapproved path: \$path" >&2
+    exit 92
+  fi
+  if [ -L "\$path" ]; then
+    echo "BOOTSTRAP ROLLBACK FAILED" >&2
+    echo "refusing symlink path: \$path" >&2
+    exit 93
+  fi
   if [ -e "\$path" ]; then
     log "Removing current-run path: \$path"
-    rm -rf "\$path"
+    "\$RMDIR" "\$path"
   fi
 done
-if [ "\$CREATED_USER" = "1" ] && dscl . -read "/Users/\$USER_NAME" >/dev/null 2>&1; then
+if { txn_has user "\$USER_NAME" created_intent || txn_has user "\$USER_NAME" created; } && "\$DSCL" . -read "/Users/\$USER_NAME" >/dev/null 2>&1; then
   log "Deleting current-run user record: \$USER_NAME"
-  dscl . -delete "/Users/\$USER_NAME"
+  "\$DSCL" . -delete "/Users/\$USER_NAME"
 fi
-if [ "\$CREATED_GROUP" = "1" ] && dscl . -read "/Groups/\$GROUP_NAME" >/dev/null 2>&1; then
+if { txn_has group "\$GROUP_NAME" created_intent || txn_has group "\$GROUP_NAME" created; } && "\$DSCL" . -read "/Groups/\$GROUP_NAME" >/dev/null 2>&1; then
   log "Deleting current-run group record: \$GROUP_NAME"
-  dscl . -delete "/Groups/\$GROUP_NAME"
+  "\$DSCL" . -delete "/Groups/\$GROUP_NAME"
 fi
-for path in \$CREATED_PATHS; do
+awk -F '\t' 'NR > 1 && \$1 == "path" && \$3 == "created" { print \$2 }' "\$TXN_MANIFEST" | while IFS= read -r path; do
   [ ! -e "\$path" ] || { echo "ERROR: rollback path still exists: \$path" >&2; exit 1; }
 done
-if [ "\$CREATED_USER" = "1" ]; then
-  ! dscl . -read "/Users/\$USER_NAME" >/dev/null 2>&1 || { echo "ERROR: rollback user still exists" >&2; exit 1; }
+if txn_has user "\$USER_NAME" created_intent || txn_has user "\$USER_NAME" created; then
+  ! "\$DSCL" . -read "/Users/\$USER_NAME" >/dev/null 2>&1 || { echo "ERROR: rollback user still exists" >&2; exit 1; }
 fi
-if [ "\$CREATED_GROUP" = "1" ]; then
-  ! dscl . -read "/Groups/\$GROUP_NAME" >/dev/null 2>&1 || { echo "ERROR: rollback group still exists" >&2; exit 1; }
+if txn_has group "\$GROUP_NAME" created_intent || txn_has group "\$GROUP_NAME" created; then
+  ! "\$DSCL" . -read "/Groups/\$GROUP_NAME" >/dev/null 2>&1 || { echo "ERROR: rollback group still exists" >&2; exit 1; }
 fi
 log "BOOTSTRAP ROLLBACK VERIFIED: PASS"
 EOF
@@ -383,7 +446,16 @@ rollback_on_error() {
   local status=$?
   if [ "$MODE" = "apply" ] && [ -f "$ROLLBACK" ]; then
     echo "ERROR: bootstrap failed; invoking rollback for current-run objects." >&2
-    bash "$ROLLBACK" || true
+    if ! bash "$ROLLBACK"; then
+      echo "BOOTSTRAP ROLLBACK FAILED" >&2
+      echo "Remaining candidate records/paths:" >&2
+      "$DSCL" . -read "/Users/$USER_NAME" 2>/dev/null || true
+      "$DSCL" . -read "/Groups/$GROUP_NAME" 2>/dev/null || true
+      for path in "$SECRETS_DIR" "$BIN_DIR" "$ROOT_DIR" "$HOME_DIR"; do
+        [ -e "$path" ] && ls -ld "$path" >&2 || true
+      done
+      exit 91
+    fi
   fi
   exit "$status"
 }
@@ -418,36 +490,51 @@ run_dry_run() {
 
 create_group() {
   created_gid="$1"
+  txn_append group "$GROUP_NAME" created_intent 1
   "$DSCL" . -create "/Groups/$GROUP_NAME"
-  CREATED_GROUP=1
+  txn_append group "$GROUP_NAME" created 1
   "$DSCL" . -create "/Groups/$GROUP_NAME" PrimaryGroupID "$created_gid"
+  txn_append group "$GROUP_NAME" gid "$created_gid"
   "$DSCL" . -create "/Groups/$GROUP_NAME" RealName "$REAL_NAME"
+  txn_append group "$GROUP_NAME" realName "$REAL_NAME"
 }
 
 create_user() {
   created_uid="$1"
   created_gid="$2"
   generated_uid="$("$UUIDGEN")"
+  txn_append user "$USER_NAME" created_intent 1
   "$DSCL" . -create "/Users/$USER_NAME"
-  CREATED_USER=1
+  txn_append user "$USER_NAME" created 1
   "$DSCL" . -create "/Users/$USER_NAME" UniqueID "$created_uid"
+  txn_append user "$USER_NAME" uid "$created_uid"
   "$DSCL" . -create "/Users/$USER_NAME" PrimaryGroupID "$created_gid"
+  txn_append user "$USER_NAME" gid "$created_gid"
   "$DSCL" . -create "/Users/$USER_NAME" RealName "$REAL_NAME"
+  txn_append user "$USER_NAME" realName "$REAL_NAME"
   "$DSCL" . -create "/Users/$USER_NAME" NFSHomeDirectory "$HOME_DIR"
+  txn_append user "$USER_NAME" home "$HOME_DIR"
   "$DSCL" . -create "/Users/$USER_NAME" UserShell "$SHELL_PATH"
+  txn_append user "$USER_NAME" shell "$SHELL_PATH"
   "$DSCL" . -create "/Users/$USER_NAME" IsHidden 1
+  txn_append user "$USER_NAME" hidden 1
   "$DSCL" . -create "/Users/$USER_NAME" GeneratedUID "$generated_uid"
+  txn_append user "$USER_NAME" generatedUID "$generated_uid"
   "$DSCL" . -create "/Users/$USER_NAME" AuthenticationAuthority ";DisabledUser;"
+  txn_append user "$USER_NAME" authenticationAuthority ";DisabledUser;"
   "$DSCL" . -create "/Users/$USER_NAME" Password "*"
+  txn_append user "$USER_NAME" password "*"
 }
 
 install_dir_track() {
   local path="$1"
   local mode="$2"
-  if [ ! -e "$path" ]; then
-    CREATED_PATHS+=("$path")
-  fi
+  local existed=1
+  [ -e "$path" ] || existed=0
   "$INSTALL" -d -o "$USER_NAME" -g "$GROUP_NAME" -m "$mode" "$path"
+  if [ "$existed" -eq 0 ]; then
+    txn_append path "$path" created "$mode"
+  fi
 }
 
 run_apply() {
@@ -460,12 +547,21 @@ run_apply() {
     gid="$(group_gid)"
   else
     gid="$(next_free_id group "$GID_MIN" "$GID_MAX")" || fail_nogo "no free group id in range $GID_MIN-$GID_MAX"
+    created_gid="$gid"
+    init_transaction_manifest
+    generate_rollback
     create_group "$gid"
+  fi
+  if [ ! -f "$TXN_MANIFEST" ]; then
+    init_transaction_manifest
+    generate_rollback
   fi
   if user_exists; then
     uid="$(user_uid)"
   else
     uid="$(next_free_id user "$UID_MIN" "$UID_MAX")" || fail_nogo "no free user id in range $UID_MIN-$UID_MAX"
+    created_uid="$uid"
+    generate_rollback
     create_user "$uid" "$gid"
   fi
   created_uid="$uid"
@@ -481,21 +577,279 @@ run_apply() {
 
 run_self_test() {
   bash -n "$0"
-  grep -q "IDENTITY BOOTSTRAP DRY RUN: GO" "$0"
-  grep -q "BOOTSTRAP ROLLBACK VERIFIED: PASS" "$0"
-  grep -q "AuthenticationAuthority.*DisabledUser" "$0"
-  grep -q "GeneratedUID" "$0"
-  grep -q "admin|wheel|staff" "$0"
-  grep -q "CREATED_PATHS" "$0"
+  local test_root fakebin home_dir output status
+  test_root="$(mktemp -d /private/tmp/fa4-bootstrap-selftest.XXXXXX)"
+  fakebin="$test_root/bin"
+  mkdir -p "$fakebin" "$test_root/users" "$test_root/groups" "$test_root/meta"
+  cat > "$fakebin/dscl" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+root="${AGENT_OS_FIXTURE_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+op="$2"
+record="${3:-}"
+attr="${4:-}"
+value="${5:-}"
+kind="$(echo "$record" | cut -d/ -f2 | tr '[:upper:]' '[:lower:]')"
+case "$kind" in users) store="users" ;; groups) store="groups" ;; *) store="${kind}s" ;; esac
+name="$(echo "$record" | cut -d/ -f3-)"
+dir="$root/$store/$name"
+fail_after_mutation() {
+  [ -n "${AGENT_OS_FIXTURE_FAIL_AFTER:-}" ] || return 0
+  count_file="$root/count"
+  count="$(cat "$count_file" 2>/dev/null || echo 0)"
+  count=$((count + 1))
+  echo "$count" > "$count_file"
+  [ "$count" = "$AGENT_OS_FIXTURE_FAIL_AFTER" ] && exit 44
+}
+case "$op" in
+  -read)
+    [ -d "$dir" ] || exit 1
+    if [ -n "$attr" ]; then
+      [ -f "$dir/$attr" ] || exit 1
+      printf '%s: %s\n' "$attr" "$(cat "$dir/$attr")"
+    else
+      [ -d "$dir" ] && exit 0
+      for f in "$dir"/*; do [ -f "$f" ] && printf '%s: %s\n' "$(basename "$f")" "$(cat "$f")"; done
+      exit 0
+    fi
+    ;;
+  -list)
+    list_kind="$(echo "$record" | cut -d/ -f2 | tr '[:upper:]' '[:lower:]')"
+    case "$list_kind" in users) list_store="users" ;; groups) list_store="groups" ;; *) list_store="${list_kind}s" ;; esac
+    list_attr="$attr"
+    for d in "$root/${list_store}"/*; do
+      [ -d "$d" ] || continue
+      [ -f "$d/$list_attr" ] || continue
+      printf '%s %s\n' "$(basename "$d")" "$(cat "$d/$list_attr")"
+    done
+    ;;
+  -create)
+    if [ -z "$attr" ]; then
+      mkdir -p "$dir"
+      fail_after_mutation
+    else
+      mkdir -p "$dir"
+      printf '%s\n' "$value" > "$dir/$attr"
+      fail_after_mutation
+    fi
+    ;;
+  -delete)
+    rm -rf "$dir"
+    ;;
+  *) exit 2 ;;
+esac
+FAKE
+  cat > "$fakebin/id" <<'FAKE'
+#!/usr/bin/env bash
+if [ "$1" = "-Gn" ]; then
+  if [ "${AGENT_OS_FIXTURE_BROAD_GROUP:-0}" = "1" ]; then echo "openai-credential-broker staff"; else echo "openai-credential-broker"; fi
+elif [ "$1" = "-u" ]; then
+  echo 540
+elif [ "$1" = "-g" ]; then
+  echo 740
+elif [ "$1" = "-gn" ]; then
+  echo openai-credential-broker
+else
+  echo "uid=540(openai-credential-broker) gid=740(openai-credential-broker)"
+fi
+FAKE
+  cat > "$fakebin/install" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+owner=""
+group=""
+mode=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -d) shift ;;
+    -o) owner="$2"; shift 2 ;;
+    -g) group="$2"; shift 2 ;;
+    -m) mode="$2"; shift 2 ;;
+    *) path="$1"; shift ;;
+  esac
+done
+mkdir -p "$path"
+chmod "$mode" "$path"
+mkdir -p "${AGENT_OS_FIXTURE_ROOT:?}/meta"
+key="$(printf '%s' "$path" | sed 's#[/:]#_#g')"
+printf '%s:%s %04o\n' "$owner" "$group" "$((8#$mode))" > "$AGENT_OS_FIXTURE_ROOT/meta/$key"
+FAKE
+  cat > "$fakebin/stat" <<'FAKE'
+#!/usr/bin/env bash
+fmt="$2"
+path="$3"
+key="$(printf '%s' "$path" | sed 's#[/:]#_#g')"
+meta_file="${AGENT_OS_FIXTURE_ROOT:?}/meta/$key"
+if [ -f "$meta_file" ]; then
+  meta="$(cat "$meta_file")"
+else
+  meta="root:wheel 0755"
+fi
+case "$fmt" in
+  *%Su:%Sg*) echo "$meta" ;;
+  *) printf '0\t%s\t0\t%s\t%s\n' "${meta%%:*}" "$(echo "$meta" | awk '{print $1}' | cut -d: -f2)" "$(echo "$meta" | awk '{print $2}')" ;;
+esac
+FAKE
+  cat > "$fakebin/openclaw" <<'FAKE'
+#!/usr/bin/env bash
+exit 0
+FAKE
+  cat > "$fakebin/uuidgen" <<'FAKE'
+#!/usr/bin/env bash
+echo 11111111-2222-3333-4444-555555555555
+FAKE
+  cat > "$fakebin/rmdir" <<'FAKE'
+#!/usr/bin/env bash
+rmdir "$1"
+FAKE
+  chmod 0755 "$fakebin"/*
+
+  seed_ids() {
+    mkdir -p "$test_root/users/existing" "$test_root/groups/existing"
+    echo 539 > "$test_root/users/existing/UniqueID"
+    echo 739 > "$test_root/groups/existing/PrimaryGroupID"
+  }
+  reset_fixture() {
+    rm -rf "$test_root/users" "$test_root/groups" "$test_root/meta" "$test_root/home" "$test_root/count"
+    mkdir -p "$test_root/users" "$test_root/groups" "$test_root/meta"
+    seed_ids
+  }
+  run_fixture() {
+    local mode="$1"
+    shift
+    home_dir="$test_root/home/openai-credential-broker"
+    if [ "$mode" = "apply" ]; then
+      AGENT_OS_FIXTURE_ROOT="$test_root" \
+      AGENT_OS_TEST_DSCL="$fakebin/dscl" \
+      AGENT_OS_TEST_ID="$fakebin/id" \
+      AGENT_OS_TEST_INSTALL="$fakebin/install" \
+      AGENT_OS_TEST_STAT="$fakebin/stat" \
+      AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
+      AGENT_OS_TEST_UUIDGEN="$fakebin/uuidgen" \
+      OPENCLAW_BIN="$fakebin/openclaw" \
+      AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
+      AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
+      bash "$0" --out-dir="$test_root/out" "$@" > "$test_root/output" 2>&1
+      return $?
+    fi
+    AGENT_OS_FIXTURE_ROOT="$test_root" \
+    AGENT_OS_TEST_DSCL="$fakebin/dscl" \
+    AGENT_OS_TEST_ID="$fakebin/id" \
+    AGENT_OS_TEST_INSTALL="$fakebin/install" \
+    AGENT_OS_TEST_STAT="$fakebin/stat" \
+    AGENT_OS_TEST_RMDIR="$fakebin/rmdir" \
+    AGENT_OS_TEST_UUIDGEN="$fakebin/uuidgen" \
+    OPENCLAW_BIN="$fakebin/openclaw" \
+    AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST=1 \
+    AGENT_OS_BOOTSTRAP_HOME_DIR="$home_dir" \
+    bash "$0" "$mode" --out-dir="$test_root/out" "$@" > "$test_root/output" 2>&1
+  }
+  assert_file_absent() { [ ! -e "$1" ] || { echo "SELF TEST assertion failed: expected absent $1" >&2; cat "$test_root/output" >&2 || true; exit 1; }; }
+  assert_file_present() { [ -e "$1" ] || { echo "SELF TEST assertion failed: expected present $1" >&2; cat "$test_root/output" >&2 || true; exit 1; }; }
+  assert_grep() { grep -q "$1" "$2" || { echo "SELF TEST assertion failed: missing $1" >&2; cat "$2" >&2; exit 1; }; }
+
+  reset_fixture
+  output="$(run_fixture --dry-run)"
+  assert_grep "IDENTITY BOOTSTRAP DRY RUN: GO" "$test_root/output"
+  [ ! -d "$test_root/out" ] || { echo "SELF TEST assertion failed: dry-run wrote output dir" >&2; exit 1; }
+  echo "SELF TEST dry-run-zero-write-wrapper-calls: PASS"
+
+  reset_fixture
+  run_fixture apply
+  assert_file_present "$test_root/users/openai-credential-broker/UniqueID"
+  assert_file_present "$test_root/groups/openai-credential-broker/PrimaryGroupID"
+  assert_file_present "$home_dir/agent-os-openai-credential-broker/secrets"
   echo "SELF TEST fully-absent-state: PASS"
-  echo "SELF TEST user-name-collision: PASS"
-  echo "SELF TEST group-name-collision: PASS"
-  echo "SELF TEST uid-collision: PASS"
-  echo "SELF TEST gid-collision: PASS"
+
+  run_fixture apply
+  assert_grep "IDENTITY BOOTSTRAP VERIFIED: PASS" "$test_root/output"
+  echo "SELF TEST successful-rerun-idempotent: PASS"
+
+  reset_fixture
+  mkdir -p "$test_root/users/openai-credential-broker"
+  echo 999 > "$test_root/users/openai-credential-broker/UniqueID"
+  set +e; run_fixture --dry-run; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: conflicting user accepted" >&2; exit 1; }
+  echo "SELF TEST conflicting-user-record: PASS"
+
+  reset_fixture
+  mkdir -p "$test_root/groups/openai-credential-broker"
+  echo 999 > "$test_root/groups/openai-credential-broker/PrimaryGroupID"
+  set +e; run_fixture --dry-run; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: conflicting group accepted" >&2; exit 1; }
+  echo "SELF TEST conflicting-group-record: PASS"
+
+  reset_fixture
+  mkdir -p "$home_dir"
+  set +e; run_fixture --dry-run; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: partial filesystem accepted" >&2; exit 1; }
   echo "SELF TEST partial-filesystem-state: PASS"
-  echo "SELF TEST rollback-preserves-preexisting: PASS"
-  echo "SELF TEST rollback-removes-current-run-only: PASS"
-  echo "SELF TEST rerun-idempotent-after-success: PASS"
+
+  reset_fixture
+  for id_value in $(seq "$UID_MIN" "$UID_MAX"); do
+    mkdir -p "$test_root/users/used-$id_value"
+    echo "$id_value" > "$test_root/users/used-$id_value/UniqueID"
+  done
+  set +e; run_fixture --dry-run; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: exhausted UID range accepted" >&2; exit 1; }
+  echo "SELF TEST uid-collision-range-exhausted: PASS"
+
+  reset_fixture
+  for id_value in $(seq "$GID_MIN" "$GID_MAX"); do
+    mkdir -p "$test_root/groups/used-$id_value"
+    echo "$id_value" > "$test_root/groups/used-$id_value/PrimaryGroupID"
+  done
+  set +e; run_fixture --dry-run; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: exhausted GID range accepted" >&2; exit 1; }
+  echo "SELF TEST gid-collision-range-exhausted: PASS"
+
+  for fail_at in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    reset_fixture
+    set +e
+    AGENT_OS_FIXTURE_FAIL_AFTER="$fail_at" run_fixture apply
+    status=$?
+    set -e
+    [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: injected failure $fail_at succeeded" >&2; exit 1; }
+    assert_file_absent "$test_root/users/openai-credential-broker"
+    assert_file_absent "$test_root/groups/openai-credential-broker"
+  done
+  echo "SELF TEST failure-after-each-directory-service-stage-rolls-back: PASS"
+
+  reset_fixture
+  run_fixture apply
+  bash "$test_root/out/rollback.sh" > "$test_root/rollback-output" 2>&1
+  assert_file_absent "$test_root/users/openai-credential-broker"
+  assert_file_absent "$test_root/groups/openai-credential-broker"
+  assert_file_absent "$home_dir"
+  assert_grep "BOOTSTRAP ROLLBACK VERIFIED: PASS" "$test_root/rollback-output"
+  echo "SELF TEST rollback-removes-current-run-objects: PASS"
+
+  reset_fixture
+  run_fixture apply
+  echo 999 > "$test_root/users/openai-credential-broker/UniqueID"
+  set +e; bash "$test_root/out/rollback.sh" > "$test_root/rollback-output" 2>&1; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: rollback accepted changed UID" >&2; exit 1; }
+  echo "SELF TEST rollback-refuses-changed-uid: PASS"
+
+  reset_fixture
+  mkdir -p "$test_root/groups/openai-credential-broker"
+  echo 740 > "$test_root/groups/openai-credential-broker/PrimaryGroupID"
+  echo "$REAL_NAME" > "$test_root/groups/openai-credential-broker/RealName"
+  mkdir -p "$test_root/users/openai-credential-broker"
+  echo 540 > "$test_root/users/openai-credential-broker/UniqueID"
+  echo 740 > "$test_root/users/openai-credential-broker/PrimaryGroupID"
+  echo "$REAL_NAME" > "$test_root/users/openai-credential-broker/RealName"
+  echo "$home_dir" > "$test_root/users/openai-credential-broker/NFSHomeDirectory"
+  echo "$SHELL_PATH" > "$test_root/users/openai-credential-broker/UserShell"
+  echo 1 > "$test_root/users/openai-credential-broker/IsHidden"
+  echo 11111111-2222-3333-4444-555555555555 > "$test_root/users/openai-credential-broker/GeneratedUID"
+  echo ";DisabledUser;" > "$test_root/users/openai-credential-broker/AuthenticationAuthority"
+  echo "*" > "$test_root/users/openai-credential-broker/Password"
+  set +e; AGENT_OS_FIXTURE_BROAD_GROUP=1 run_fixture --dry-run; status=$?; set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: broad group accepted" >&2; exit 1; }
+  echo "SELF TEST broad-group-membership-rejected: PASS"
+
+  rm -rf "$test_root"
   echo "IDENTITY BOOTSTRAP SELF TEST: PASS"
 }
 
