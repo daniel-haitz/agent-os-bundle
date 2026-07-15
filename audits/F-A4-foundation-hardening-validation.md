@@ -499,6 +499,24 @@ The same validation reported these blockers:
 - runs post-remediation security, secrets, sandbox, broker, and F-A3 validation commands;
 - does not enable pf or change proxy policy.
 
+### OpenAI Credential Broker Identity Bootstrap Hardening
+
+The dedicated `openai-credential-broker` account is absent in the current live state, so containment readiness remains NO-GO until the identity bootstrap is reviewed and run. The hardened bootstrap script is `scripts/fa4-operator-openai-credential-broker-bootstrap.sh`.
+
+Canonical account model:
+
+- User: `openai-credential-broker`.
+- Primary group: `openai-credential-broker`.
+- UID allocation range: `540-599`, matching the local Agent OS convention where `openclawgw` and `egressproxy` use service UIDs in the mid-500 range.
+- GID allocation range: `740-799`, above the existing Gmail broker groups (`gmailbroker`/`gmailbroker-clients`) and reserved for Agent OS service-specific broker groups.
+- Home: `/Users/openai-credential-broker`, because this broker owns a persistent non-login custody root analogous to the existing `gmailbroker` custody pattern.
+- Shell: `/usr/bin/false`.
+- Login-disabled markers: `Password: *`, `AuthenticationAuthority: ;DisabledUser;`, `IsHidden: 1`, and a generated `GeneratedUID`.
+- Broad supplementary groups such as `admin`, `wheel`, and `staff` are forbidden.
+- Custody roots are non-secret directories only: home/root/bin `0750`, secrets directory `0700`, all owned by `openai-credential-broker:openai-credential-broker`.
+
+The script now provides a no-mutation `--dry-run` that resolves the proposed UID/GID, reports conflicts, and prints the proposed manifest without `dscl`, `mkdir`, `chown`, or `chmod` mutation. The mutating path records a baseline manifest, creates only missing canonical objects, generates rollback, refuses partial pre-existing state, and verifies no credential store, broker plist, runtime socket, OpenClaw config/auth mutation, pf, or proxy policy change occurred.
+
 ### Closure Impact
 
 F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the previous runtime-identity validation defect, but OpenClaw containment findings, pf activation, stale launchd metadata, persistence/reboot validation, and durable evidence gates remain open until operator remediation and validation evidence pass.

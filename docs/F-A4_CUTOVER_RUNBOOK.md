@@ -87,6 +87,8 @@ If `ai.agent-os-egress-proxy` exits with `EX_CONFIG`, use `scripts/fa4-operator-
 
 If read-only validation reports OpenClaw critical findings for unsafe local-model web fallback, gmail-reader shell/process exposure, or supported plaintext OpenAI API-key surfaces, first validate/provision the dedicated `openai-credential-broker` identity and run `scripts/fa4-operator-openclaw-containment-readiness.sh` from an operator root shell. Use `scripts/fa4-operator-openclaw-containment-remediate.sh` only after readiness returns GO. This remediation is limited to OpenClaw config/SecretRef hardening and gateway reload validation. It does not enable pf, alter proxy policy, or close F-A4.
 
+Before provisioning the `openai-credential-broker` identity, run `scripts/fa4-operator-openai-credential-broker-bootstrap.sh --dry-run` and require `IDENTITY BOOTSTRAP DRY RUN: GO`. The bootstrap dry-run is non-mutating and must be reviewed before the mutating identity bootstrap is executed.
+
 ### 0.1 Timestamp And Destination
 
 OPERATOR-BY-HAND as `dannybigdeals`:
