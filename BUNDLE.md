@@ -5,9 +5,9 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 90c77bf71e18f0b498bc25ff51bbd75349e015a2
+private source repository commit: 7c9e79d05020408a248ed676942300c415c0761a
 private source repository branch: main
-generated timestamp: 2026-07-15T19:10:32Z
+generated timestamp: 2026-07-15T19:16:28Z
 publication manifest governance commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
@@ -760,6 +760,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+7c9e79d validation: accept safe exec approval defaults
 90c77bf validation: harden F-A4 secrets audit check
 faf3d90 validation: prepare F-A4 OpenClaw containment remediation
 b8bce39 validation: fix F-A4 runtime identity validation harness
@@ -779,7 +780,6 @@ c52ef32 docs: refine agent governance boundaries and F-C scope
 69cab30 docs: reconcile Gmail broker and containment state
 e39d896 [claude-code] Gmail re-auth DONE (token was dead, re-authed Gmail-scoped, verified live mail); keyring-backend gotcha documented; confined-reader allowlist drift root-caused (real fix next session)
 57f7656 [claude-code] F-A4: proxy proven innocent + integrates clean; Gmail root cause = missing refresh token (re-auth needed); Lloyd direct-Gmail bypass found; socket-dir race open
-49e8801 [codex] F-A4.5: record proxy relock trap
 ```
 
 ## Repository Tree
@@ -877,7 +877,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: faf3d9058f67ec17c3d24367ad3a353c653213d9
-last validation timestamp: 2026-07-15T19:10:32Z
+last validation timestamp: 2026-07-15T19:16:28Z
 ```
 
 ---
@@ -12246,6 +12246,7 @@ const [configPath, patchPath, planPath, secretPath, openclawHome, approvalsPath]
 const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const approvals = JSON.parse(fs.readFileSync(approvalsPath, "utf8"));
 const brokerClientPath = "/Users/agent/.openclaw/scripts/gmail-broker-client.mjs";
+const approvedBrokerMethods = new Set(["health_check", "search_threads", "read_thread", "create_draft", "list_drafts", "get_draft"]);
 
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -12276,6 +12277,8 @@ function removeDangerousTools(tools) {
 }
 
 function validateGmailReaderExecApproval() {
+  const defaultsPolicy = asObject(approvals.defaults);
+  const wildcardPolicy = asObject(asObject(approvals.agents)["*"]);
   const readerPolicy = asObject(asObject(approvals.agents)["gmail-reader"]);
   const allowlist = Array.isArray(readerPolicy.allowlist) ? readerPolicy.allowlist : [];
   if (readerPolicy.security !== "allowlist") {
@@ -12287,12 +12290,19 @@ function validateGmailReaderExecApproval() {
   if (readerPolicy.askFallback !== "deny") {
     throw new Error("gmail-reader exec approval policy is not askFallback=deny");
   }
-  if (readerPolicy.autoAllowSkills !== false) {
-    throw new Error("gmail-reader exec approval policy is not autoAllowSkills=false");
+  const inheritedAutoAllowSkills = readerPolicy.autoAllowSkills ?? wildcardPolicy.autoAllowSkills ?? defaultsPolicy.autoAllowSkills ?? false;
+  let autoAllowSkillsStatus = "unsafe";
+  if (readerPolicy.autoAllowSkills === false) autoAllowSkillsStatus = "explicit false";
+  else if (readerPolicy.autoAllowSkills === undefined && inheritedAutoAllowSkills === false) autoAllowSkillsStatus = "safely defaulted false";
+  if (inheritedAutoAllowSkills !== false) {
+    throw new Error("gmail-reader exec approval policy has unsafe autoAllowSkills=true");
   }
   if (allowlist.length === 0) {
     throw new Error("gmail-reader exec approval allowlist is empty; fixed broker path is not validated");
   }
+  let brokerPathMatch = true;
+  let boundedMethodPattern = true;
+  let newlineExclusion = true;
   for (const entry of allowlist) {
     const serialized = JSON.stringify(entry);
     if (!serialized.includes(brokerClientPath)) {
@@ -12301,7 +12311,33 @@ function validateGmailReaderExecApproval() {
     if (entry.pattern === "*" || entry.argPattern === "*" || entry.commandText === "*") {
       throw new Error("gmail-reader exec approval allowlist contains a wildcard entry");
     }
+    const executableFields = [entry.pattern, entry.commandText, entry.lastResolvedPath].filter((value) => typeof value === "string");
+    if (executableFields.some((value) => /(^|[ /])(bash|sh|zsh|osascript|python|python3|ruby|perl|php)( |$)/.test(value) && !value.includes(brokerClientPath))) {
+      throw new Error("gmail-reader exec approval allowlist contains an unrelated executable");
+    }
+    brokerPathMatch = brokerPathMatch && serialized.includes(brokerClientPath);
+    if (typeof entry.argPattern !== "string") {
+      throw new Error("gmail-reader exec approval allowlist is missing bounded argPattern");
+    }
+    const methods = [...entry.argPattern.matchAll(/[A-Za-z_][A-Za-z0-9_]*(?=[|)])/g)].map((match) => match[0]);
+    const uniqueMethods = [...new Set(methods.filter((method) => approvedBrokerMethods.has(method) || /_/.test(method)))];
+    const unapprovedMethods = uniqueMethods.filter((method) => !approvedBrokerMethods.has(method));
+    if (unapprovedMethods.length > 0) {
+      throw new Error(`gmail-reader exec approval allowlist includes unapproved broker method: ${unapprovedMethods.join(",")}`);
+    }
+    for (const method of approvedBrokerMethods) {
+      if (!entry.argPattern.includes(method)) {
+        throw new Error(`gmail-reader exec approval allowlist is missing approved broker method: ${method}`);
+      }
+    }
+    if (/\\s|\\S|\[\^]|\.\*|\(\?:\.\|\n\)|\n/.test(entry.argPattern) || !entry.argPattern.includes("[^\\n")) {
+      newlineExclusion = false;
+      throw new Error("gmail-reader exec approval allowlist does not exclude newline injection");
+    }
+    boundedMethodPattern = boundedMethodPattern && unapprovedMethods.length === 0;
   }
+  const strictInlineEvalStatus = "default false; not security-relevant because broker path is not an interpreter allowlist";
+  console.log(`Exec approval preflight: autoAllowSkills=${autoAllowSkillsStatus}; strictInlineEval=${strictInlineEvalStatus}; allowlistEntries=${allowlist.length}; brokerPathMatch=${brokerPathMatch}; boundedMethodPattern=${boundedMethodPattern}; newlineExclusion=${newlineExclusion}`);
 }
 
 function stripQwenFallback(modelConfig) {

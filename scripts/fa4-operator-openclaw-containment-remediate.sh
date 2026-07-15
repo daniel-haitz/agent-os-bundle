@@ -107,6 +107,7 @@ const [configPath, patchPath, planPath, secretPath, openclawHome, approvalsPath]
 const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const approvals = JSON.parse(fs.readFileSync(approvalsPath, "utf8"));
 const brokerClientPath = "/Users/agent/.openclaw/scripts/gmail-broker-client.mjs";
+const approvedBrokerMethods = new Set(["health_check", "search_threads", "read_thread", "create_draft", "list_drafts", "get_draft"]);
 
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -137,6 +138,8 @@ function removeDangerousTools(tools) {
 }
 
 function validateGmailReaderExecApproval() {
+  const defaultsPolicy = asObject(approvals.defaults);
+  const wildcardPolicy = asObject(asObject(approvals.agents)["*"]);
   const readerPolicy = asObject(asObject(approvals.agents)["gmail-reader"]);
   const allowlist = Array.isArray(readerPolicy.allowlist) ? readerPolicy.allowlist : [];
   if (readerPolicy.security !== "allowlist") {
@@ -148,12 +151,19 @@ function validateGmailReaderExecApproval() {
   if (readerPolicy.askFallback !== "deny") {
     throw new Error("gmail-reader exec approval policy is not askFallback=deny");
   }
-  if (readerPolicy.autoAllowSkills !== false) {
-    throw new Error("gmail-reader exec approval policy is not autoAllowSkills=false");
+  const inheritedAutoAllowSkills = readerPolicy.autoAllowSkills ?? wildcardPolicy.autoAllowSkills ?? defaultsPolicy.autoAllowSkills ?? false;
+  let autoAllowSkillsStatus = "unsafe";
+  if (readerPolicy.autoAllowSkills === false) autoAllowSkillsStatus = "explicit false";
+  else if (readerPolicy.autoAllowSkills === undefined && inheritedAutoAllowSkills === false) autoAllowSkillsStatus = "safely defaulted false";
+  if (inheritedAutoAllowSkills !== false) {
+    throw new Error("gmail-reader exec approval policy has unsafe autoAllowSkills=true");
   }
   if (allowlist.length === 0) {
     throw new Error("gmail-reader exec approval allowlist is empty; fixed broker path is not validated");
   }
+  let brokerPathMatch = true;
+  let boundedMethodPattern = true;
+  let newlineExclusion = true;
   for (const entry of allowlist) {
     const serialized = JSON.stringify(entry);
     if (!serialized.includes(brokerClientPath)) {
@@ -162,7 +172,33 @@ function validateGmailReaderExecApproval() {
     if (entry.pattern === "*" || entry.argPattern === "*" || entry.commandText === "*") {
       throw new Error("gmail-reader exec approval allowlist contains a wildcard entry");
     }
+    const executableFields = [entry.pattern, entry.commandText, entry.lastResolvedPath].filter((value) => typeof value === "string");
+    if (executableFields.some((value) => /(^|[ /])(bash|sh|zsh|osascript|python|python3|ruby|perl|php)( |$)/.test(value) && !value.includes(brokerClientPath))) {
+      throw new Error("gmail-reader exec approval allowlist contains an unrelated executable");
+    }
+    brokerPathMatch = brokerPathMatch && serialized.includes(brokerClientPath);
+    if (typeof entry.argPattern !== "string") {
+      throw new Error("gmail-reader exec approval allowlist is missing bounded argPattern");
+    }
+    const methods = [...entry.argPattern.matchAll(/[A-Za-z_][A-Za-z0-9_]*(?=[|)])/g)].map((match) => match[0]);
+    const uniqueMethods = [...new Set(methods.filter((method) => approvedBrokerMethods.has(method) || /_/.test(method)))];
+    const unapprovedMethods = uniqueMethods.filter((method) => !approvedBrokerMethods.has(method));
+    if (unapprovedMethods.length > 0) {
+      throw new Error(`gmail-reader exec approval allowlist includes unapproved broker method: ${unapprovedMethods.join(",")}`);
+    }
+    for (const method of approvedBrokerMethods) {
+      if (!entry.argPattern.includes(method)) {
+        throw new Error(`gmail-reader exec approval allowlist is missing approved broker method: ${method}`);
+      }
+    }
+    if (/\\s|\\S|\[\^]|\.\*|\(\?:\.\|\n\)|\n/.test(entry.argPattern) || !entry.argPattern.includes("[^\\n")) {
+      newlineExclusion = false;
+      throw new Error("gmail-reader exec approval allowlist does not exclude newline injection");
+    }
+    boundedMethodPattern = boundedMethodPattern && unapprovedMethods.length === 0;
   }
+  const strictInlineEvalStatus = "default false; not security-relevant because broker path is not an interpreter allowlist";
+  console.log(`Exec approval preflight: autoAllowSkills=${autoAllowSkillsStatus}; strictInlineEval=${strictInlineEvalStatus}; allowlistEntries=${allowlist.length}; brokerPathMatch=${brokerPathMatch}; boundedMethodPattern=${boundedMethodPattern}; newlineExclusion=${newlineExclusion}`);
 }
 
 function stripQwenFallback(modelConfig) {
