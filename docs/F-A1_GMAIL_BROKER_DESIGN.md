@@ -1,10 +1,19 @@
 # F-A1 Gmail Capability Broker Design
 
-Status: DESIGN PROPOSED, awaiting operator approval. No broker code exists from this document alone.
+Status: BROKER FOUNDATION IMPLEMENTED, EXIT GATE CLOSED, AND FOUNDATION HARDENED. Broker closed its 25/25 exit gate on 2026-06-16; durable socket-directory startup ordering was completed and revalidated on 2026-07-14. This status covers the broker's authority, semantic API, credential custody, and approved client path. It does not claim exclusive Gmail routing: a separate Codex Apps Gmail connector surface was confirmed on 2026-07-14 and remains an open F-A4 containment blocker. `CONTROL.md` is authoritative for live state.
 
 Purpose: make Gmail read/draft access structural instead of cooperative. F-A0 proved the Gmail reader currently runs `exec` as Unix user `agent` and can reach the gog keyring, keyring password, wrapper source, and gog config. The broker must move both credential custody and the Gmail action surface outside reader authority.
 
 Non-goal: this does not solve poisoned summaries, search exfiltration, malicious draft content, or egress. Sensitive data remains held until the full F-A0 through F-D gate passes.
+
+## Implemented hardening record (2026-07-14)
+
+- Root-run `ai.agent-os.gmail-broker-rundir` creates `/var/run/agent-os` as `gmailbroker:gmailbroker-clients` mode `0750` before broker startup.
+- Unprivileged `ai.agent-os.gmail-broker` remains `UserName=gmailbroker`; its `KeepAlive` is conditional on `PathState[/var/run/agent-os]=true`, closing the independent launchd startup race without widening permissions or changing the broker boundary.
+- Live socket is `gmailbroker:gmailbroker-clients` mode `0660`.
+- Both launchd plists pass `plutil -lint`; broker is loaded/running; `health_check` and `search_threads` pass; direct main execution remains per-run approval-gated and denial blocks it.
+- Rollback backup: `/Library/LaunchDaemons/ai.agent-os.gmail-broker.plist.backup-20260714T203520Z`.
+- Boundary qualification: read-only audit found synchronized `codex_apps__gmail` / `mcp__codex_apps__gmail*` tools outside the broker. No live connector call was made during the audit, but broker-only Gmail confinement remains open until that external surface is disabled and negative-tested.
 
 ## 1. Placement & Process Model
 
@@ -14,7 +23,7 @@ The broker MUST NOT run as Unix user `agent`.
 
 Reason: F-A0 found the reader has same-UID `exec` authority as the current Gmail credential files. A same-host process under the same user would not close the hole; the reader could still read files, inspect wrapper source, run alternate child processes, or reach same-UID credential material.
 
-Proposed design target:
+Implemented design target:
 
 - Create a dedicated non-admin macOS user for the broker, named `gmailbroker` unless the operator chooses a different name at build time.
 - The broker process runs as `gmailbroker`.
@@ -34,15 +43,15 @@ Use launchd for a persistent broker service:
 - Working directory: `/Users/gmailbroker/agent-os-gmail-broker`
 - Logs: `/Users/gmailbroker/agent-os-gmail-broker/logs/`
 
-The OpenClaw Gateway and Gmail Reader remain under user `agent`. The broker is a separate local service with a narrow capability API.
+The OpenClaw Gateway runs as `openclawgw`; the broker is a separate local service under `gmailbroker` with a narrow capability API.
 
 ### Reader-to-broker channel
 
 Preferred channel: Unix domain socket.
 
 - Socket path: `/var/run/agent-os/gmail-broker.sock`
-- Directory owner: `root`
-- Directory mode: `0755` or tighter if the build creates a dedicated connect group.
+- Directory owner/group: `gmailbroker:gmailbroker-clients`
+- Directory mode: `0750`.
 - Socket owner: `gmailbroker`
 - Socket mode: `0660`
 - Socket group: a dedicated group such as `gmailbroker-clients` containing `agent`, or equivalent launchd-supported ACL.
@@ -53,11 +62,13 @@ Fallback channel if Unix socket permissions are operationally awkward: localhost
 
 ### Reader integration surface
 
-The reader should call a small client wrapper such as:
+The reader's current approved execution path calls the root-owned client wrapper:
 
 ```text
 /Users/agent/.openclaw/scripts/gmail-broker-client.mjs
 ```
+
+The historical `/usr/local/libexec/agent-os/` path is not the current authority path for this baseline unless later live exec-approval evidence proves otherwise.
 
 That wrapper:
 
@@ -512,6 +523,8 @@ The reader-side client must have a hardcoded "broker only" policy. No local fall
 
 These tests define DONE for the F-A1 build phase. The broker is not accepted until they pass.
 
+Retrospective scope note (2026-07-14): the original 25/25 gate proved the broker implementation, credential boundary, and approved reader client. It did not inventory Codex Apps/remote connector surfaces. The later boundary audit found a direct Gmail connector outside the broker, so the F-A1 broker gate remains closed while the broader claim "broker is the only Gmail route" remains open under F-A4.
+
 ### Credential custody tests
 
 1. Reader cannot read keyring password env var.
@@ -579,39 +592,8 @@ These tests define DONE for the F-A1 build phase. The broker is not accepted unt
    - Scan audit log for keyring password, token-looking values, refresh tokens, OAuth client secret, full email body, and full draft body.
    - Expected: no matches.
 
-## 8. Build Handoff Note
+## 8. Historical build handoff — completed
 
-Start here for the F-A1 build worker.
+The original build sequence created the dedicated `gmailbroker` authority, migrated credential custody, built the six-method broker, installed the credential-free client, wired the reader, and closed the negative-test gate. Do not re-run that sequence or recreate its users, credentials, directories, or services.
 
-1. Do not start by changing the Gmail Reader prompt. Start by creating the broker authority boundary.
-   - Create or confirm the dedicated `gmailbroker` user.
-   - Create broker-owned directories and permissions.
-   - Move/copy Gmail gog credential material into broker custody.
-   - Prove `agent` cannot read those files.
-
-2. Build the smallest broker.
-   - Implement only the six allowed methods in this design.
-   - Use fixed schema validation.
-   - Use fixed mapping to the safe Gmail read/draft capability.
-   - Avoid generic Gmail command dispatch.
-
-3. Build the reader client wrapper.
-   - It connects to the broker socket.
-   - It has no credentials and no direct gog fallback.
-   - It returns clean errors when the broker is unavailable.
-
-4. Wire the reader to the broker client.
-   - Remove the reader's dependency on the old credential-bearing wrapper.
-   - Do not widen reader tools.
-   - Do not add send/delete/label capability.
-
-5. Run the negative tests in Section 7.
-   - The broker is not done until those tests pass.
-   - Passing only the positive read/draft loop is insufficient.
-
-6. Commit and record state.
-   - Commit broker code/config in the appropriate repo.
-   - Commit sanitized drift evidence only; do not commit credentials.
-   - Update `BUILD_STATE.md`, `HANDOFF_BRIEF.md`, and the audit/design docs with test results.
-
-Agent-owned Colima is available if the build decides to use a container for broker/reader separation, but F-A1 does not require Docker if the dedicated OS-user boundary is implemented cleanly. If a container is used, the same rule holds: credential custody must be outside reader authority, and the reader must not be able to mount or read the credential directory.
+Current live state and the next bounded task are maintained in `CONTROL.md`. The remaining direct Codex Apps Gmail connector is outside this broker implementation and is tracked as an F-A4 containment blocker; removing it must not widen or redesign the broker.

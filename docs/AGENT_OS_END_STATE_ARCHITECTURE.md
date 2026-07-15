@@ -34,7 +34,7 @@ The defining property is **open-endedness**: Daniel hands a goal, the system fig
 
 Open-ended exploration is safe *because its only output is a proposal to the system, never an action.* A fully-injected research agent that "decides" to wire money or delete a file simply cannot — it has no action path. It can only emit a proposal, which goes through the policy layer (§3.4), which routes anything consequential to Daniel.
 
-This is the same pattern as the existing draft-only email loop (reader drafts, can't send), generalized to the whole system. The template is already built; the end state generalizes it.
+The approved broker Gmail path is draft-only/no-send proven. System-wide no-send is not proven while external connector surfaces remain. The approved-path pattern is the template the end state generalizes.
 
 ---
 
@@ -49,31 +49,29 @@ These are built as **shared substrate underneath all capabilities**, not per-cap
 - **Why it's foundational:** retrofitting "these agents actually can't act" onto a system that assumed they could is a teardown. Get it in first; every capability inherits it.
 
 ### 3.2 Foundation 2 — Containment (the unlock)
-Built in value order (per "Caging the Agents," arXiv:2603.17419, and "Silent Egress," arXiv:2602.22450):
+Required containment layers (architectural value order is not the live build order):
 1. **Network egress allowlist** — default-deny, no wildcards, enforced at tool-execution/network layer (not prompt layer, which barely works). This is what lets gather agents run *wild and unattended* without being an exfiltration risk — a hijacked research agent can't phone home.
-2. **Workload isolation** — agents in a container/VM, not just a user account.
-3. **Credential proxy** — agents call a broker that holds secrets and makes the authenticated call; the agent never sees the raw token. (Generalizes the draft-safe wrapper to all secrets.)
+2. **Workload isolation** — enforcement owned outside the contained agent. On this host, native Docker sandboxing was disproved as the gateway/web-search egress wall; do not equate a container with the current F-A4 mechanism.
+3. **Credential/capability brokers** — agents call a broker that holds secrets and exposes only fixed semantic operations; the agent never sees the raw token or a general provider API. Gmail implements this under dedicated user `gmailbroker`.
 - **Why it's foundational + reordered EARLY:** containment is what graduates the system out of "supervised, non-sensitive only." It has leverage no single capability has — it unlocks unattended operation for *everything*. Hence it moves ahead of new capabilities in the sequence.
 
-**Runtime + confinement law for agents (resolved 2026-06-14 after live testing — Path B):**
+**Runtime + confinement history (2026-06-14 Path B; superseded for Gmail on 2026-07-14):**
 A confinement model is only real if the runtime enforces it, and live testing settled which configurations actually work in OpenClaw 2026.6.5:
 - `tools.exec.mode: "allowlist"` is REJECTED by the Codex harness. An `openai/*` ref defaults to Codex.
 - The embedded `openclaw` runtime accepts allowlist mode but requires a separate OpenAI **API-key** auth profile (`auth.order.openai`, `agentRuntime.id: "openclaw"`) — NOT the ChatGPT/Codex subscription. (Subscription auth only works through the Codex harness.)
 - `tools.exec.mode: "auto"` on Codex was tested and does NOT preserve allowlist confinement: a per-agent approvals allowlist did NOT override `auto` — an off-allowlist command (`ls /`) executed. So "auto + strict approvals" is NOT a safe confinement substitute. [Proven live 2026-06-14.]
 
-**Decision — confined agents run the field-standard way (Path B):** default Codex runtime on the existing subscription, `tools.exec.mode: "auto"`. We do NOT enforce OS-level exec-allowlist on the reader. This matches what every OpenClaw Gmail setup does; the exec-allowlist was a non-standard belt that fought the platform and required a separate API-billing relationship.
+**Current Gmail decision:** Local confined reader model; current model tracked in `CONTROL.md`. The reader uses a narrow execution contract with `ask:off`, fail-closed allowlisting, and one approved root-owned broker client. Gmail credentials and semantic authority live under dedicated user `gmailbroker`. The June 14 Codex `auto` Path B result remains historical platform evidence but no longer describes the live Gmail reader.
 
-**Why this is correct, not a compromise:** the confinement that matters is layered and runtime-independent, and the gap Path B leaves is temporary and closes as the foundations land:
-- (1) **OAuth scope** (readonly+compose, no send/modify/delete) — the load-bearing control, per the field and the wild failure cases.
-- (2) **Three-layer software no-send** — proven, runtime-independent; a hijacked reader CANNOT send/forward email regardless of exec mode.
-- (3) **Schema-validated research channel** — blocks exfil-via-research-query.
-- (4) **Egress control (Foundation 2, next)** — the real exfil defense; holds at the network layer even when the model is fully hijacked. This is what closes the serious half of the Path B gap (a hijacked reader could run read-oriented shell commands, but cannot get data OFF the machine once egress is locked).
-- (5) **Workload isolation (Foundation 2, later)** — moves confined-agent shell execution into a throwaway container, closing the host-exposure half of the gap.
-- (6) **Dispatch/confirm split + deny-by-default policy (Foundations 1 & 4)** — gate any action a hijacked agent could propose.
+**Current layered Gmail boundary:**
+- (1) **Capability broker** — fixed read/draft semantic operations, no send method, broker-owned credentials.
+- (2) **Fail-closed reader execution allowlist** — only the root-owned broker client is approved automatically.
+- (3) **Schema-validated research channel** — prevents raw email from entering the research plane; semantic smuggling remains a residual risk.
+- (4) **Complete mediation** — OPEN. A synchronized Codex Apps Gmail connector (`codex_apps__gmail` / `mcp__codex_apps__gmail*`) remains outside the broker and must be disabled.
+- (5) **Egress control** — F-A4 remains required for exfiltration containment.
+- (6) **Dispatch/confirm split + deny-by-default policy** — gate consequential actions system-wide.
 
-**The Path B gap, stated honestly + its expiry:** today, a reader hijacked by a malicious email could run read-oriented shell commands on the host (proven: `ls /` executes under `auto`). It CANNOT send email (blocked 3 ways) and CANNOT exfiltrate once egress lands. The reader therefore stays **supervised / non-sensitive ONLY until egress + isolation land**, at which point this gap closes more completely than an exec-allowlist ever would. This is a sequenced decision with a defined expiry, not a permanent accepted risk. **Revisit trigger:** if any confined agent must handle sensitive data unsupervised before egress/isolation exist, OR reconsider OS-level confinement (Path A: embedded runtime + API key) at that point.
-
-**Implication:** egress (Foundation 2) is now the highest-leverage next foundation — it is both the planned exfil defense AND the control that retroactively closes the Path B gap and graduates the system out of supervised-only operation. Exec-allowlist is downgraded from a Foundation law to optional hardening, superseded by egress + isolation for the confined-agent threat.
+The Gmail loop remains **supervised / non-sensitive ONLY** until the direct connector is absent and the full sensitive-data gate passes. Broker completion alone does not lift the hold.
 
 **Platform-mechanics gate (mandatory before any foundation/capability build drop):**
 Best-practices/pattern research is necessary but NOT sufficient. Before writing a build drop, also research the OpenClaw-specific mechanics (runtime / exec / sandbox / egress / AUTH) per the Platform Mechanics Reference: how the layer actually enforces this, what silent defaults bite (`openai/*`→Codex; embedded→API-key; `exec.mode=allowlist`→Codex rejection; `auto`→allowlist NOT enforced; sandbox network→`none`; env doesn't inherit into sandbox; self-logging gaps for cron/subagent/heartbeat), and whether the intended config is platform-supported — proven from docs/schema, then VERIFIED against the live install with a read-only diagnostic. The 2026-06-14 runtime saga (allowlist→Codex-reject→embedded→API-key→auto-doesn't-confine→Path B) was a chain of platform dependencies discoverable upfront; finding them via failed live runs is the failure mode this gate prevents. Applies to egress (Foundation 2), observability (Foundation 3), policy/exec (Foundation 4) next — see the Platform Mechanics Reference §9 VERIFY gate.
@@ -90,7 +88,7 @@ Best-practices/pattern research is necessary but NOT sufficient. Before writing 
 - **One inspectable definition** of every action class and its current gate: `auto` (execute + notify after), `confirm` (propose, wait for Daniel), or `deny`. Every capability and the Command Center consult this at action time. Actions do **not** each hardcode their own gate.
 - **Promotion model:** moving an action from `confirm` → `auto` is a *policy edit*, not a code change. The capability that performs the action never changes; only its classification moves. This is how the system "evolves to autonomy" without a rebuild.
 - **Promotion criteria = observability evidence:** an action class earns `auto` when the audit trail shows it proposed correctly over time. Daniel makes the promotion; the trail justifies it.
-- **THE PERMANENT INVARIANT — deny-by-default:** any action class not explicitly classified is treated as **confirm/high-stakes** until Daniel says otherwise. The failure mode of forgetting to classify something is "it asks unnecessarily," never "it acted when it shouldn't have." **This default does not evolve. It is a foundational law.**
+- **THE PERMANENT INVARIANT — deny-by-default:** any unknown or unregistered action class is denied until it is reviewed and registered. Registered consequential actions route to `confirm`; registered low-risk bounded actions may become `auto`. The failure mode of forgetting to register something is "it does not execute," never "it acted when it shouldn't have." **This default does not evolve. It is a foundational law.**
 - High-stakes classes (money movement, deletion, access/permission changes, anything irreversible) **cannot be promoted to `auto`** without an explicit, deliberate Daniel action — and some should be permanently `confirm` regardless of trust.
 
 ---
@@ -118,10 +116,10 @@ The AC-off-for-vacation example end to end: gather agent infers the trip and pro
 Prior plan was capability-first (email → more capabilities → Command Center). Corrected:
 
 **Built / in progress**
-- Phase 2 email assistant (draft-only, proven no-send, injection-resistant loop) — this is the *template* for the dispatch/confirm split, already instantiated for one capability.
+- Phase 2 email assistant — the approved broker Gmail path is draft-only/no-send proven and is the *template* for the dispatch/confirm split. System-wide no-send is not proven while external connector surfaces remain.
 
 **Foundations (before broad capability expansion)**
-- **F-A. Containment** — egress allowlist (first), then workload isolation, then credential proxy. *The unlock; reordered early.*
+- **F-A. Containment** — locked live sequence: F-A0 platform audit → F-A1 Gmail capability broker → F-A2 reader credential containment → F-A3 typed handoff → F-A4 egress allowlist. F-A1 through F-A3 are complete; F-A4 remains in build.
 - **F-B. Observability substrate** — correlation-ID tracing, run-replay, zero-silent-failure as queryable. Evaluate topology-visualizer/dashboard here.
 - **F-C. Action-policy layer** — the auto/confirm/deny registry, deny-by-default invariant, promotion model wired to observability evidence.
 - **F-D. Dispatch/confirm split generalized** — promote the email loop's pattern to a system-wide standard every capability and the Command Center inherit. (Includes: every inter-agent handoff is a validated schema enforced by a deterministic check — the research-request validator pattern, made standard. MAST's #1 failure category is spec/coordination; this is the defense.)

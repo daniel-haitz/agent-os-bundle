@@ -1,23 +1,27 @@
 # F-A1 Gmail Capability Broker — Operator Deploy List
 
+**Current status (2026-07-14): COMPLETE — historical deployment record, not a rerun checklist.** Live state is tracked in `CONTROL.md`. Do not recreate users, groups, directories, credentials, or plists. Durable startup ordering is now: root-run `ai.agent-os.gmail-broker-rundir` establishes `/var/run/agent-os` as `gmailbroker:gmailbroker-clients 0750`; unprivileged `ai.agent-os.gmail-broker` waits on `KeepAlive.PathState[/var/run/agent-os]=true`. Both plists lint clean, broker is running as `gmailbroker`, socket is `gmailbroker:gmailbroker-clients 0660`, and broker health/search validation passes.
+
 **Run by:** operator (`dannybigdeals` via `sudo`) on the Mac mini.
 **Assumes privileged setup is DONE** (verified 2026-06-16 morning session):
 - `gmailbroker` user UID 503, primary group 703 — exists ✓
 - `gmailbroker-clients` group GID 702 with `agent` as member — exists ✓
 - `/Users/gmailbroker/agent-os-gmail-broker/` tree with 0700 credential dirs — exists ✓
 - `/var/run/agent-os/` owned `gmailbroker:gmailbroker-clients 0750` — exists ✓
-- launchd plist `ai.agent-os.gmail-broker` installed but NOT loaded — exists ✓
+- launchd plists `ai.agent-os.gmail-broker-rundir` and `ai.agent-os.gmail-broker` installed; broker loaded/running with durable `PathState` ordering — verified 2026-07-14 ✓
 - Agent-side credential boundary: all three credential paths return Permission denied to `agent` — proven ✓
 
 **Do not re-create users, groups, the home dir, the broker tree, the socket dir, or the plist.**
 
+This deployment record proves the broker service and credential boundary only. A separate synchronized Codex Apps Gmail connector surface was confirmed by read-only audit on 2026-07-14; broker-only Gmail routing remains open under F-A4 until that external surface is disabled and negative-tested.
+
 ---
 
-## Pre-step — Add `gmailbroker` to `gmailbroker-clients`
+## Historical pre-step — Add `gmailbroker` to `gmailbroker-clients` (complete)
 
 Required so the broker process can `chown` its socket file to GID 702 after binding.
 (A non-root process can only set group ownership to one of its own groups.)
-Verified this session: `gmailbroker` is NOT currently in `gmailbroker-clients`.
+Historical condition at initial deployment: `gmailbroker` was not yet in `gmailbroker-clients`. This step is complete; do not append it again.
 
 ```bash
 sudo dscl . -append /Groups/gmailbroker-clients GroupMembership gmailbroker
@@ -177,8 +181,6 @@ Expected: `"ok":true`, `"status":"ok"`, `"service":"gmail-broker"`.
 
 ---
 
-## After deploy
+## After deploy — completed record
 
-Update `BUILD_STATE.md` / `HANDOFF_BRIEF.md` to record broker service live.
-Next: build the client wrapper (`/Users/agent/.openclaw/scripts/gmail-broker-client.mjs`) and run the F-A1 negative tests (§7 of design + Tests 13/13b from addendum).
-Old agent-side credential paths must NOT be retired until the negative tests pass and F-A2 credential containment is complete.
+The client wrapper, F-A1 negative tests, F-A2 credential retirement, confined broker proof, and socket-directory hardening are complete. Do not use this historical list to restore deleted agent-side credentials or repeat deployment. Read `CONTROL.md` for current state and the remaining F-A4 connector-containment task.

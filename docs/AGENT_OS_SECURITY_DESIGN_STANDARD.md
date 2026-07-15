@@ -54,9 +54,9 @@ From the paper, §3.1. Pick the ones that fit each capability.
 
 The paper analyzes THIS use case directly. For an email/calendar assistant it endorses three designs, all of which Agent OS should implement in combination:
 
-- **User confirmation** — operator approves before any consequential action (send). In Agent OS: never-send is enforced 3 ways AND the operator is the only one who can send (by copying from the draft). Strongest single control. ✓ BUILT.
+- **User confirmation** — operator approves before any consequential action (send). In the approved broker path, send is absent and the operator sends manually from Gmail. A separate direct Codex Apps Gmail connector undermines the system-wide claim until it is disabled. Broker path ✓ BUILT; global exclusivity OPEN.
 - **Plan-Then-Execute / Code-Then-Execute** — fix the action plan from the operator request before reading email.
-- **Dual LLM** — quarantined reader processes email content; privileged plane orchestrates. ✓ BEING BUILT (reader/researcher split).
+- **Dual LLM** — quarantined reader processes email content; privileged plane orchestrates. ✓ BUILT + PROVEN (reader/researcher split with typed handoff).
 
 ---
 
@@ -65,12 +65,13 @@ The paper analyzes THIS use case directly. For an email/calendar assistant it en
 | Control | Pattern | Status |
 |---|---|---|
 | Operator-only command channel (Telegram) | Rule A | Designed into loop |
-| Email content treated as inert data | Rule A / Dual LLM | Reader doctrine (being added) |
-| Send structurally impossible | Action-Selector (wrapper allowlist) + capability restriction | ✓ BUILT + PROVEN (3 layers) |
-| Operator reviews every draft | User confirmation | ✓ BUILT (draft-only, manual send) |
-| Quarantined reader / separate research plane | Dual LLM | Being built |
-| Research agent cannot see raw email | Dual LLM / least-privilege | Being built (web_search only, no Gmail) |
-| Sanitized structured research questions, raw email dropped | Context-Minimization (strong) | PARTIAL — see gap below |
+| Email content treated as inert data | Rule A / Dual LLM | ✓ BUILT (reader doctrine + typed handoff) |
+| Send structurally impossible on approved path | Action-Selector + capability broker restriction | ✓ BUILT + PROVEN for broker (broker exposes no send operation; 3 agent-side layers retained) |
+| No alternate Gmail action surface | Complete mediation | OPEN — synchronized Codex Apps Gmail connector exposes operations outside broker contract |
+| Operator reviews every broker-created draft | User confirmation | ✓ BUILT (draft-only broker, manual send); not a global guarantee until alternate connector is disabled |
+| Quarantined reader / separate research plane | Dual LLM | ✓ BUILT + PROVEN (F-A3) |
+| Research agent cannot see raw email | Dual LLM / least-privilege | ✓ BUILT + PROVEN (typed canonical handoff; no raw email) |
+| Sanitized structured research questions, raw email dropped | Context-Minimization (strong) | ✓ BUILT + PROVEN at handoff; semantic smuggling remains a residual risk until F-A4 egress closes |
 | Provenance tracking (input→action) | Code-Then-Execute / CaMeL | NOT BUILT — future, heavy |
 | Egress control (data can't leave) | — | NOT BUILT — explicitly deferred |
 
@@ -84,7 +85,9 @@ The paper analyzes THIS use case directly. For an email/calendar assistant it en
 
 3. **No egress control.** Nothing yet prevents a compromised plane from exfiltrating via an allowed channel. Loop is therefore gated: supervised, non-sensitive ONLY until egress control is built.
 
-4. **Keyring password same-user exposure.** Accepted trade-off for headless operation (documented in Phase 2 connect).
+4. **Direct Codex Apps Gmail connector bypass.** Read-only audit on 2026-07-14 found synchronized `codex_apps__gmail` / `mcp__codex_apps__gmail*` tool definitions in every inspected per-agent Codex home, including operations outside the broker contract. Historical state contains direct Gmail tool identifiers. No live connector call was made during the audit, but lazy loading means absence from current thread dynamic-tool tables is not proof of unavailability. Broker-only routing remains open until the connector surface is disabled and negative-tested.
+
+5. **Credential custody — resolved for the broker path.** The Gmail keyring and password are broker-owned under dedicated user `gmailbroker`; the confined reader has no credential-file access and the approved execution path calls only the fixed semantic broker. This closes broker-credential theft, not alternate connector access or exfiltration; F-A4 remains required.
 
 ---
 

@@ -8,7 +8,7 @@
 **Version:** v1.0 (2026-06-11)
 **Status:** Active foundations-first plan. OpenClaw stand-up and the Phase 2 email-assistant workstream are complete; legacy numbered inventory remains partially open.
 
-**Live-state status (2026-06-14):** The Phase 2 email-assistant workstream tracked in `CONTROL.md` and `BUILD_STATE.md` is **COMPLETE**: the read/research/draft loop, three-layer no-send barrier, and injection boundary passed on live Gmail threads under Path B. This is separate from the legacy numbered `PHASE 2 — Doctrine as skills + the audit question` below, which remains open.
+**Live-state status (2026-07-14):** F-A1 broker foundation, F-A2 credential custody, and F-A3 typed handoff are complete. F-A4 remains in build. The approved Gmail broker path is healthy, but a synchronized Codex Apps Gmail connector surface remains an open complete-mediation blocker. This is separate from the legacy numbered `PHASE 2 — Doctrine as skills + the audit question` below, which remains open. `CONTROL.md` is authoritative.
 
 ---
 
@@ -97,7 +97,7 @@ OpenClaw's *default* posture is "tools run on host for the main session; you are
 | Secrets never touch LLM | SecretRef indirection + sandbox env scoping | `[VERIFIED]` native, `[VERIFY]` for form-fill | 1, 6 |
 | Local LLM routing (Qwen via Ollama) | Models providers (Ollama) + Codex OAuth | `[VERIFIED]` native | 0 |
 | Cron / scheduled autonomy | Cron jobs + standing orders + TaskFlow | `[VERIFIED]` native | 3 |
-| Gmail morning brief | Gmail PubSub automation | `[VERIFIED]` native | 3 |
+| Gmail morning brief | Approved Gmail capability broker + scheduled pull | `[BUILT]` broker substrate; automation deferred until broker-only routing and foundations pass | 3 |
 | Web search | 13 search providers | `[VERIFIED]` native (NEW capability) | 3 |
 | Lifestream model | Memory engine + workspace/skill structure | `[VERIFIED]` harness, custom mapping | 3 |
 | Memory with provenance | Builtin memory / QMD / inferred commitments | `[VERIFIED]` native | 3 |
@@ -147,8 +147,8 @@ Phases are sized so each is a coherent, reviewable unit with a clear exit gate. 
 
 The numbered phase sections below remain the detailed task inventory, but their legacy numbering no longer determines execution order.
 
-1. **COMPLETE — Phase 2 email-assistant workstream (live-state naming):** supervised read/research/draft loop, three-layer no-send, and injection boundary proven on live threads under Path B.
-2. **NEXT — F-A Containment:** resolve the Platform Mechanics Reference §4 VERIFY items, then implement egress allowlisting, workload isolation, and credential proxying. Egress also closes the exfiltration half of the temporary Path B gap.
+1. **COMPLETE — Phase 2 email-assistant workstream (live-state naming):** supervised read/research/draft loop and injection boundary were proven in the historical June 14 Path B implementation; Gmail runtime was later hardened to a dedicated capability broker and fail-closed reader execution allowlist.
+2. **IN BUILD — F-A Containment:** F-A1 broker, F-A2 credential custody, and F-A3 typed handoff are complete. Next disable the confirmed Codex Apps Gmail bypass, then integrate the proven managed proxy + pf wall and complete F-A4 acceptance.
 3. **F-B Observability substrate:** correlation-ID tracing, run replay, and queryable zero-silent-failure evidence.
 4. **F-C Action-policy layer:** centralized auto/confirm/deny registry with deny-by-default and evidence-based promotion.
 5. **F-D Generalized dispatch/confirm split:** structurally separate gathering/proposal from consequential action, with validated schemas at every handoff.
@@ -266,7 +266,7 @@ openclaw secrets audit --check
 
 **Steps:**
 
-3.1 — **Gmail morning brief.** Configure Gmail PubSub automation. `[VERIFIED]` native. This is your front-loaded daily-utility integration, exactly as the old plan front-loaded it.
+3.1 — **Gmail morning brief.** Build only on the approved Gmail capability broker after broker-only routing is proven. Do not enable native Gmail Pub/Sub, a direct connector, or a general Gmail tool surface as a shortcut; any push design requires a separate architecture and security review.
 
 3.2 — **Cron + standing orders.** Your autonomous routines (morning brief, end-of-day summary, self-assignment patterns) as cron jobs and standing orders. `[VERIFIED]` native. TaskFlow/ClawFlow for multi-step autonomous sequences.
 

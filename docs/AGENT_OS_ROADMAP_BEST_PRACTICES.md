@@ -65,7 +65,7 @@ MAST taxonomy — "Why Do Multi-Agent LLM Systems Fail?" (Cemri et al., NeurIPS 
 4. Audit MCP/tool permissions (list every tool, what it accesses, blast radius if compromised).
 5. (defense-in-depth beyond these.)
 
-**Implication for your roadmap:** your current loop is correctly gated "supervised, non-sensitive until egress control exists." This brief confirms that gate is not conservatism — it's the documented requirement. The egress phase (macOS `pf` allowlist → container isolation) is what unlocks unattended and sensitive use. Until then the loop stays supervised. Order of build when you get there: network allowlist FIRST (highest ROI), then workload isolation, then credential proxy.
+**Implication for your roadmap:** the current loop remains gated "supervised, non-sensitive until the full foundation gate passes." The locked execution sequence is now F-A0 platform audit → F-A1 capability broker → F-A2 credential containment → F-A3 typed handoff → F-A4 egress. F-A1 through F-A3 are complete; F-A4's operator-owned managed proxy and pf backstop were built/proven but are not integrated. The immediate blocker is disabling the confirmed Codex Apps Gmail bypass, followed by proxy/pf acceptance. Container isolation is not the current egress mechanism on this host.
 
 **Pre-build checklist (egress phase):**
 1. What is the COMPLETE list of domains each tool legitimately needs? (Default deny, no wildcards.)
@@ -122,12 +122,12 @@ MAST taxonomy — "Why Do Multi-Agent LLM Systems Fail?" (Cemri et al., NeurIPS 
 
 ## PHASE THEME 5 — Secrets / credentials at scale
 
-As capabilities grow you'll hold more tokens (Gmail today; calendar, others later). Current state: file keyring, password injected into the safe binary's child env, same-user exposure accepted.
+As capabilities grow you'll hold more tokens (Gmail today; calendar, others later). Current Gmail state: the file keyring and password are broker-owned under dedicated user `gmailbroker`; the approved reader path receives neither. A separate Codex Apps Gmail connector surface remains an alternate access path and must be disabled before claiming complete mediation.
 
-**The pattern to move toward (from "Caging the Agents" layer 2):** a **credential proxy sidecar** — the agent calls a broker that holds the credential and makes the authenticated call; the agent never sees the raw secret. This is the same principle as your draft-safe wrapper (the wrapper holds Gmail capability, the reader never gets the token), generalized to all secrets.
+**The pattern to generalize (from "Caging the Agents" layer 2):** a **credential/capability broker** — the agent calls a broker that holds the credential and exposes only fixed semantic operations; the agent never sees the raw secret or a general provider API. Gmail now implements this pattern under `gmailbroker`; future capabilities should reuse the principle without reopening a direct connector path.
 
 **Rules (OWASP AI Agent Security cheat sheet + LLM Top 10):**
-- Least-privilege, **short-lived tokens**, narrow scopes per tool. (Your gmail.compose-only is this.)
+- Least-privilege, **short-lived tokens**, narrow scopes per tool. OAuth scope alone is insufficient when the provider scope is broader than the allowed action set; the Gmail broker's fixed semantic API is the enforcing layer.
 - Human approval for high-risk methods (write/delete/transfer) — never delegated to the model.
 - Tenant/context isolation between capabilities (Gmail creds never reachable from the calendar agent, etc.).
 

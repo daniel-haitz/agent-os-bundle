@@ -27,7 +27,7 @@ Quick-reference list of platform behaviors that fail silently or surprisingly. C
 
 ---
 
-## 1. Runtime + auth (VERIFIED 2026-06-14)
+## 1. Runtime + auth (VERIFIED 2026-06-14; Gmail live-state correction 2026-07-14)
 
 **Three runtimes, three behaviors:**
 - **Codex** (default for `openai/*`): app-server harness. Owns native thread/resume/compaction. REJECTS `exec.mode=allowlist`. Uses Codex/ChatGPT OAuth (your current auth). Maps host-exec misses to Codex Guardian review under `auto` mode.
@@ -40,7 +40,7 @@ The two configurations that actually exist:
 - **Codex + `auto`:** runs on subscription auth, NO OS-level exec confinement (accepted under Path B — confinement comes from OAuth scope + 3-layer no-send + research validator + coming egress, not exec-allowlist).
 - **Embedded `openclaw` + `allowlist`:** real OS-level exec confinement, BUT needs separate OpenAI API-key auth (Path A).
 
-There is NO "confined on subscription auth" option. **Decision: Path B** (Codex + auto, lean on the other layers + egress). See End-State Architecture "Runtime + confinement law."
+The June 14 result remains valid for that tested Codex configuration, but **Path B no longer describes the live Gmail reader**. Current Gmail confinement uses `ollama/qwen3-coder:30b` plus OpenClaw's fail-closed exec approvals, with one root-owned broker client allowlisted and `ask:off`. Do not generalize the old Codex `auto` finding into current Gmail state.
 
 **Do NOT:** claim auto+approvals confines (disproven); pin embedded runtime without provisioning API-key auth.
 
@@ -196,17 +196,17 @@ The next build step cannot proceed until it is made.
 
 - **gog file keyring** for headless (Keychain unreliable over SSH). Tokens encrypted (AES-256-GCM per some guides).
 - **Sandbox secret delivery:** env doesn't inherit; `sandbox.docker.env` is Docker-inspectable (metadata exposure) — use custom image / mounted secret file for real secrets.
-- **Credential-proxy pattern** (Foundation 2/secrets): agent calls a broker that holds the credential — generalizes the draft-safe wrapper. The wrapper already instantiates this for Gmail.
+- **Credential/capability-broker pattern** (Foundation 2/secrets): agent calls a broker that holds the credential and exposes fixed semantic methods. Gmail implements this under dedicated user `gmailbroker`; the approved reader path has no Gmail credentials.
 - **Least privilege / dedicated account:** community standard is a dedicated Gmail account for the bot, minimal scope, short-lived where possible.
 
 ---
 
 ## 8. Field-standard baseline (what OpenClaw Gmail users actually do)
 
-So we calibrate against reality, not over-engineer:
+Historical field baseline, retained for comparison rather than as current Gmail state:
 - gogcli (`gog`) + OAuth, scopes in OS keyring. (Universal.)
 - `gmail.readonly` first, `draft-not-send` forever for most. (Consensus.)
-- Confinement = OAuth scope + draft-not-send + least privilege ("house-sitter key"). NOT OS-level exec-allowlist — that's an uncommon belt, and on Codex `auto` it isn't enforced anyway (disproven live); enforcing it requires the embedded runtime + API key (Path A), which we declined for the reader (Path B). The field doesn't wear this belt; neither do we, for now.
+- The live Gmail design is stricter than this baseline: dedicated capability broker, broker-owned credentials, and a fail-closed reader execution allowlist. A synchronized Codex Apps Gmail connector remains an open complete-mediation gap and must not be mistaken for an approved field-standard fallback.
 - Cheap always-on box (VPS/Pi/Mac mini). Dedicated bot Gmail account recommended.
 - Real failure mode in the wild: agent granted modify/delete scope bulk-deleted email (Meta safety director incident). Lesson: SCOPE is the load-bearing control. Our three-layer no-send is already stronger than the norm.
 
@@ -216,11 +216,11 @@ So we calibrate against reality, not over-engineer:
 
 | Phase | Section | Status |
 |---|---|---|
-| Email loop runtime/exec | §1, §2 | VERIFIED (live 2026-06-14) |
-| Foundation 2 — egress/sandbox | §3, §4 | DECISION OPEN — Plan A (host-pf) ELIMINATED on verify (pf non-viable on this macOS build); choose Plan B (separate box) vs Plan C (Docker — requires runtime install). Operator decision gates the build. |
+| Email loop runtime/exec | §1, §2 | VERIFIED AGAIN 2026-07-14 — local confined reader, one broker-client allowlist, `ask:off`; June 14 Codex `auto` result is historical |
+| Foundation 2 — egress/sandbox | §3, §4 | IN BUILD — operator-owned managed proxy + pf backstop built/proven; not integrated. Direct Codex Apps Gmail bypass removal precedes final proxy/pf acceptance. |
 | Foundation 3 — observability | §5 | RESEARCHED — design direction set; confirm OTel plugin choice before build |
 | Foundation 4 — action-policy/exec | §2, §6 | RESEARCHED — standing orders + exec model mapped |
-| Secrets/credential proxy | §7 | RESEARCHED |
+| Secrets/credential proxy | §7 | IMPLEMENTED FOR GMAIL — dedicated `gmailbroker` capability broker; direct connector complete-mediation gap remains open |
 | Cron/heartbeat autonomy | §6 | RESEARCHED |
 
 Before each phase's build drop: re-read its section, resolve OPEN VERIFY items with a read-only diagnostic against the live install, mark VERIFIED, THEN write the build drop.
