@@ -20,6 +20,16 @@ CONFIG="$OPENCLAW_HOME/openclaw.json"
 STATE_DIR="$OPENCLAW_HOME/state"
 SECRET_FILE="$OPENCLAW_HOME/secrets/agent-os-openai.json"
 SECRETREF_RESOLVER_SOURCE="$REPO_ROOT/scripts/fa4-openai-secretref-resolver.mjs"
+OPENAI_BROKER_SOURCE="$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs"
+OPENAI_BROKER_USER="openai-credential-broker"
+OPENAI_BROKER_GROUP="openai-credential-broker"
+OPENAI_BROKER_RUNTIME_GROUP="openclawgw"
+OPENAI_BROKER_HOME="/Users/openai-credential-broker"
+OPENAI_BROKER_ROOT="$OPENAI_BROKER_HOME/agent-os-openai-credential-broker"
+OPENAI_BROKER_BIN="$OPENAI_BROKER_ROOT/bin/openai-credential-broker.mjs"
+OPENAI_BROKER_STORE="$OPENAI_BROKER_ROOT/secrets/openai-static-credentials.json"
+OPENAI_BROKER_RUN_DIR="/var/run/agent-os/openai-credential-broker"
+OPENAI_BROKER_SOCKET="$OPENAI_BROKER_RUN_DIR/openai-credential-broker.sock"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 PATCH_FILE="$OUT_DIR/openclaw-containment.patch.json"
@@ -75,6 +85,63 @@ plan_has_targets() {
 }
 
 capture_metadata "$METADATA_BEFORE"
+
+broker_account_status="absent"
+broker_uid=""
+broker_gid=""
+broker_primary_group=""
+broker_home=""
+broker_shell=""
+if broker_uid="$(id -u "$OPENAI_BROKER_USER" 2>/dev/null)"; then
+  broker_gid="$(id -g "$OPENAI_BROKER_USER")"
+  broker_primary_group="$(id -gn "$OPENAI_BROKER_USER")"
+  broker_home="$(dscl . -read "/Users/$OPENAI_BROKER_USER" NFSHomeDirectory 2>/dev/null | cut -d' ' -f2- || true)"
+  broker_shell="$(dscl . -read "/Users/$OPENAI_BROKER_USER" UserShell 2>/dev/null | awk '{print $2}' || true)"
+  broker_account_status="present"
+fi
+
+if [ "$broker_account_status" != "present" ]; then
+  echo "BROKER ACCOUNT PRESENT AND CANONICAL: FAIL"
+  echo "NO-GO: dedicated OpenAI credential broker account is absent: $OPENAI_BROKER_USER"
+  echo "Expected account: user=$OPENAI_BROKER_USER primary_group=$OPENAI_BROKER_GROUP runtime_group=$OPENAI_BROKER_RUNTIME_GROUP home=$OPENAI_BROKER_HOME shell=/usr/bin/false"
+  echo "NO LIVE CREDENTIAL/CONFIG/AUTH MUTATION: CONFIRMED"
+  echo "OPERATOR REMEDIATION APPROVED: NO"
+  exit 1
+fi
+
+if [ "$broker_primary_group" != "$OPENAI_BROKER_GROUP" ]; then
+  echo "BROKER ACCOUNT PRESENT AND CANONICAL: FAIL"
+  echo "NO-GO: $OPENAI_BROKER_USER primary group is $broker_primary_group, expected $OPENAI_BROKER_GROUP"
+  echo "NO LIVE CREDENTIAL/CONFIG/AUTH MUTATION: CONFIRMED"
+  echo "OPERATOR REMEDIATION APPROVED: NO"
+  exit 1
+fi
+
+if [ "$broker_home" != "$OPENAI_BROKER_HOME" ] || [ "$broker_shell" != "/usr/bin/false" ]; then
+  echo "BROKER ACCOUNT PRESENT AND CANONICAL: FAIL"
+  echo "NO-GO: $OPENAI_BROKER_USER home/shell mismatch: home=$broker_home shell=$broker_shell"
+  echo "NO LIVE CREDENTIAL/CONFIG/AUTH MUTATION: CONFIRMED"
+  echo "OPERATOR REMEDIATION APPROVED: NO"
+  exit 1
+fi
+
+if ! id -Gn "$OPENAI_BROKER_USER" | tr ' ' '\n' | grep -qx "$OPENAI_BROKER_GROUP"; then
+  echo "BROKER ACCOUNT PRESENT AND CANONICAL: FAIL"
+  echo "NO-GO: $OPENAI_BROKER_USER is not a member of $OPENAI_BROKER_GROUP"
+  echo "NO LIVE CREDENTIAL/CONFIG/AUTH MUTATION: CONFIRMED"
+  echo "OPERATOR REMEDIATION APPROVED: NO"
+  exit 1
+fi
+
+if id -Gn "$OPENAI_BROKER_USER" | tr ' ' '\n' | grep -Eq '^(admin|wheel|staff)$'; then
+  echo "BROKER ACCOUNT PRESENT AND CANONICAL: FAIL"
+  echo "NO-GO: $OPENAI_BROKER_USER has a broad supplementary group membership"
+  echo "NO LIVE CREDENTIAL/CONFIG/AUTH MUTATION: CONFIRMED"
+  echo "OPERATOR REMEDIATION APPROVED: NO"
+  exit 1
+fi
+
+echo "BROKER ACCOUNT PRESENT AND CANONICAL: PASS"
 
 "$NODE_BIN" --input-type=module - "$CONFIG" "$PATCH_FILE" "$PLAN_FILE" "$SECRETREF_RESOLVER_SOURCE" "$OPENCLAW_HOME" "$OPENCLAW_HOME/exec-approvals.json" <<'NODE'
 import fs from "node:fs";
@@ -214,7 +281,7 @@ fs.writeFileSync(planPath, `${JSON.stringify({
       noOutputTimeoutMs: 3000,
       maxOutputBytes: 8192,
       jsonOnly: true,
-      env: { AGENT_OS_OPENAI_CREDENTIAL_SOCKET: "__FIXTURE_SOCKET__" },
+      env: { AGENT_OS_OPENAI_SECRETREF_TEST_MODE: "1", AGENT_OS_OPENAI_CREDENTIAL_SOCKET: "__FIXTURE_SOCKET__" },
     },
   },
   targets: planTargets,
@@ -225,11 +292,19 @@ NODE
 echo "SECRETREF PROVIDER SELECTED: exec"
 
 FIXTURE_DIR="$(mktemp -d /private/tmp/fa4-openai-secretref-readiness.XXXXXX)"
-FIXTURE_SOCKET="$FIXTURE_DIR/openai-credential-broker.sock"
-FIXTURE_STORE="$FIXTURE_DIR/openai-static-credentials.json"
+FIXTURE_RUN_DIR="$FIXTURE_DIR/run"
+FIXTURE_SOCKET="$FIXTURE_RUN_DIR/openai-credential-broker.sock"
+FIXTURE_STORE_DIR="$FIXTURE_DIR/secrets"
+FIXTURE_STORE="$FIXTURE_STORE_DIR/openai-static-credentials.json"
 FIXTURE_PLAN="$OUT_DIR/openclaw-secretref-plan.fixture.json"
 chmod 0750 "$FIXTURE_DIR"
-chown root:openclawgw "$FIXTURE_DIR"
+mkdir -p "$FIXTURE_RUN_DIR" "$FIXTURE_STORE_DIR"
+chown root:wheel "$FIXTURE_DIR"
+chmod 0755 "$FIXTURE_DIR"
+chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_RUNTIME_GROUP" "$FIXTURE_RUN_DIR"
+chmod 0750 "$FIXTURE_RUN_DIR"
+chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_GROUP" "$FIXTURE_STORE_DIR"
+chmod 0700 "$FIXTURE_STORE_DIR"
 cat > "$FIXTURE_STORE" <<'JSON'
 {
   "models.providers.openai.apiKey": "fixture-provider-key",
@@ -237,19 +312,37 @@ cat > "$FIXTURE_STORE" <<'JSON'
 }
 JSON
 chmod 0600 "$FIXTURE_STORE"
-chown root:wheel "$FIXTURE_STORE"
+chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_GROUP" "$FIXTURE_STORE"
 
-AGENT_OS_OPENAI_CREDENTIAL_SOCKET="$FIXTURE_SOCKET" \
-AGENT_OS_OPENAI_CREDENTIAL_STORE="$FIXTURE_STORE" \
-  "$NODE_BIN" "$REPO_ROOT/src/openai-credential-broker/openai-credential-broker.mjs" > "$OUT_DIR/fixture-broker.stdout" 2> "$OUT_DIR/fixture-broker.stderr" &
+"$NODE_BIN" --input-type=module - "$NODE_BIN" "$OPENAI_BROKER_SOURCE" "$FIXTURE_SOCKET" "$FIXTURE_STORE" "$OPENAI_BROKER_USER" "$OPENAI_BROKER_RUNTIME_GROUP" > "$OUT_DIR/fixture-broker.stdout" 2> "$OUT_DIR/fixture-broker.stderr" <<'NODE' &
+import { spawn } from "node:child_process";
+const [nodeBin, brokerSource, socketPath, storePath, userName, groupName] = process.argv.slice(2);
+try { process.initgroups(userName, groupName); } catch {}
+process.setgid(groupName);
+process.setuid(userName);
+const child = spawn(nodeBin, [brokerSource], {
+  env: {
+    AGENT_OS_OPENAI_SECRETREF_TEST_MODE: "1",
+    AGENT_OS_OPENAI_CREDENTIAL_SOCKET: socketPath,
+    AGENT_OS_OPENAI_CREDENTIAL_STORE: storePath,
+    PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
+  },
+  stdio: "inherit",
+});
+child.on("exit", (code, signal) => process.exit(code ?? (signal ? 128 : 1)));
+NODE
 FIXTURE_BROKER_PID=$!
 for i in $(seq 1 20); do
   [ -S "$FIXTURE_SOCKET" ] && break
   sleep 0.2
 done
 [ -S "$FIXTURE_SOCKET" ] || { echo "PROVIDER SOURCE COMPATIBILITY: FAIL"; exit 1; }
-chmod 0660 "$FIXTURE_SOCKET"
-chown root:openclawgw "$FIXTURE_SOCKET"
+socket_meta="$(stat -f '%Su:%Sg %04Lp' "$FIXTURE_SOCKET")"
+expected_socket_meta="$OPENAI_BROKER_USER:$OPENAI_BROKER_RUNTIME_GROUP 0660"
+if [ "$socket_meta" != "$expected_socket_meta" ]; then
+  echo "BROKER SOCKET OWNER/GROUP/MODE: FAIL ($socket_meta, expected $expected_socket_meta)"
+  exit 1
+fi
 
 "$NODE_BIN" --input-type=module - "$SECRETREF_RESOLVER_SOURCE" "$FIXTURE_SOCKET" "$OUT_DIR" <<'NODE'
 import { spawnSync } from "node:child_process";
@@ -265,7 +358,7 @@ function runAsOpenclawgw(payload) {
     process.setuid("openclawgw");
     const result = spawnSync(process.argv[1], [], {
       input: process.argv[2],
-      env: { AGENT_OS_OPENAI_CREDENTIAL_SOCKET: process.argv[3], PATH: "/usr/bin:/bin:/usr/sbin:/sbin" },
+      env: { AGENT_OS_OPENAI_SECRETREF_TEST_MODE: "1", AGENT_OS_OPENAI_CREDENTIAL_SOCKET: process.argv[3], PATH: "/usr/bin:/bin:/usr/sbin:/sbin" },
       encoding: "utf8",
       shell: false,
       maxBuffer: 65536,
@@ -328,6 +421,26 @@ if [ "$openclawgw_can_write_store" -eq 0 ]; then
   echo "CREDENTIAL SOURCE NOT WRITABLE BY OPENCLAWGW: FAIL"
   exit 1
 fi
+set +e
+"$NODE_BIN" --input-type=module - "$FIXTURE_STORE" <<'NODE'
+import fs from "node:fs";
+const [storePath] = process.argv.slice(2);
+try { process.initgroups("openclawgw", "openclawgw"); } catch {}
+process.setgid("openclawgw");
+process.setuid("openclawgw");
+try {
+  fs.accessSync(storePath, fs.constants.R_OK);
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+openclawgw_can_read_store=$?
+set -e
+if [ "$openclawgw_can_read_store" -eq 0 ]; then
+  echo "STORE UNREADABLE AND UNWRITABLE BY OPENCLAWGW: FAIL"
+  exit 1
+fi
 
 sed "s#__FIXTURE_SOCKET__#$FIXTURE_SOCKET#g" "$PLAN_FILE" > "$FIXTURE_PLAN"
 if plan_has_targets; then
@@ -344,6 +457,11 @@ if ! plan_has_targets; then
 fi
 
 echo "PROVIDER SOURCE COMPATIBILITY: PASS"
+echo "BROKER EXECUTES AS DEDICATED UID: PASS"
+echo "BROKER STORE OWNER/MODE: PASS"
+echo "STORE UNREADABLE AND UNWRITABLE BY OPENCLAWGW: PASS"
+echo "RUNTIME SOCKET DIRECTORY SECURITY: PASS"
+echo "BROKER SOCKET OWNER/GROUP/MODE: PASS"
 echo "RUNTIME UID RESOLUTION: PASS"
 echo "CREDENTIAL SOURCE NOT WRITABLE BY OPENCLAWGW: PASS"
 echo "UNKNOWN SECRET ID DENIED: PASS"

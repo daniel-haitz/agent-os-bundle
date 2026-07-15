@@ -9,9 +9,11 @@
 
 import net from "node:net";
 
-const SOCKET_PATH =
-  process.env.AGENT_OS_OPENAI_CREDENTIAL_SOCKET ||
-  "/var/run/agent-os/openai-credential-broker.sock";
+const TEST_MODE = process.env.AGENT_OS_OPENAI_SECRETREF_TEST_MODE === "1";
+const PRODUCTION_SOCKET_PATH = "/var/run/agent-os/openai-credential-broker/openai-credential-broker.sock";
+const SOCKET_PATH = TEST_MODE && process.env.AGENT_OS_OPENAI_CREDENTIAL_SOCKET
+  ? process.env.AGENT_OS_OPENAI_CREDENTIAL_SOCKET
+  : PRODUCTION_SOCKET_PATH;
 const PROVIDER = "agent_os_openai";
 const MAX_STDIN_BYTES = 8192;
 const TIMEOUT_MS = 3000;

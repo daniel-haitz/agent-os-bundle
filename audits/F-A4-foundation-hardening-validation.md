@@ -487,12 +487,12 @@ The same validation reported these blockers:
 
 ### Tooling Correction Prepared
 
-`scripts/fa4-operator-openclaw-containment-remediate.sh` is prepared as the next bounded operator-owned correction. It:
+`scripts/fa4-operator-openclaw-containment-remediate.sh` is prepared as a bounded operator-owned correction only after the dedicated `openai-credential-broker` identity/bootstrap prerequisite and no-mutation readiness gate pass. It:
 
-- backs up `openclaw.json`, `exec-approvals.json`, auth-profile SQLite sidecars, and any prior OpenAI SecretRef backing file;
+- backs up `openclaw.json`, `exec-approvals.json`, auth-profile SQLite sidecars, OpenAI credential-broker paths, launchd plists, runtime socket paths, and metadata required for rollback;
 - removes `ollama/qwen3-coder:30b` from `agents.defaults.model.fallbacks`;
 - hardens `gmail-reader` tool policy by denying `process`, filesystem write tools, `browser`, and `group:web`, while preserving only an explicitly validated fixed broker path if present;
-- moves `models.providers.openai.apiKey` to a file-backed SecretRef;
+- rejects the file-backed SecretRef path for OpenAI static keys under the live root/openclawgw boundary and instead uses an exec SecretRef provider with a fixed root-owned resolver plus a dedicated local OpenAI credential broker;
 - moves `profiles.openai:manual.key` to `keyRef` through `openclaw secrets apply`, rather than editing SQLite directly;
 - leaves OAuth profile material untouched;
 - reloads SecretRefs and kickstarts the Gateway;

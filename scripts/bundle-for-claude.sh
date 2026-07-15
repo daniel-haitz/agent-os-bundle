@@ -93,6 +93,8 @@ CRITICAL_PUBLICATION_PATHS=(
   "scripts/fa4-operator-openclaw-containment-remediate.sh"
   "scripts/fa4-operator-openclaw-containment-readiness.sh"
   "scripts/fa4-openai-secretref-resolver.mjs"
+  "scripts/fa4-openai-credential-broker-rundir.sh"
+  "scripts/fa4-operator-openai-credential-broker-bootstrap.sh"
   "scripts/fa4-operator-egress-proxy-repair.sh"
   "src/openai-credential-broker/openai-credential-broker.mjs"
 )

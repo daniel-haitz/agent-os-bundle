@@ -176,7 +176,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Run `scripts/fa4-operator-openclaw-containment-readiness.sh` to validate the exec SecretRef provider plus dedicated OpenAI credential broker path without live credential/config/auth mutation; only then run the remediation harness if it returns GO.
+1. Validate the dedicated `openai-credential-broker` identity. If absent, run the separately reviewed identity/bootstrap operation before any containment remediation. Then run `scripts/fa4-operator-openclaw-containment-readiness.sh` to validate the exec SecretRef provider plus dedicated OpenAI credential broker path without live credential/config/auth mutation; only then run the remediation harness if it returns GO.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.

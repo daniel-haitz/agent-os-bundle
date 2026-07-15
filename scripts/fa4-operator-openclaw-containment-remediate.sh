@@ -29,8 +29,12 @@ OPENAI_BROKER_USER="openai-credential-broker"
 OPENAI_BROKER_HOME="/Users/openai-credential-broker/agent-os-openai-credential-broker"
 OPENAI_BROKER_BIN="$OPENAI_BROKER_HOME/bin/openai-credential-broker.mjs"
 OPENAI_BROKER_STORE="$OPENAI_BROKER_HOME/secrets/openai-static-credentials.json"
-OPENAI_BROKER_SOCKET="/var/run/agent-os/openai-credential-broker.sock"
+OPENAI_BROKER_RUN_DIR="/var/run/agent-os/openai-credential-broker"
+OPENAI_BROKER_SOCKET="$OPENAI_BROKER_RUN_DIR/openai-credential-broker.sock"
 OPENAI_BROKER_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker.plist"
+OPENAI_BROKER_RUNDIR_SOURCE="$REPO_ROOT/scripts/fa4-openai-credential-broker-rundir.sh"
+OPENAI_BROKER_RUNDIR="/Library/AgentOS/fa4-openai-credential-broker-rundir.sh"
+OPENAI_BROKER_RUNDIR_PLIST="/Library/LaunchDaemons/ai.agent-os.openai-credential-broker-rundir.plist"
 NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
 OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
 GATEWAY_LABEL="system/ai.openclaw.gateway"
@@ -55,6 +59,13 @@ printf 'label\tpath\texists\tuid\tuser\tgid\tgroup\tmode\n' > "$METADATA_MANIFES
 
 echo "F-A4 OpenClaw containment remediation started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Output: $OUT_DIR"
+
+if ! id -u "$OPENAI_BROKER_USER" >/dev/null 2>&1; then
+  echo "ERROR: missing dedicated OpenAI credential broker user: $OPENAI_BROKER_USER" >&2
+  echo "Run the separately reviewed identity/bootstrap operation before containment remediation." >&2
+  echo "No OpenClaw config, auth state, credential, gateway, proxy, or pf mutation has occurred." >&2
+  exit 1
+fi
 
 on_error() {
   local status=$?
@@ -123,6 +134,14 @@ record_runtime_metadata() {
   record_metadata "$stage:secrets_dir" "$OPENCLAW_HOME/secrets"
   record_metadata "$stage:openclaw_json" "$CONFIG"
   record_metadata "$stage:secret_file" "$SECRET_FILE"
+  record_metadata "$stage:openai_broker_home" "$OPENAI_BROKER_HOME"
+  record_metadata "$stage:openai_broker_bin" "$OPENAI_BROKER_BIN"
+  record_metadata "$stage:openai_broker_store" "$OPENAI_BROKER_STORE"
+  record_metadata "$stage:openai_broker_run_dir" "$OPENAI_BROKER_RUN_DIR"
+  record_metadata "$stage:openai_broker_socket" "$OPENAI_BROKER_SOCKET"
+  record_metadata "$stage:openai_broker_plist" "$OPENAI_BROKER_PLIST"
+  record_metadata "$stage:openai_broker_rundir" "$OPENAI_BROKER_RUNDIR"
+  record_metadata "$stage:openai_broker_rundir_plist" "$OPENAI_BROKER_RUNDIR_PLIST"
   find "$OPENCLAW_HOME/agents" -maxdepth 4 -path '*/agent/openclaw-agent.sqlite*' -type f -print0 2>/dev/null \
     | while IFS= read -r -d '' db_file; do
         record_metadata "$stage:auth_sqlite" "$db_file"
@@ -134,11 +153,8 @@ plan_has_targets() {
 }
 
 install_exec_secretref_runtime() {
-  if ! id -u "$OPENAI_BROKER_USER" >/dev/null 2>&1; then
-    echo "ERROR: missing dedicated OpenAI credential broker user: $OPENAI_BROKER_USER" >&2
-    echo "Create the reviewed broker identity before running this remediation; do not fall back to openclawgw-owned credential files." >&2
-    exit 1
-  fi
+  install -d -o root -g wheel -m 0755 /Library/AgentOS
+  install -o root -g wheel -m 0555 "$OPENAI_BROKER_RUNDIR_SOURCE" "$OPENAI_BROKER_RUNDIR"
   install -o root -g openclawgw -m 0550 "$SECRETREF_RESOLVER_SOURCE" "$SECRETREF_RESOLVER"
   install -d -o "$OPENAI_BROKER_USER" -g openclawgw -m 0750 "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_HOME/bin"
   install -d -o "$OPENAI_BROKER_USER" -g "$OPENAI_BROKER_USER" -m 0700 "$OPENAI_BROKER_HOME/secrets"
@@ -159,13 +175,6 @@ install_exec_secretref_runtime() {
   <string>$OPENAI_BROKER_USER</string>
   <key>GroupName</key>
   <string>openclawgw</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>AGENT_OS_OPENAI_CREDENTIAL_SOCKET</key>
-    <string>$OPENAI_BROKER_SOCKET</string>
-    <key>AGENT_OS_OPENAI_CREDENTIAL_STORE</key>
-    <string>$OPENAI_BROKER_STORE</string>
-  </dict>
   <key>KeepAlive</key>
   <true/>
   <key>RunAtLoad</key>
@@ -179,10 +188,41 @@ install_exec_secretref_runtime() {
 PLIST
   chown root:wheel "$OPENAI_BROKER_PLIST"
   chmod 0644 "$OPENAI_BROKER_PLIST"
+  cat > "$OPENAI_BROKER_RUNDIR_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.agent-os.openai-credential-broker-rundir</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$OPENAI_BROKER_RUNDIR</string>
+  </array>
+  <key>UserName</key>
+  <string>root</string>
+  <key>GroupName</key>
+  <string>wheel</string>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+  chown root:wheel "$OPENAI_BROKER_RUNDIR_PLIST"
+  chmod 0644 "$OPENAI_BROKER_RUNDIR_PLIST"
+  plutil -lint "$OPENAI_BROKER_PLIST" "$OPENAI_BROKER_RUNDIR_PLIST"
 }
 
 reload_openai_credential_broker() {
   launchctl bootout system/ai.agent-os.openai-credential-broker 2>/dev/null || true
+  launchctl bootout system/ai.agent-os.openai-credential-broker-rundir 2>/dev/null || true
+  launchctl bootstrap system "$OPENAI_BROKER_RUNDIR_PLIST"
+  launchctl kickstart -k system/ai.agent-os.openai-credential-broker-rundir
+  [ -d "$OPENAI_BROKER_RUN_DIR" ] || { echo "ERROR: broker runtime directory was not created: $OPENAI_BROKER_RUN_DIR" >&2; exit 1; }
+  [ "$(stat -f '%Su:%Sg %04Lp' "$OPENAI_BROKER_RUN_DIR")" = "$OPENAI_BROKER_USER:openclawgw 0750" ] || {
+    echo "ERROR: broker runtime directory metadata mismatch: $(stat -f '%Su:%Sg %04Lp' "$OPENAI_BROKER_RUN_DIR")" >&2
+    exit 1
+  }
   launchctl bootstrap system "$OPENAI_BROKER_PLIST"
   launchctl kickstart -k system/ai.agent-os.openai-credential-broker
   for i in $(seq 1 20); do
@@ -206,6 +246,8 @@ backup_file "$SECRET_FILE" "agent-os-openai.json.before"
 backup_file "$SECRETREF_RESOLVER" "fa4-openai-secretref-resolver.mjs.before"
 backup_file "$OPENAI_BROKER_STORE" "openai-static-credentials.json.before"
 backup_file "$OPENAI_BROKER_PLIST" "ai.agent-os.openai-credential-broker.plist.before"
+backup_file "$OPENAI_BROKER_RUNDIR" "fa4-openai-credential-broker-rundir.sh.before"
+backup_file "$OPENAI_BROKER_RUNDIR_PLIST" "ai.agent-os.openai-credential-broker-rundir.plist.before"
 record_runtime_metadata "baseline"
 
 cat > "$ROLLBACK" <<EOF
@@ -243,6 +285,7 @@ fail() {
 log "Stopping OpenClaw gateway before restore."
 launchctl bootout "$GATEWAY_LABEL" 2>/dev/null || log "Gateway was not loaded or bootout returned nonzero; continuing restore."
 launchctl bootout system/ai.agent-os.openai-credential-broker 2>/dev/null || log "OpenAI credential broker was not loaded or bootout returned nonzero; continuing restore."
+launchctl bootout system/ai.agent-os.openai-credential-broker-rundir 2>/dev/null || log "OpenAI credential broker rundir helper was not loaded or bootout returned nonzero; continuing restore."
 log "Restoring backed-up files."
 cp -p "$OUT_DIR/openclaw.json.before" "$CONFIG"
 if [ -f "$OUT_DIR/exec-approvals.json.before" ]; then
@@ -260,10 +303,16 @@ if ! grep -Fq "$SECRET_FILE" "$BACKUP_MANIFEST"; then
   log "Removing absent-before SecretRef backing file."
   rm -f "$SECRET_FILE"
 fi
-for absent_path in "$SECRETREF_RESOLVER" "$OPENAI_BROKER_STORE" "$OPENAI_BROKER_PLIST"; do
+for absent_path in "$SECRETREF_RESOLVER" "$OPENAI_BROKER_STORE" "$OPENAI_BROKER_BIN" "$OPENAI_BROKER_PLIST" "$OPENAI_BROKER_RUNDIR" "$OPENAI_BROKER_RUNDIR_PLIST" "$OPENAI_BROKER_SOCKET"; do
   if ! grep -Fq "\$absent_path" "$BACKUP_MANIFEST"; then
     log "Removing absent-before path: \$absent_path"
     rm -f "\$absent_path"
+  fi
+done
+for absent_dir in "$OPENAI_BROKER_HOME/secrets" "$OPENAI_BROKER_HOME/bin" "$OPENAI_BROKER_HOME" "$OPENAI_BROKER_RUN_DIR"; do
+  if ! awk -F '\t' -v path="\$absent_dir" 'NR > 1 && \$1 ~ /^baseline:/ && \$2 == path && \$3 == "present" { found=1 } END { exit found ? 0 : 1 }' "$METADATA_MANIFEST"; then
+    log "Removing absent-before directory if empty: \$absent_dir"
+    rmdir "\$absent_dir" 2>/dev/null || true
   fi
 done
 log "Restoring baseline ownership and modes from metadata manifest."
@@ -466,7 +515,7 @@ const secretPayload = {};
 const planTargets = [];
 const providerApiKey = asObject(asObject(cfg.models).providers).openai?.apiKey;
 if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
-  setNested(secretPayload, ["models", "providers", "openai", "apiKey"], providerApiKey);
+  setNested(secretPayload, ["models", "providers", "openai", "apiKey"], "placeholder-provider-key-for-preflight");
   planTargets.push({
     type: "models.providers.apiKey",
     path: "models.providers.openai.apiKey",
@@ -510,7 +559,7 @@ if (manualProfiles.length > 1) {
 
 const manualProfile = manualProfiles[0];
 if (manualProfile.key) {
-  setNested(secretPayload, ["profiles", "openai:manual", "key"], manualProfile.key);
+  setNested(secretPayload, ["profiles", "openai:manual", "key"], "placeholder-manual-key-for-preflight");
   planTargets.push({
     type: "auth-profiles.api_key.key",
     path: "profiles.openai:manual.key",
@@ -519,11 +568,6 @@ if (manualProfile.key) {
     authProfileProvider: "openai",
     ref: { source: "exec", provider: "agent_os_openai", id: "profiles.openai:manual.key" },
   });
-}
-
-if (planTargets.length > 0) {
-  fs.mkdirSync(path.dirname(secretPath), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(secretPath, `${JSON.stringify(secretPayload, null, 2)}\n`, { mode: 0o600 });
 }
 
 agents[gmailIndex].tools = removeDangerousTools(agents[gmailIndex].tools);
@@ -554,9 +598,6 @@ const plan = {
       noOutputTimeoutMs: 3000,
       maxOutputBytes: 8192,
       jsonOnly: true,
-      env: {
-        AGENT_OS_OPENAI_CREDENTIAL_SOCKET: "/var/run/agent-os/openai-credential-broker.sock",
-      },
     },
   },
   targets: planTargets,
@@ -568,7 +609,14 @@ NODE
 
 if plan_has_targets; then
   echo "Installing fixed exec SecretRef resolver and credential broker binary paths..."
+  MUTATION_STARTED=1
   install_exec_secretref_runtime
+  cat > "$OPENAI_BROKER_STORE" <<'JSON'
+{
+  "models.providers.openai.apiKey": "placeholder-provider-key-for-preflight",
+  "profiles.openai:manual.key": "placeholder-manual-key-for-preflight"
+}
+JSON
   chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_USER" "$OPENAI_BROKER_STORE"
   chmod 0600 "$OPENAI_BROKER_STORE"
   reload_openai_credential_broker
@@ -587,7 +635,46 @@ record_runtime_metadata "before_config_dry_run"
 assert_openclaw_home_service_readable "config patch dry-run"
 
 echo "Applying config patch..."
-MUTATION_STARTED=1
+if plan_has_targets; then
+  echo "Replacing placeholder broker credential store with live static credential payload after preflight checks..."
+  "$NODE_BIN" --input-type=module - "$CONFIG" "$OPENAI_BROKER_STORE" "$OPENCLAW_HOME" <<'NODE'
+import fs from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
+
+const [configPath, secretPath, openclawHome] = process.argv.slice(2);
+const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
+const out = {};
+function asObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+const providerApiKey = asObject(asObject(cfg.models).providers).openai?.apiKey;
+if (typeof providerApiKey === "string" && providerApiKey.length >= 8) {
+  out["models.providers.openai.apiKey"] = providerApiKey;
+}
+const agentRoot = path.join(openclawHome, "agents");
+for (const entry of fs.readdirSync(agentRoot, { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  const dbPath = path.join(agentRoot, entry.name, "agent", "openclaw-agent.sqlite");
+  if (!fs.existsSync(dbPath)) continue;
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    const row = db.prepare("SELECT store_json FROM auth_profile_store WHERE store_key = 'primary'").get();
+    if (!row?.store_json) continue;
+    const profile = JSON.parse(row.store_json)?.profiles?.["openai:manual"];
+    if (profile?.type === "api_key" && typeof profile.key === "string" && profile.key.length >= 8) {
+      out["profiles.openai:manual.key"] = profile.key;
+    }
+  } finally {
+    db.close();
+  }
+}
+if (Object.keys(out).length < 1) throw new Error("no live OpenAI static credentials found for broker store replacement");
+fs.writeFileSync(secretPath, `${JSON.stringify(out, null, 2)}\n`, { mode: 0o600 });
+NODE
+  chown "$OPENAI_BROKER_USER:$OPENAI_BROKER_USER" "$OPENAI_BROKER_STORE"
+  chmod 0600 "$OPENAI_BROKER_STORE"
+fi
 record_runtime_metadata "before_config_apply"
 "$OPENCLAW_BIN" config patch --file "$PATCH_FILE" --replace-path agents.list --replace-path agents.defaults.model
 restore_openclaw_home_metadata
