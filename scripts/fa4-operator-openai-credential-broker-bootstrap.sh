@@ -56,6 +56,9 @@ CHMOD="${AGENT_OS_TEST_CHMOD:-chmod}"
 RM="${AGENT_OS_TEST_RM:-rm}"
 RMDIR="${AGENT_OS_TEST_RMDIR:-rmdir}"
 LAUNCHCTL="${AGENT_OS_TEST_LAUNCHCTL:-launchctl}"
+PLISTBUDDY="${AGENT_OS_TEST_PLISTBUDDY:-/usr/libexec/PlistBuddy}"
+PS="${AGENT_OS_TEST_PS:-ps}"
+GATEWAY_PLIST="${AGENT_OS_GATEWAY_PLIST:-/Library/LaunchDaemons/ai.openclaw.gateway.plist}"
 
 if [ "$MODE" != "dry-run" ] && [ "$MODE" != "verify" ] && [ "$MODE" != "certify-host" ] && [ "$MODE" != "self-test" ] && [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" != "1" ] && [ "$(id -u)" -ne 0 ]; then
   echo "ERROR: run as root via sudo from the operator account." >&2
@@ -90,7 +93,12 @@ ensure_output_dir() {
 ds_read() {
   local record="$1"
   local attribute="$2"
-  "$DSCL" . -read "$record" "$attribute" 2>/dev/null | awk -v attr="$attribute" '
+  "$DSCL" . -read "$record" "$attribute" 2>/dev/null | parse_ds_attribute "$attribute"
+}
+
+parse_ds_attribute() {
+  local attribute="$1"
+  awk -v attr="$attribute" '
     function value_colon(line, i, prefix) {
       for (i = length(line); i >= 1; i--) {
         if (substr(line, i, 1) != ":") continue
@@ -183,8 +191,10 @@ group_generated_uid() {
 run_openclaw_health_check() {
   [ -x "$HEALTH_PROBE" ] || fail_nogo "OpenClaw health probe not found or not executable: $HEALTH_PROBE"
   echo "OPENCLAW HEALTH COMMAND RESOLVED: PASS"
-  "$HEALTH_PROBE" >/dev/null 2>&1 \
-    || fail_nogo "gateway health check failed through resolved OpenClaw health command"
+  local output
+  if ! output="$("$HEALTH_PROBE" 2>&1)"; then
+    fail_nogo "gateway health check failed through resolved OpenClaw health command: $output"
+  fi
 }
 
 all_user_ids() {
@@ -218,8 +228,8 @@ next_free_id() {
 path_state() {
   local path="$1"
   if [ -e "$path" ]; then
-    "$STAT" -f '%u	%Su	%g	%Sg	%Lp' "$path" \
-      | awk -v path="$path" -F '\t' '{ printf "%s\tpresent\t%s\t%s\t%s\t%s\t%04o\n", path, $1, $2, $3, $4, $5 }'
+    "$STAT" -f '%u	%Su	%g	%Sg	%OLp' "$path" \
+      | awk -v path="$path" -F '\t' '{ printf "%s\tpresent\t%s\t%s\t%s\t%s\t%s\n", path, $1, $2, $3, $4, $5 }'
   else
     printf '%s\tabsent\t\t\t\t\t\n' "$path"
   fi
@@ -321,7 +331,7 @@ assert_path_absent_or_canonical() {
     return 0
   fi
   local actual
-  actual="$("$STAT" -f '%Su:%Sg %04Lp' "$path")"
+  actual="$("$STAT" -f '%Su:%Sg %04OLp' "$path")"
   [ "$actual" = "$owner:$group $mode" ] || fail_nogo "pre-existing path is not canonical: $path actual=$actual expected=$owner:$group $mode"
 }
 
@@ -476,10 +486,10 @@ verify_canonical_final_state() {
   user_exists || fail_nogo "broker user is absent"
   validate_existing_group
   validate_existing_user
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$HOME_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "home directory ownership/mode mismatch"
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$ROOT_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "custody root ownership/mode mismatch"
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$BIN_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "broker bin directory ownership/mode mismatch"
-  [ "$("$STAT" -f '%Su:%Sg %04Lp' "$SECRETS_DIR")" = "$USER_NAME:$GROUP_NAME 0700" ] || fail_nogo "broker secrets directory ownership/mode mismatch"
+  [ "$("$STAT" -f '%Su:%Sg %04OLp' "$HOME_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "home directory ownership/mode mismatch"
+  [ "$("$STAT" -f '%Su:%Sg %04OLp' "$ROOT_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "custody root ownership/mode mismatch"
+  [ "$("$STAT" -f '%Su:%Sg %04OLp' "$BIN_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || fail_nogo "broker bin directory ownership/mode mismatch"
+  [ "$("$STAT" -f '%Su:%Sg %04OLp' "$SECRETS_DIR")" = "$USER_NAME:$GROUP_NAME 0700" ] || fail_nogo "broker secrets directory ownership/mode mismatch"
   [ ! -e "$SECRETS_DIR/openai-static-credentials.json" ] || fail_nogo "credential store already exists"
   [ ! -e "$BROKER_PLIST" ] || fail_nogo "broker launchd plist already exists"
   [ ! -e "$BROKER_RUNDIR_PLIST" ] || fail_nogo "broker rundir launchd plist already exists"
@@ -568,6 +578,7 @@ cert_eval() {
   local output
   if output="$("$@" 2>&1)"; then
     cert_pass "$name"
+    [ -z "$output" ] || printf '%s\n' "$output"
   else
     cert_fail "$name" "$output"
   fi
@@ -575,73 +586,139 @@ cert_eval() {
 
 cert_check_ds_parser() {
   local parsed
-  parsed="$(printf 'RealName:\n Agent OS OpenAI credential broker\n' | parse_attr_from_stdin RealName)"
+  parsed="$(printf 'RealName:\n Agent OS OpenAI credential broker\n' | parse_ds_attribute RealName)"
   [ "$parsed" = "$REAL_NAME" ] || return 1
-  parsed="$(printf 'dsAttrTypeNative:IsHidden: 1\n' | parse_attr_from_stdin IsHidden)"
+  parsed="$(printf 'dsAttrTypeNative:IsHidden: 1\n' | parse_ds_attribute IsHidden)"
   [ "$parsed" = "1" ] || return 1
-  parsed="$(printf 'dsAttrTypeStandard:GeneratedUID: 204EB339-8AD8-45F6-8A06-ED50833DB376\n' | parse_attr_from_stdin GeneratedUID)"
+  parsed="$(printf 'dsAttrTypeStandard:GeneratedUID: 204EB339-8AD8-45F6-8A06-ED50833DB376\n' | parse_ds_attribute GeneratedUID)"
   [ "$parsed" = "204EB339-8AD8-45F6-8A06-ED50833DB376" ] || return 1
-}
-
-parse_attr_from_stdin() {
-  local attribute="$1"
-  awk -v attr="$attribute" '
-    function value_colon(line, i, prefix) {
-      for (i = length(line); i >= 1; i--) {
-        if (substr(line, i, 1) != ":") continue
-        prefix = substr(line, 1, i - 1)
-        if (prefix == attr || prefix ~ (":" attr "$")) return i
-      }
-      return 0
-    }
-    function label_matches(label, parts) {
-      n = split(label, parts, ":")
-      return parts[n] == attr
-    }
-    {
-      line = $0
-      colon = value_colon(line)
-      if (colon > 0) {
-        label = substr(line, 1, colon - 1)
-        rest = substr(line, colon + 1)
-        if (label_matches(label)) {
-          capture=1
-          if (rest ~ /^ /) {
-            sub(/^ /, "", rest)
-            print rest
-          }
-          next
-        }
-      }
-    }
-    capture && /^ / { sub(/^ /, ""); print; next }
-    capture { exit }
-  '
 }
 
 cert_check_system_tools() {
   local tool
   for tool in /usr/bin/dscl /usr/bin/id /usr/bin/dscacheutil /usr/bin/stat /usr/bin/install /bin/mkdir /bin/chmod /bin/rmdir /bin/rm /bin/launchctl /usr/bin/plutil /usr/libexec/PlistBuddy; do
-    [ -e "$tool" ] || return 1
+    [ -e "$tool" ] || { echo "missing required tool: $tool"; return 1; }
   done
 }
 
 cert_check_macos() {
-  /usr/bin/sw_vers >/dev/null 2>&1
+  local product version build status
+  product="$(/usr/bin/sw_vers -productName)"
+  version="$(/usr/bin/sw_vers -productVersion)"
+  build="$(/usr/bin/sw_vers -buildVersion)"
+  echo "ProductName: $product"
+  echo "ProductVersion: $version"
+  echo "BuildVersion: $build"
+  if [ "$version" = "26.5.2" ] && [ "$build" = "25F84" ]; then
+    status="tested-baseline"
+  else
+    status="untested-version"
+  fi
+  echo "Host baseline status: $status"
+}
+
+cert_check_uid_gid_integrity() {
+  local uid_users gid_groups
+  uid_users="$("$DSCL" . -list /Users UniqueID 2>/dev/null | awk -v uid=540 '$2 == uid { print $1 }')"
+  gid_groups="$("$DSCL" . -list /Groups PrimaryGroupID 2>/dev/null | awk -v gid=740 '$2 == gid { print $1 }')"
+  echo "UID 540 owners: ${uid_users:-<none>}"
+  echo "GID 740 owners: ${gid_groups:-<none>}"
+  [ "$uid_users" = "$USER_NAME" ] || { echo "UID 540 is not uniquely assigned to $USER_NAME"; return 1; }
+  [ "$gid_groups" = "$GROUP_NAME" ] || { echo "GID 740 is not uniquely assigned to $GROUP_NAME"; return 1; }
+  [ "$(user_gid)" = "740" ] || { echo "user primary group is $(user_gid), expected 740"; return 1; }
+}
+
+stat_owner_mode() {
+  "$STAT" -f '%Su:%Sg %04OLp' "$1"
+}
+
+cert_check_identity_and_custody() {
+  local groups
+  group_exists || { echo "broker group absent"; return 1; }
+  user_exists || { echo "broker user absent"; return 1; }
+  [ "$(group_gid)" = "740" ] || { echo "group gid mismatch: $(group_gid)"; return 1; }
+  [ "$(group_real_name)" = "$REAL_NAME" ] || { echo "group RealName mismatch"; return 1; }
+  [ "$(user_uid)" = "540" ] || { echo "user uid mismatch: $(user_uid)"; return 1; }
+  [ "$(user_gid)" = "740" ] || { echo "user gid mismatch: $(user_gid)"; return 1; }
+  [ "$(user_home)" = "$HOME_DIR" ] || { echo "user home mismatch: $(user_home)"; return 1; }
+  [ "$(user_shell)" = "$SHELL_PATH" ] || { echo "user shell mismatch: $(user_shell)"; return 1; }
+  [ "$(user_real_name)" = "$REAL_NAME" ] || { echo "user RealName mismatch"; return 1; }
+  [ "$(user_hidden)" = "1" ] || { echo "user hidden marker mismatch: $(user_hidden)"; return 1; }
+  [ "$(user_password)" = "*" ] || { echo "user password marker mismatch"; return 1; }
+  groups="$("$ID" -Gn "$USER_NAME")"
+  echo "Implicit groups: $groups"
+  if printf '%s\n' "$groups" | tr ' ' '\n' | grep -Eq '^(admin|wheel|staff)$'; then
+    echo "forbidden broad supplementary group present"
+    return 1
+  fi
+  [ "$(stat_owner_mode "$HOME_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || { echo "$HOME_DIR mode mismatch: $(stat_owner_mode "$HOME_DIR")"; return 1; }
+  [ "$(stat_owner_mode "$ROOT_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || { echo "$ROOT_DIR mode mismatch: $(stat_owner_mode "$ROOT_DIR")"; return 1; }
+  [ "$(stat_owner_mode "$BIN_DIR")" = "$USER_NAME:$GROUP_NAME 0750" ] || { echo "$BIN_DIR mode mismatch: $(stat_owner_mode "$BIN_DIR")"; return 1; }
+  [ "$(stat_owner_mode "$SECRETS_DIR")" = "$USER_NAME:$GROUP_NAME 0700" ] || { echo "$SECRETS_DIR mode mismatch: $(stat_owner_mode "$SECRETS_DIR")"; return 1; }
+}
+
+cert_check_normalized_modes() {
+  local spec path expected actual failed=0
+  for spec in "$HOME_DIR:0750" "$ROOT_DIR:0750" "$BIN_DIR:0750" "$SECRETS_DIR:0700"; do
+    path="${spec%:*}"
+    expected="${spec#*:}"
+    if [ ! -e "$path" ]; then
+      echo "$path: absent"
+      failed=1
+      continue
+    fi
+    actual="$("$STAT" -f '%04OLp' "$path")"
+    echo "$path: $actual"
+    [ "$actual" = "$expected" ] || failed=1
+  done
+  [ "$failed" -eq 0 ]
+}
+
+plist_value() {
+  "$PLISTBUDDY" -c "Print $1" "$GATEWAY_PLIST" 2>/dev/null
 }
 
 cert_check_launchd_gateway() {
-  [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" = "1" ] && return 0
-  launchctl print system/ai.openclaw.gateway >/dev/null 2>&1
-}
-
-cert_check_identity_and_paths() {
-  validate_preexisting_state
+  if [ "${AGENT_OS_BOOTSTRAP_ALLOW_NONROOT_TEST:-0}" = "1" ]; then
+    echo "fixture launchd: ai.openclaw.gateway"
+    return "${AGENT_OS_FIXTURE_LAUNCHD_FAIL:-0}"
+  fi
+  local loaded plist_label plist_user plist_group plist_arg0 plist_arg1 pid pid_user plist_meta failed=0
+  loaded="$("$LAUNCHCTL" print system/ai.openclaw.gateway 2>&1)" || { echo "$loaded"; return 1; }
+  plist_label="$(plist_value :Label)"
+  plist_user="$(plist_value :UserName)"
+  plist_group="$(plist_value :GroupName)"
+  plist_arg0="$(plist_value :ProgramArguments:0)"
+  plist_arg1="$(plist_value :ProgramArguments:1)"
+  plist_meta="$("$STAT" -f '%Su:%Sg %04OLp' "$GATEWAY_PLIST")"
+  echo "plist label: $plist_label"
+  echo "plist user/group: $plist_user:$plist_group"
+  echo "plist ProgramArguments[0]: $plist_arg0"
+  echo "plist ProgramArguments[1]: $plist_arg1"
+  echo "plist owner/mode: $plist_meta"
+  printf '%s\n' "$loaded" | grep -q 'state = running' || { echo "loaded gateway is not running"; failed=1; }
+  printf '%s\n' "$loaded" | grep -q "program = $plist_arg0" || { echo "loaded program differs from plist"; failed=1; }
+  printf '%s\n' "$loaded" | grep -q "^[[:space:]]*$plist_arg0$" || { echo "loaded arg0 differs from plist"; failed=1; }
+  printf '%s\n' "$loaded" | grep -q "^[[:space:]]*$plist_arg1$" || { echo "loaded arg1 differs from plist"; failed=1; }
+  printf '%s\n' "$loaded" | grep -q 'username = openclawgw' || { echo "loaded username is not openclawgw"; failed=1; }
+  printf '%s\n' "$loaded" | grep -q 'group = openclawgw' || { echo "loaded group is not openclawgw"; failed=1; }
+  [ "$plist_label" = "ai.openclaw.gateway" ] || failed=1
+  [ "$plist_user" = "openclawgw" ] || failed=1
+  [ "$plist_group" = "openclawgw" ] || failed=1
+  [ "$plist_meta" = "root:wheel 0644" ] || { echo "unexpected plist owner/mode"; failed=1; }
+  pid="$(printf '%s\n' "$loaded" | awk '/^[[:space:]]*pid = / { print $3; exit }')"
+  [ -n "$pid" ] || { echo "loaded gateway pid missing"; failed=1; }
+  if [ -n "$pid" ]; then
+    pid_user="$("$PS" -o user= -p "$pid" 2>/dev/null | awk '{print $1}')"
+    echo "running pid owner: ${pid_user:-<missing>}"
+    [ "$pid_user" = "openclawgw" ] || failed=1
+  fi
+  [ "$failed" -eq 0 ]
 }
 
 cert_check_health_probe() {
   [ -x "$HEALTH_PROBE" ] || return 1
-  "$HEALTH_PROBE" >/dev/null 2>&1
+  "$HEALTH_PROBE"
 }
 
 cert_check_no_credential_or_service() {
@@ -652,25 +729,45 @@ cert_check_no_credential_or_service() {
 }
 
 cert_check_rollback_prerequisites() {
-  [ -n "$ROLLBACK" ] || return 1
-  [ -n "$TXN_MANIFEST" ] || return 1
+  local parent parent_meta mode failed=0
+  for tool in "$DSCL" "$RMDIR" "$STAT" "$CHMOD"; do
+    command -v "$tool" >/dev/null 2>&1 || { echo "rollback tool unavailable: $tool"; failed=1; }
+  done
+  parent="$(dirname "$OUT_DIR")"
+  [ -d "$parent" ] || { echo "evidence parent missing: $parent"; failed=1; }
+  if [ -d "$parent" ]; then
+    parent_meta="$("$STAT" -f '%Su:%Sg %04OLp' "$parent")"
+    mode="${parent_meta##* }"
+    echo "evidence parent: $parent $parent_meta"
+    if [ $((8#$mode & 0022)) -ne 0 ]; then
+      echo "evidence parent is group/world writable"
+      failed=1
+    fi
+  fi
+  declare -F generate_rollback >/dev/null || { echo "rollback generator unavailable"; failed=1; }
+  declare -F txn_append >/dev/null || { echo "transaction manifest writer unavailable"; failed=1; }
+  declare -F txn_has >/dev/null || { echo "transaction manifest reader unavailable"; failed=1; }
+  echo "approved rollback paths: $HOME_DIR $ROOT_DIR $BIN_DIR $SECRETS_DIR"
+  echo "generated evidence mode requirement: rollback=0700 transaction-manifest=0600-equivalent directory=0700"
+  [ "$failed" -eq 0 ]
 }
 
 run_certify_host() {
   CERT_FAILURES=()
   echo "HOST COMPATIBILITY CERTIFICATION"
-  cert_eval "MACOS VERSION AVAILABLE" cert_check_macos
+  cert_eval "MACOS VERSION AND BASELINE STATUS" cert_check_macos
   cert_eval "REQUIRED SYSTEM TOOLS AVAILABLE" cert_check_system_tools
-  cert_eval "DSCL ATTRIBUTE RENDERING PARSER" cert_check_ds_parser
-  cert_eval "UID/GID OR CANONICAL EXISTING ALLOCATION" cert_check_identity_and_paths
-  cert_eval "STAT MODE NORMALIZATION" path_state "$HOME_DIR"
-  cert_eval "LAUNCHD GATEWAY LABEL PRESENT" cert_check_launchd_gateway
+  cert_eval "DIRECTORY SERVICES COMPATIBILITY" cert_check_ds_parser
+  cert_eval "UID/GID ALLOCATION INTEGRITY" cert_check_uid_gid_integrity
+  cert_eval "IDENTITY ATTRIBUTES AND CUSTODY INTEGRITY" cert_check_identity_and_custody
+  cert_eval "NORMALIZED CUSTODY MODES" cert_check_normalized_modes
+  cert_eval "LAUNCHDAEMON PLIST AND LOADED JOB CONSISTENCY" cert_check_launchd_gateway
   cert_eval "FIXED HEALTH WRAPPER AVAILABLE" test -x "$HEALTH_PROBE"
-  cert_eval "HEALTH EXECUTION UNDER OPENCLAWGW" cert_check_health_probe
-  cert_eval "EXISTING BROKER IDENTITY AND CUSTODY STATE" cert_check_identity_and_paths
+  cert_eval "GATEWAY RUNTIME IDENTITY AND HEALTH PROBE EXECUTION" cert_check_health_probe
   cert_eval "ROLLBACK SCRIPT PREREQUISITES" cert_check_rollback_prerequisites
   cert_eval "NO CREDENTIAL STORE OR BROKER SERVICE" cert_check_no_credential_or_service
-  echo "ZERO WRITE OPERATIONS: CONFIRMED"
+  echo "CERTIFICATION MODE CONTRACT: READ-ONLY"
+  echo "NO MUTATION FUNCTIONS INVOKED: VERIFIED BY HARNESS"
   if [ "${#CERT_FAILURES[@]}" -eq 0 ]; then
     echo "HOST COMPATIBILITY CERTIFIED: PASS"
     return 0
@@ -900,6 +997,7 @@ else
 fi
 case "$fmt" in
   *%Su:%Sg*) echo "$meta" ;;
+  *%04OLp*) echo "$meta" | awk '{print $2}' ;;
   *) printf '0\t%s\t0\t%s\t%s\n' "${meta%%:*}" "$(echo "$meta" | awk '{print $1}' | cut -d: -f2)" "$(echo "$meta" | awk '{print $2}')" ;;
 esac
 FAKE
@@ -1062,6 +1160,21 @@ FAKE
   assert_grep "HOST COMPATIBILITY CERTIFIED: PASS" "$test_root/output"
   [ ! -d "$test_root/out" ] || { echo "SELF TEST assertion failed: certify wrote output dir" >&2; exit 1; }
   echo "SELF TEST host-certification-fixture: PASS"
+
+  set +e
+  AGENT_OS_FIXTURE_BROAD_GROUP=1 \
+  AGENT_OS_FIXTURE_HEALTH_PROBE="$test_root/missing-health-probe" \
+  AGENT_OS_FIXTURE_LAUNCHD_FAIL=1 \
+  run_fixture --certify-host
+  status=$?
+  set -e
+  [ "$status" -ne 0 ] || { echo "SELF TEST assertion failed: aggregate failure certification succeeded" >&2; exit 1; }
+  assert_grep "HOST COMPATIBILITY CERTIFIED: FAIL" "$test_root/output"
+  assert_grep "IDENTITY ATTRIBUTES AND CUSTODY INTEGRITY: FAIL" "$test_root/output"
+  assert_grep "LAUNCHDAEMON PLIST AND LOADED JOB CONSISTENCY: FAIL" "$test_root/output"
+  assert_grep "FIXED HEALTH WRAPPER AVAILABLE: FAIL" "$test_root/output"
+  assert_grep "GATEWAY RUNTIME IDENTITY AND HEALTH PROBE EXECUTION: FAIL" "$test_root/output"
+  echo "SELF TEST host-certification-aggregate-failures: PASS"
 
   set +e; AGENT_OS_FIXTURE_MULTILINE_REALNAME=1 run_fixture --dry-run; status=$?; set -e
   [ "$status" -eq 0 ] || { echo "SELF TEST assertion failed: multiline RealName rejected" >&2; cat "$test_root/output" >&2; exit 1; }
