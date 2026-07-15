@@ -277,3 +277,41 @@ Foundation regression is partially proven:
 - F-A3 direct handoff gate and adversarial suite: PASS.
 
 F-A4 closure remains blocked by native validation access failures, inactive egress proxy, unavailable pf evidence from the non-privileged context, stale launchd version metadata, and incomplete runtime-identity regression.
+
+## Comprehensive Remediation Pass — 2026-07-15
+
+This pass reconciled F-A4 against the installed OpenClaw `2026.6.11 (e085fa1)` command surface and the live containment blockers without changing runtime state.
+
+### Command Surface Reconciliation
+
+Installed OpenClaw `2026.6.11` exposes:
+
+- `openclaw security audit --json`
+- `openclaw security audit --deep --json`
+- `openclaw doctor --lint --json`
+- `openclaw secrets audit --json`
+- `openclaw sandbox explain --agent <agent> --json`
+
+It does not expose `openclaw doctor --security`. F-A4 validation now treats `doctor --lint --json` plus `security audit` as the supported native security validation path for this baseline.
+
+### Architecture Decisions
+
+- Credential model: Gmail remains broker-mediated. OpenClaw SecretRef/native secrets should be used for supported runtime credentials, but SecretRef does not replace broker semantic controls or broker-owned Gmail credential custody.
+- Egress model: the selected F-A4 path remains the operator-owned loopback CONNECT proxy with pf backstop. Native OpenClaw controls are enforcement and diagnostic primitives, not a replacement for host network containment.
+- Validation model: read-only validation must be operator-owned and run as root or the relevant runtime identity because the non-privileged `agent` context cannot read locked OpenClaw config by design.
+- Command Center: not part of F-A4. It remains downstream of F-A4 containment, F-B evidence substrate, and F-C semantic-action governance.
+
+### Egress Proxy Finding
+
+`ai.agent-os-egress-proxy` is installed as a LaunchDaemon for `egressproxy:egressproxy` but is inactive with `EX_CONFIG`. Non-privileged inspection showed the support directory exists at `/Library/Application Support/agent-os-egress-proxy` with `root:egressproxy` ownership and mode `0750`, while `/Library/Logs/agent-os-egress-proxy` was not present to the `agent` validator. The likely root cause is incomplete or drifted installation of the reviewed proxy support/log artifacts, not an architecture failure.
+
+### Remediation Artifacts Prepared
+
+- `scripts/fa4-operator-egress-proxy-repair.sh` installs the reviewed `drafts/fa4-phase5/` proxy artifacts into the intended root-owned runtime paths and restarts only the proxy LaunchDaemon.
+- `scripts/fa4-operator-readonly-validation.sh` captures native audit, sandbox, pf, broker, and F-A3 regression evidence as the appropriate operator/runtime identities while preserving the root-owned OpenClaw tamper lock.
+
+No runtime, credential, connector, launchd, socket, pf, or OpenClaw configuration change was made by this pass.
+
+### Status
+
+F-A4 remains **not closed**. The repository now contains the selected repair and validation path, but closure still requires operator execution of the prepared scripts, evidence reconciliation, successful containment proof, and publication.

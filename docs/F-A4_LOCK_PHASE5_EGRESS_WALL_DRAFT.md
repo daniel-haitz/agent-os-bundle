@@ -61,6 +61,8 @@ Draft install paths:
 - LaunchDaemon:
   `/Library/LaunchDaemons/ai.agent-os-egress-proxy.plist`
 
+The reviewed install/repair path is captured in `scripts/fa4-operator-egress-proxy-repair.sh`. Use that script from an operator root shell for the proxy artifact install so the support directory, log directory, file modes, ownership, and LaunchDaemon reload are applied consistently. Manual commands below remain explanatory and reviewable, not the preferred execution path.
+
 Recommended ownership/mode:
 
 ```sh

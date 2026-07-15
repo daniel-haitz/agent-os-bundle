@@ -86,6 +86,8 @@ CRITICAL_PUBLICATION_PATHS=(
   "audits/F-A1-negative-test-results.md"
   "scripts/wrap-up.sh"
   "scripts/bundle-for-claude.sh"
+  "scripts/fa4-operator-readonly-validation.sh"
+  "scripts/fa4-operator-egress-proxy-repair.sh"
 )
 
 for required in "${CRITICAL_PUBLICATION_PATHS[@]}"; do

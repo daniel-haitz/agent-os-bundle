@@ -504,6 +504,19 @@ Custom development remains limited to:
 
 OpenClaw SecretRef covers supported credential paths. Browser-mediated credential injection remains separate and blocked until a credential firewall capability or equivalent Agent OS-controlled solution is validated.
 
+## F-A4 Final Architecture Decision
+
+F-A4 uses OpenClaw native enforcement primitives where they fit, but the final boundary remains Agent OS-governed and evidence-driven.
+
+| Area | Decision | Rationale |
+|---|---|---|
+| Credential handling | Gmail broker plus OpenClaw SecretRef/native secrets for supported runtime credentials | SecretRef reduces raw credential exposure for supported paths, but it does not replace broker semantic controls or broker-owned Gmail custody. Browser-mediated credential injection remains blocked until a credential firewall or equivalent Agent OS-controlled solution is validated. |
+| Egress | Repair the operator-owned loopback CONNECT proxy with pf backstop | The existing proxy/pf design is still the narrowest F-A4 containment path. Native OpenClaw controls and diagnostics are validation/enforcement primitives, not a complete replacement for the host network boundary. Docker/container egress is not selected for this host. |
+| Validation | Operator-owned read-only validation wrapper | The non-privileged `agent` user cannot read locked OpenClaw config by design. Validation must run through an operator-owned path that preserves the root-owned tamper lock and captures evidence as `openclawgw`, `gmailbroker`, or root only where required. |
+| Governance | Existing Change Control Standard, wrap-up gates, obligation register, and publication manifest | Governance remains the Agent OS-owned layer that turns runtime facts into traceable closure claims and prevents drift. |
+
+Command Center is not part of F-A4. It remains downstream of F-A4 containment, F-B evidence substrate, and F-C semantic-action governance.
+
 ## Resulting roadmap
 
 ### KEEP

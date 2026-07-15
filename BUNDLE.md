@@ -1,5 +1,5 @@
 # AGENT OS — STATE BUNDLE FOR CLAUDE
-_Generated: 2026-07-15T03:07:47Z · commit: 3daa583_
+_Generated: 2026-07-15T03:20:15Z · commit: 3c65ffc_
 
 This is a sanitized snapshot for Claude.ai review. Secrets are excluded by .gitignore + scan.
 
@@ -50,6 +50,9 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The approved Gmail broker path is draft-only/no-send proven. System-wide no-send is not proven while external connector surfaces remain.
 - Current model assignment evidence is recorded in ADR-013: `gmail-reader` uses `ollama/qwen3-coder:30b`; `email-researcher` uses `openai/gpt-5.5`.
 - F-A4 foundation hardening validation evidence is recorded in `audits/F-A4-foundation-hardening-validation.md`. F-A4 is not closed.
+- The selected F-A4 remediation path is operator-owned repair and validation without weakening the root-owned OpenClaw tamper lock:
+  - `scripts/fa4-operator-egress-proxy-repair.sh`
+  - `scripts/fa4-operator-readonly-validation.sh`
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.
@@ -106,7 +109,7 @@ Research produces proposals. Implementation changes require explicit approval, s
 | F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
 | F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
 | F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — FOUNDATION VALIDATION PARTIAL; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open. |
+| F-A4 Complete mediation and egress | IN BUILD — REMEDIATION PACKAGE PREPARED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. Operator-owned egress proxy repair and read-only validation scripts are prepared, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open until operator execution records evidence. |
 | OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
 | F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
 | F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
@@ -166,20 +169,24 @@ F-B and F-C remain blocked until their enforcement and evidence gates are implem
 
 Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy LaunchDaemon exists but is not active and exits with `EX_CONFIG`. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
 
-F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock.
+F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
+
+1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
+2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
+3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
 
 ## Next actions
 
 ### Immediate bounded action
 
-Remediate or operator-validate the F-A4 foundation gaps recorded in `audits/F-A4-foundation-hardening-validation.md` without weakening the root-owned tamper lock.
+Run the prepared F-A4 operator repair/validation path and reconcile the captured evidence without weakening the root-owned tamper lock.
 
 Required results:
 
 1. Native OpenClaw security/secrets/sandbox validation runs through an approved read-only path.
-2. The unsupported `openclaw doctor --security` requirement is reconciled to a supported `2026.6.11` command or documented as unavailable for this baseline.
+2. The unsupported `openclaw doctor --security` requirement is replaced by the supported `2026.6.11` command surface: `security audit --json`, `security audit --deep --json`, `doctor --lint --json`, `secrets audit --json`, and `sandbox explain --json`.
 3. `openclaw secrets audit` no longer fails on `/Users/agent/.openclaw/npm/projects`, or the failure is source-backed as irrelevant to security validation.
-4. Egress proxy `EX_CONFIG` is resolved and proxy/pf evidence is captured through the approved operator path.
+4. Egress proxy `EX_CONFIG` is resolved by the reviewed proxy artifact repair path, and proxy/pf evidence is captured through the approved operator path.
 5. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
 6. F-A1/F-A2/F-A3 bounded regression is executed for the actual gateway/runtime identity where required by the F-A4 cutover gate.
 
@@ -274,6 +281,7 @@ Do not reorder this sequence without explicit architecture approval.
 
 ## Recent git log (20)
 ```
+3c65ffc validation: prepare F-A4 remediation and operator validation path
 3daa583 validation: complete F-A4 foundation hardening evidence
 d2f5b1a architecture: reconcile Agent OS with OpenClaw native capabilities
 ca7e0ea governance: wire enforcement and reconcile evidence controls
@@ -293,7 +301,6 @@ a3d31c3 [codex] F-A4.5: record wall proof and Gmail blockers
 0b973f6 [codex] publish: print bundle freshness reference
 551aa14 [codex] F-A4: record recovery state in CONTROL
 929e2e0 docs: patch cutover runbook — rollback ownership integrity, cert preflight, inline foundation proofs
-191b40c docs: assemble F-A4 gateway re-home cutover runbook (draft, operator-by-hand)
 ```
 
 ## Repo tree (no node_modules / .secrets / state)
@@ -360,6 +367,8 @@ drafts/fa4-phase5/pf.conf.fragment
 drafts/fa4-phase5/phase5-proof-commands.sh
 scripts/bundle-for-claude.sh
 scripts/end-session.sh
+scripts/fa4-operator-egress-proxy-repair.sh
+scripts/fa4-operator-readonly-validation.sh
 scripts/observability/q1-silent-failures.mjs
 scripts/observability/q2-orphan-correlations.mjs
 scripts/observability/q3-unclosed-runs.mjs
@@ -396,16 +405,16 @@ templates/DROP_FORMAT.md
 
 ## Publication validation
 ```text
-manifest commit: ca7e0eaa2b497a71f7fbf030a44978b30fd4d9ca
-published files: 42
+manifest commit: 3c65ffc0d9044516774b9b61b0b1b08796c0a6c5
+published files: 44
 missing files count: 0
 ```
 
 ## Governance enforcement
 ```text
 wrap-up.sh commit: d2f5b1a5c6014a1ed94b9a92923a9d2bb8501003
-bundle-for-claude.sh commit: d2f5b1a5c6014a1ed94b9a92923a9d2bb8501003
-last validation timestamp: 2026-07-15T03:07:47Z
+bundle-for-claude.sh commit: 3c65ffc0d9044516774b9b61b0b1b08796c0a6c5
+last validation timestamp: 2026-07-15T03:20:15Z
 ```
 
 ---
@@ -436,6 +445,8 @@ This includes the manifest itself, architecture decisions, change-control standa
 
 - `scripts/wrap-up.sh`
 - `scripts/bundle-for-claude.sh`
+- `scripts/fa4-operator-readonly-validation.sh`
+- `scripts/fa4-operator-egress-proxy-repair.sh`
 
 ## Machine-Readable Published Paths
 
@@ -446,6 +457,8 @@ docs/
 audits/
 scripts/wrap-up.sh
 scripts/bundle-for-claude.sh
+scripts/fa4-operator-readonly-validation.sh
+scripts/fa4-operator-egress-proxy-repair.sh
 ```
 ```
 
@@ -497,6 +510,9 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The approved Gmail broker path is draft-only/no-send proven. System-wide no-send is not proven while external connector surfaces remain.
 - Current model assignment evidence is recorded in ADR-013: `gmail-reader` uses `ollama/qwen3-coder:30b`; `email-researcher` uses `openai/gpt-5.5`.
 - F-A4 foundation hardening validation evidence is recorded in `audits/F-A4-foundation-hardening-validation.md`. F-A4 is not closed.
+- The selected F-A4 remediation path is operator-owned repair and validation without weakening the root-owned OpenClaw tamper lock:
+  - `scripts/fa4-operator-egress-proxy-repair.sh`
+  - `scripts/fa4-operator-readonly-validation.sh`
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.
@@ -553,7 +569,7 @@ Research produces proposals. Implementation changes require explicit approval, s
 | F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
 | F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
 | F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — FOUNDATION VALIDATION PARTIAL; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open. |
+| F-A4 Complete mediation and egress | IN BUILD — REMEDIATION PACKAGE PREPARED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. Operator-owned egress proxy repair and read-only validation scripts are prepared, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open until operator execution records evidence. |
 | OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
 | F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
 | F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
@@ -613,20 +629,24 @@ F-B and F-C remain blocked until their enforcement and evidence gates are implem
 
 Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy LaunchDaemon exists but is not active and exits with `EX_CONFIG`. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
 
-F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock.
+F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
+
+1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
+2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
+3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
 
 ## Next actions
 
 ### Immediate bounded action
 
-Remediate or operator-validate the F-A4 foundation gaps recorded in `audits/F-A4-foundation-hardening-validation.md` without weakening the root-owned tamper lock.
+Run the prepared F-A4 operator repair/validation path and reconcile the captured evidence without weakening the root-owned tamper lock.
 
 Required results:
 
 1. Native OpenClaw security/secrets/sandbox validation runs through an approved read-only path.
-2. The unsupported `openclaw doctor --security` requirement is reconciled to a supported `2026.6.11` command or documented as unavailable for this baseline.
+2. The unsupported `openclaw doctor --security` requirement is replaced by the supported `2026.6.11` command surface: `security audit --json`, `security audit --deep --json`, `doctor --lint --json`, `secrets audit --json`, and `sandbox explain --json`.
 3. `openclaw secrets audit` no longer fails on `/Users/agent/.openclaw/npm/projects`, or the failure is source-backed as irrelevant to security validation.
-4. Egress proxy `EX_CONFIG` is resolved and proxy/pf evidence is captured through the approved operator path.
+4. Egress proxy `EX_CONFIG` is resolved by the reviewed proxy artifact repair path, and proxy/pf evidence is captured through the approved operator path.
 5. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
 6. F-A1/F-A2/F-A3 bounded regression is executed for the actual gateway/runtime identity where required by the F-A4 cutover gate.
 
@@ -4001,6 +4021,44 @@ Foundation regression is partially proven:
 - F-A3 direct handoff gate and adversarial suite: PASS.
 
 F-A4 closure remains blocked by native validation access failures, inactive egress proxy, unavailable pf evidence from the non-privileged context, stale launchd version metadata, and incomplete runtime-identity regression.
+
+## Comprehensive Remediation Pass — 2026-07-15
+
+This pass reconciled F-A4 against the installed OpenClaw `2026.6.11 (e085fa1)` command surface and the live containment blockers without changing runtime state.
+
+### Command Surface Reconciliation
+
+Installed OpenClaw `2026.6.11` exposes:
+
+- `openclaw security audit --json`
+- `openclaw security audit --deep --json`
+- `openclaw doctor --lint --json`
+- `openclaw secrets audit --json`
+- `openclaw sandbox explain --agent <agent> --json`
+
+It does not expose `openclaw doctor --security`. F-A4 validation now treats `doctor --lint --json` plus `security audit` as the supported native security validation path for this baseline.
+
+### Architecture Decisions
+
+- Credential model: Gmail remains broker-mediated. OpenClaw SecretRef/native secrets should be used for supported runtime credentials, but SecretRef does not replace broker semantic controls or broker-owned Gmail credential custody.
+- Egress model: the selected F-A4 path remains the operator-owned loopback CONNECT proxy with pf backstop. Native OpenClaw controls are enforcement and diagnostic primitives, not a replacement for host network containment.
+- Validation model: read-only validation must be operator-owned and run as root or the relevant runtime identity because the non-privileged `agent` context cannot read locked OpenClaw config by design.
+- Command Center: not part of F-A4. It remains downstream of F-A4 containment, F-B evidence substrate, and F-C semantic-action governance.
+
+### Egress Proxy Finding
+
+`ai.agent-os-egress-proxy` is installed as a LaunchDaemon for `egressproxy:egressproxy` but is inactive with `EX_CONFIG`. Non-privileged inspection showed the support directory exists at `/Library/Application Support/agent-os-egress-proxy` with `root:egressproxy` ownership and mode `0750`, while `/Library/Logs/agent-os-egress-proxy` was not present to the `agent` validator. The likely root cause is incomplete or drifted installation of the reviewed proxy support/log artifacts, not an architecture failure.
+
+### Remediation Artifacts Prepared
+
+- `scripts/fa4-operator-egress-proxy-repair.sh` installs the reviewed `drafts/fa4-phase5/` proxy artifacts into the intended root-owned runtime paths and restarts only the proxy LaunchDaemon.
+- `scripts/fa4-operator-readonly-validation.sh` captures native audit, sandbox, pf, broker, and F-A3 regression evidence as the appropriate operator/runtime identities while preserving the root-owned OpenClaw tamper lock.
+
+No runtime, credential, connector, launchd, socket, pf, or OpenClaw configuration change was made by this pass.
+
+### Status
+
+F-A4 remains **not closed**. The repository now contains the selected repair and validation path, but closure still requires operator execution of the prepared scripts, evidence reconciliation, successful containment proof, and publication.
 ```
 
 ### docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md
@@ -4532,6 +4590,19 @@ Custom development remains limited to:
 - gaps not solved by OpenClaw.
 
 OpenClaw SecretRef covers supported credential paths. Browser-mediated credential injection remains separate and blocked until a credential firewall capability or equivalent Agent OS-controlled solution is validated.
+
+## F-A4 Final Architecture Decision
+
+F-A4 uses OpenClaw native enforcement primitives where they fit, but the final boundary remains Agent OS-governed and evidence-driven.
+
+| Area | Decision | Rationale |
+|---|---|---|
+| Credential handling | Gmail broker plus OpenClaw SecretRef/native secrets for supported runtime credentials | SecretRef reduces raw credential exposure for supported paths, but it does not replace broker semantic controls or broker-owned Gmail custody. Browser-mediated credential injection remains blocked until a credential firewall or equivalent Agent OS-controlled solution is validated. |
+| Egress | Repair the operator-owned loopback CONNECT proxy with pf backstop | The existing proxy/pf design is still the narrowest F-A4 containment path. Native OpenClaw controls and diagnostics are validation/enforcement primitives, not a complete replacement for the host network boundary. Docker/container egress is not selected for this host. |
+| Validation | Operator-owned read-only validation wrapper | The non-privileged `agent` user cannot read locked OpenClaw config by design. Validation must run through an operator-owned path that preserves the root-owned tamper lock and captures evidence as `openclawgw`, `gmailbroker`, or root only where required. |
+| Governance | Existing Change Control Standard, wrap-up gates, obligation register, and publication manifest | Governance remains the Agent OS-owned layer that turns runtime facts into traceable closure claims and prevents drift. |
+
+Command Center is not part of F-A4. It remains downstream of F-A4 containment, F-B evidence substrate, and F-C semantic-action governance.
 
 ## Resulting roadmap
 
@@ -5678,6 +5749,8 @@ This includes the manifest itself, architecture decisions, change-control standa
 
 - `scripts/wrap-up.sh`
 - `scripts/bundle-for-claude.sh`
+- `scripts/fa4-operator-readonly-validation.sh`
+- `scripts/fa4-operator-egress-proxy-repair.sh`
 
 ## Machine-Readable Published Paths
 
@@ -5688,6 +5761,8 @@ docs/
 audits/
 scripts/wrap-up.sh
 scripts/bundle-for-claude.sh
+scripts/fa4-operator-readonly-validation.sh
+scripts/fa4-operator-egress-proxy-repair.sh
 ```
 ```
 
@@ -6925,12 +7000,13 @@ Before F-A4 closure, validate the current OpenClaw native enforcement baseline. 
 
 Security:
 
-- `openclaw security audit`
-- `openclaw doctor --security`
+- `openclaw security audit --json`
+- `openclaw security audit --deep --json`
+- `openclaw doctor --lint --json`
 
 Secrets:
 
-- `openclaw secrets audit`
+- `openclaw secrets audit --json`
 - SecretRef migration where applicable
 
 Runtime:
@@ -6943,6 +7019,12 @@ Sandbox:
 - sandbox mode
 - filesystem permissions
 - network controls
+
+OpenClaw `2026.6.11 (e085fa1)` does not expose `openclaw doctor --security`. The supported native validation commands for this baseline are `security audit`, `doctor --lint`, `secrets audit`, and `sandbox explain`.
+
+The locked OpenClaw config remains root-owned and must not be loosened for validation. Run `scripts/fa4-operator-readonly-validation.sh` from an operator root shell to capture read-only native audit, sandbox, pf, broker, and F-A3 regression evidence as the appropriate runtime identities.
+
+If `ai.agent-os-egress-proxy` exits with `EX_CONFIG`, use `scripts/fa4-operator-egress-proxy-repair.sh` from an operator root shell to install the reviewed `drafts/fa4-phase5/` proxy artifacts into their root-owned runtime paths and restart only the proxy LaunchDaemon. This repair does not edit OpenClaw config or pf configuration.
 
 ### 0.1 Timestamp And Destination
 
@@ -8960,6 +9042,8 @@ Draft install paths:
   `/Library/Logs/agent-os-egress-proxy/proxy.jsonl`
 - LaunchDaemon:
   `/Library/LaunchDaemons/ai.agent-os-egress-proxy.plist`
+
+The reviewed install/repair path is captured in `scripts/fa4-operator-egress-proxy-repair.sh`. Use that script from an operator root shell for the proxy artifact install so the support directory, log directory, file modes, ownership, and LaunchDaemon reload are applied consistently. Manual commands below remain explanatory and reviewable, not the preferred execution path.
 
 Recommended ownership/mode:
 
@@ -11315,6 +11399,8 @@ CRITICAL_PUBLICATION_PATHS=(
   "audits/F-A1-negative-test-results.md"
   "scripts/wrap-up.sh"
   "scripts/bundle-for-claude.sh"
+  "scripts/fa4-operator-readonly-validation.sh"
+  "scripts/fa4-operator-egress-proxy-repair.sh"
 )
 
 for required in "${CRITICAL_PUBLICATION_PATHS[@]}"; do
@@ -11510,6 +11596,169 @@ echo ""
 echo "Docs base URL:"
 echo "https://raw.githubusercontent.com/$SLUG/$BRANCH/docs/"
 echo "================================"
+```
+
+### scripts/fa4-operator-egress-proxy-repair.sh
+```markdown
+#!/usr/bin/env bash
+# F-A4 operator-owned egress proxy repair/install harness.
+#
+# Run by the human operator from an admin shell. This installs the already
+# reviewed draft proxy artifacts into their root-owned runtime paths and starts
+# the egress proxy LaunchDaemon. It does not edit OpenClaw config or pf.conf.
+
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "ERROR: run as root via sudo from the operator account." >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DRAFT_DIR="$REPO_ROOT/drafts/fa4-phase5"
+SUPPORT_DIR="/Library/Application Support/agent-os-egress-proxy"
+LOG_DIR="/Library/Logs/agent-os-egress-proxy"
+PLIST="/Library/LaunchDaemons/ai.agent-os-egress-proxy.plist"
+
+if ! id -u egressproxy >/dev/null 2>&1; then
+  echo "ERROR: egressproxy user does not exist. Create it through the reviewed F-A4 operator process first." >&2
+  exit 1
+fi
+
+node --check "$DRAFT_DIR/agent-os-egress-proxy.mjs"
+plutil -lint "$DRAFT_DIR/ai.agent-os-egress-proxy.plist"
+plutil -lint "$DRAFT_DIR/ai.agent-os-egress-pf.plist"
+sh -n "$DRAFT_DIR/phase5-proof-commands.sh"
+pfctl -nf "$DRAFT_DIR/agent-os-egress.anchor"
+
+install -d -o root -g egressproxy -m 0750 "$SUPPORT_DIR"
+install -d -o egressproxy -g egressproxy -m 0750 "$LOG_DIR"
+install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress-proxy.mjs" "$SUPPORT_DIR/agent-os-egress-proxy.mjs"
+install -o root -g egressproxy -m 0440 "$DRAFT_DIR/allowlist.txt" "$SUPPORT_DIR/allowlist.txt"
+install -o root -g egressproxy -m 0440 "$DRAFT_DIR/agent-os-egress.anchor" "$SUPPORT_DIR/agent-os-egress.anchor"
+install -o root -g wheel -m 0644 "$DRAFT_DIR/ai.agent-os-egress-proxy.plist" "$PLIST"
+
+launchctl bootout system/ai.agent-os-egress-proxy 2>/dev/null || true
+launchctl bootstrap system "$PLIST"
+launchctl kickstart -k system/ai.agent-os-egress-proxy
+sleep 2
+launchctl print system/ai.agent-os-egress-proxy
+lsof -nP -iTCP:13128 -sTCP:LISTEN
+
+echo "Proxy repair/install complete. Next operator steps:"
+echo "1. Run proxy allow/deny sanity checks from docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md."
+echo "2. Add the pf.conf fragment only after review, then dry-run /etc/pf.conf."
+echo "3. Re-run scripts/fa4-operator-readonly-validation.sh and reconcile evidence."
+```
+
+### scripts/fa4-operator-readonly-validation.sh
+```markdown
+#!/usr/bin/env bash
+# F-A4 operator-owned read-only validation harness.
+#
+# Run by the human operator from an admin shell. This script intentionally uses
+# sudo for protected read-only checks while preserving the root-owned OpenClaw
+# tamper lock. It must not print secret values.
+
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "ERROR: run as root via sudo from the operator account." >&2
+  exit 1
+fi
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TS="$(date -u +%Y%m%dT%H%M%SZ)"
+OUT_DIR="${1:-/Users/dannybigdeals/fa4-readonly-validation-${TS}}"
+OPENCLAW_BIN="/Users/agent/.local/bin/openclaw"
+NODE_BIN="/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node"
+BROKER_CLIENT="/Users/agent/.openclaw/scripts/gmail-broker-client.mjs"
+GATE_SCRIPT="/Users/agent/.openclaw/scripts/research-handoff-gate.mjs"
+GATE_TEST="/Users/agent/.openclaw/scripts/test-research-handoff-gate.mjs"
+
+mkdir -p "$OUT_DIR"
+chmod 0700 "$OUT_DIR"
+
+redact() {
+  sed -E \
+    -e 's/("?(api[_-]?key|token|password|secret|authorization|refresh[_-]?token|access[_-]?token)"?[[:space:]]*[:=][[:space:]]*)("[^"]+"|[^[:space:],}]+)/\1"<redacted>"/Ig' \
+    -e 's/(Bearer )[A-Za-z0-9._~+\/=-]+/\1<redacted>/Ig'
+}
+
+run_capture() {
+  local name="$1"
+  shift
+  {
+    echo "### $name"
+    echo "\$ $*"
+    set +e
+    "$@" 2>&1 | redact
+    local cmd_status=${PIPESTATUS[0]}
+    set -e
+    echo "exit status: $cmd_status"
+    echo
+  } | tee "$OUT_DIR/$name.txt"
+}
+
+run_as_openclawgw() {
+  sudo -u openclawgw -g openclawgw env \
+    HOME=/Users/agent \
+    OPENCLAW_CONFIG_PATH=/Users/agent/.openclaw/openclaw.json \
+    OPENCLAW_STATE_DIR=/Users/agent/.openclaw/state \
+    PATH=/Users/agent/.local/bin:/Users/agent/.local/openclaw/tools/node-v22.22.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin \
+    "$@"
+}
+
+echo "F-A4 read-only validation capture: $OUT_DIR"
+date -u +%Y-%m-%dT%H:%M:%SZ | tee "$OUT_DIR/timestamp.txt"
+
+run_capture openclaw-version run_as_openclawgw "$OPENCLAW_BIN" --version
+run_capture gateway-launchd launchctl print system/ai.openclaw.gateway
+run_capture broker-launchd launchctl print system/ai.agent-os.gmail-broker
+run_capture egress-proxy-launchd launchctl print system/ai.agent-os-egress-proxy
+run_capture process-identities ps -axo user,uid,pid,ppid,command
+run_capture openclaw-path-modes stat -f '%Sp %Su:%Sg %N' \
+  /Users/agent/.openclaw \
+  /Users/agent/.openclaw/openclaw.json \
+  /Users/agent/.openclaw/npm \
+  /Users/agent/.openclaw/npm/projects \
+  /Users/agent/.openclaw/scripts \
+  /Users/agent/.openclaw/scripts/gmail-broker-client.mjs
+run_capture broker-socket-modes stat -f '%Sp %Su:%Sg %N' \
+  /var/run/agent-os \
+  /var/run/agent-os/gmail-broker.sock
+
+run_capture openclaw-security-audit run_as_openclawgw "$OPENCLAW_BIN" security audit --json
+run_capture openclaw-security-audit-deep run_as_openclawgw "$OPENCLAW_BIN" security audit --deep --json
+run_capture openclaw-doctor-lint run_as_openclawgw "$OPENCLAW_BIN" doctor --lint --json
+run_capture openclaw-secrets-audit run_as_openclawgw "$OPENCLAW_BIN" secrets audit --json
+run_capture sandbox-main run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent main --json
+run_capture sandbox-gmail-reader run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent gmail-reader --json
+run_capture sandbox-email-researcher run_as_openclawgw "$OPENCLAW_BIN" sandbox explain --agent email-researcher --json
+
+run_capture pf-info pfctl -s info
+run_capture pf-rules pfctl -s rules
+run_capture pf-anchors pfctl -s Anchors
+
+run_capture broker-health sudo -u openclawgw -g openclawgw "$NODE_BIN" "$BROKER_CLIENT" health_check '{}'
+run_capture broker-search sudo -u openclawgw -g openclawgw "$NODE_BIN" "$BROKER_CLIENT" search_threads '{"query":"newer_than:30d","limit":1}'
+run_capture f-a3-clean sudo -u openclawgw -g openclawgw "$GATE_SCRIPT" --no-log '{"thread_summary":"discarded by gate","research_request":{"kind":"company_fact","entity":"OpenAI","topic":"products"}}'
+run_capture f-a3-adversarial-suite sudo -u openclawgw -g openclawgw "$NODE_BIN" "$GATE_TEST"
+
+cat > "$OUT_DIR/README.txt" <<EOF
+F-A4 read-only validation completed.
+
+Review files in this directory for:
+- OpenClaw audit/doctor/secrets status
+- sandbox explain output
+- pf and egress proxy state
+- broker and F-A3 regression evidence
+
+Do not publish raw outputs if a redaction warning appears or secrets are visible.
+EOF
+
+echo "F-A4 read-only validation complete: $OUT_DIR"
 ```
 
 ### scripts/wrap-up.sh

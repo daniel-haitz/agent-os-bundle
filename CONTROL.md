@@ -42,6 +42,9 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - The approved Gmail broker path is draft-only/no-send proven. System-wide no-send is not proven while external connector surfaces remain.
 - Current model assignment evidence is recorded in ADR-013: `gmail-reader` uses `ollama/qwen3-coder:30b`; `email-researcher` uses `openai/gpt-5.5`.
 - F-A4 foundation hardening validation evidence is recorded in `audits/F-A4-foundation-hardening-validation.md`. F-A4 is not closed.
+- The selected F-A4 remediation path is operator-owned repair and validation without weakening the root-owned OpenClaw tamper lock:
+  - `scripts/fa4-operator-egress-proxy-repair.sh`
+  - `scripts/fa4-operator-readonly-validation.sh`
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
   - Validation date: original validation date pending reconstruction from historical validation artifacts.
@@ -98,7 +101,7 @@ Research produces proposals. Implementation changes require explicit approval, s
 | F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
 | F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
 | F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — FOUNDATION VALIDATION PARTIAL; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open. |
+| F-A4 Complete mediation and egress | IN BUILD — REMEDIATION PACKAGE PREPARED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. Operator-owned egress proxy repair and read-only validation scripts are prepared, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open until operator execution records evidence. |
 | OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
 | F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
 | F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
@@ -158,20 +161,24 @@ F-B and F-C remain blocked until their enforcement and evidence gates are implem
 
 Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged `agent` context because the locked runtime configuration is not readable. The egress proxy LaunchDaemon exists but is not active and exits with `EX_CONFIG`. pf inspection requires an operator-owned read-only validation path. Launchd metadata still reports `OPENCLAW_SERVICE_VERSION=2026.6.5` while the live binary reports `2026.6.11 (e085fa1)`.
 
-F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock.
+F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
+
+1. Repair the egress proxy installation with `scripts/fa4-operator-egress-proxy-repair.sh`.
+2. Capture read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
+3. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
 
 ## Next actions
 
 ### Immediate bounded action
 
-Remediate or operator-validate the F-A4 foundation gaps recorded in `audits/F-A4-foundation-hardening-validation.md` without weakening the root-owned tamper lock.
+Run the prepared F-A4 operator repair/validation path and reconcile the captured evidence without weakening the root-owned tamper lock.
 
 Required results:
 
 1. Native OpenClaw security/secrets/sandbox validation runs through an approved read-only path.
-2. The unsupported `openclaw doctor --security` requirement is reconciled to a supported `2026.6.11` command or documented as unavailable for this baseline.
+2. The unsupported `openclaw doctor --security` requirement is replaced by the supported `2026.6.11` command surface: `security audit --json`, `security audit --deep --json`, `doctor --lint --json`, `secrets audit --json`, and `sandbox explain --json`.
 3. `openclaw secrets audit` no longer fails on `/Users/agent/.openclaw/npm/projects`, or the failure is source-backed as irrelevant to security validation.
-4. Egress proxy `EX_CONFIG` is resolved and proxy/pf evidence is captured through the approved operator path.
+4. Egress proxy `EX_CONFIG` is resolved by the reviewed proxy artifact repair path, and proxy/pf evidence is captured through the approved operator path.
 5. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
 6. F-A1/F-A2/F-A3 bounded regression is executed for the actual gateway/runtime identity where required by the F-A4 cutover gate.
 

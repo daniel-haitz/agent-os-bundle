@@ -59,12 +59,13 @@ Before F-A4 closure, validate the current OpenClaw native enforcement baseline. 
 
 Security:
 
-- `openclaw security audit`
-- `openclaw doctor --security`
+- `openclaw security audit --json`
+- `openclaw security audit --deep --json`
+- `openclaw doctor --lint --json`
 
 Secrets:
 
-- `openclaw secrets audit`
+- `openclaw secrets audit --json`
 - SecretRef migration where applicable
 
 Runtime:
@@ -77,6 +78,12 @@ Sandbox:
 - sandbox mode
 - filesystem permissions
 - network controls
+
+OpenClaw `2026.6.11 (e085fa1)` does not expose `openclaw doctor --security`. The supported native validation commands for this baseline are `security audit`, `doctor --lint`, `secrets audit`, and `sandbox explain`.
+
+The locked OpenClaw config remains root-owned and must not be loosened for validation. Run `scripts/fa4-operator-readonly-validation.sh` from an operator root shell to capture read-only native audit, sandbox, pf, broker, and F-A3 regression evidence as the appropriate runtime identities.
+
+If `ai.agent-os-egress-proxy` exits with `EX_CONFIG`, use `scripts/fa4-operator-egress-proxy-repair.sh` from an operator root shell to install the reviewed `drafts/fa4-phase5/` proxy artifacts into their root-owned runtime paths and restart only the proxy LaunchDaemon. This repair does not edit OpenClaw config or pf configuration.
 
 ### 0.1 Timestamp And Destination
 

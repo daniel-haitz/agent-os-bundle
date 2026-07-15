@@ -23,6 +23,8 @@ This includes the manifest itself, architecture decisions, change-control standa
 
 - `scripts/wrap-up.sh`
 - `scripts/bundle-for-claude.sh`
+- `scripts/fa4-operator-readonly-validation.sh`
+- `scripts/fa4-operator-egress-proxy-repair.sh`
 
 ## Machine-Readable Published Paths
 
@@ -33,4 +35,6 @@ docs/
 audits/
 scripts/wrap-up.sh
 scripts/bundle-for-claude.sh
+scripts/fa4-operator-readonly-validation.sh
+scripts/fa4-operator-egress-proxy-repair.sh
 ```
