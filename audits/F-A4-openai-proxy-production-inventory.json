@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-07-16T00:00:00Z",
+  "source": "operator-level read-only inventory",
+  "scope": "OpenAI proxy production cutover inventory",
+  "realCredentialValuesIncluded": false,
+  "protectedEvidenceGaps": 0,
+  "unknownAgentRoutes": 0,
+  "credentialSources": [
+    {
+      "path": "/Users/agent/.openclaw/openclaw.json:models.providers.openai.apiKey",
+      "classification": "plaintext-or-token",
+      "length": 164,
+      "directBypassCapable": true,
+      "currentBaseUrl": "https://api.openai.com/v1",
+      "valueIncluded": false,
+      "hashIncluded": false,
+      "futureAction": "Remove or neutralize only during later authorized cutover after rollback boundary is captured."
+    }
+  ],
+  "routes": [
+    {
+      "agent": "main",
+      "primaryModel": "openai/gpt-5.5",
+      "api": "openai-responses",
+      "currentBaseUrl": "https://api.openai.com/v1",
+      "fallbacks": [
+        "ollama/qwen3-coder:30b"
+      ],
+      "proxyRequired": true,
+      "directOpenAIRoutePresent": true,
+      "futureAction": "Route through contained OpenAI proxy during authorized cutover."
+    },
+    {
+      "agent": "research-handoff-gate",
+      "primaryModel": "openai/gpt-5.5",
+      "api": "openai-responses",
+      "currentBaseUrl": "https://api.openai.com/v1",
+      "fallbacks": [],
+      "proxyRequired": true,
+      "directOpenAIRoutePresent": true,
+      "futureAction": "Route through contained OpenAI proxy during authorized cutover."
+    },
+    {
+      "agent": "email-researcher",
+      "primaryModel": "openai/gpt-5.5",
+      "api": "openai-responses",
+      "currentBaseUrl": "https://api.openai.com/v1",
+      "fallbacks": [],
+      "proxyRequired": true,
+      "directOpenAIRoutePresent": true,
+      "futureAction": "Route through contained OpenAI proxy during authorized cutover."
+    },
+    {
+      "agent": "heartbeat",
+      "primaryModel": "ollama/qwen2.5-coder:14b",
+      "api": "local-ollama",
+      "currentBaseUrl": "local",
+      "fallbacks": [],
+      "proxyRequired": false,
+      "directOpenAIRoutePresent": false,
+      "futureAction": "Leave unchanged."
+    },
+    {
+      "agent": "gmail-reader",
+      "primaryModel": "ollama/qwen3-coder:30b",
+      "api": "local-ollama",
+      "currentBaseUrl": "local",
+      "fallbacks": [],
+      "proxyRequired": false,
+      "directOpenAIRoutePresent": false,
+      "futureAction": "Leave unchanged."
+    }
+  ],
+  "summary": {
+    "bypassCredentialSources": 1,
+    "directOpenAIRoutes": 3,
+    "localOnlyRoutes": 2,
+    "protectedEvidenceGaps": 0,
+    "unknownRoutes": 0
+  }
+}

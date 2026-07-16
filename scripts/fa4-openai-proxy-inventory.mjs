@@ -17,6 +17,8 @@ const CONFIG_PATHS = [
 const AGENTS_ROOT = "/Users/agent/.openclaw/agents";
 const DIST_ROOT = "/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist";
 const NODE_BIN = "/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node";
+const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/\/scripts\/?$/, "");
+const OPERATOR_INVENTORY_PATH = join(REPO_ROOT, "audits/F-A4-openai-proxy-production-inventory.json");
 const INTERESTING_ENV = [
   "OPENAI_API_KEY",
   "OPENAI_BASE_URL",
@@ -390,7 +392,68 @@ function authPrecedence(configInventories, agentStores, launchd) {
   };
 }
 
-function agentRouting(configInventories) {
+function loadOperatorInventory() {
+  const parsed = safeJson(OPERATOR_INVENTORY_PATH);
+  if (!parsed.ok) return { ok: false, error: parsed.error, path: OPERATOR_INVENTORY_PATH };
+  return { ok: true, path: OPERATOR_INVENTORY_PATH, sha256: parsed.sha256, inventory: parsed.json };
+}
+
+function authPrecedenceWithOperatorEvidence(configInventories, agentStores, launchd, operatorInventory) {
+  const auth = authPrecedence(configInventories, agentStores, launchd);
+  if (!operatorInventory.ok) return auth;
+  const sources = Array.isArray(operatorInventory.inventory.credentialSources) ? operatorInventory.inventory.credentialSources.map((source) => ({
+    path: source.path,
+    source: "operator-verified-inventory",
+    provider: "openai",
+    type: source.classification,
+    couldBypassProxy: source.directBypassCapable === true,
+    valueIncluded: false,
+    hashIncluded: false,
+  })) : [];
+  return {
+    ...auth,
+    sources,
+    unresolvedProtectedEvidence: Number(operatorInventory.inventory.summary?.protectedEvidenceGaps ?? operatorInventory.inventory.protectedEvidenceGaps ?? 0),
+    bypassSourceCount: Number(operatorInventory.inventory.summary?.bypassCredentialSources ?? sources.filter((source) => source.couldBypassProxy === true).length),
+    operatorInventory: {
+      path: operatorInventory.path,
+      sha256: operatorInventory.sha256,
+      realCredentialValuesIncluded: operatorInventory.inventory.realCredentialValuesIncluded === true,
+    },
+  };
+}
+
+function agentRouting(configInventories, operatorInventory) {
+  if (operatorInventory.ok && Array.isArray(operatorInventory.inventory.routes)) {
+    const routes = operatorInventory.inventory.routes.map((route) => ({
+      agent: route.agent,
+      primaryModel: route.primaryModel,
+      provider: providerFromModel(route.primaryModel),
+      api: route.api,
+      effectiveBaseUrl: route.currentBaseUrl,
+      fallbacks: route.fallbacks || [],
+      fallbackProviders: (route.fallbacks || []).map(providerFromModel),
+      proxyRequired: route.proxyRequired,
+      directOpenAIRoutePresent: route.directOpenAIRoutePresent,
+      excludedFeatureRisk: false,
+      evidence: "operator-verified-inventory",
+    }));
+    return {
+      routes,
+      directOpenAIRouteCount: Number(operatorInventory.inventory.summary?.directOpenAIRoutes ?? routes.filter((route) => route.directOpenAIRoutePresent === true).length),
+      unknownRouteCount: Number(operatorInventory.inventory.summary?.unknownRoutes ?? 0),
+      operatorInventory: {
+        path: operatorInventory.path,
+        sha256: operatorInventory.sha256,
+      },
+      excludedFeatures: [
+        { feature: "realtime voice/websocket", status: "excluded", reason: "prior source trace found realtime paths separately hard-coded and not covered by /v1/responses proxy fixture" },
+        { feature: "images", status: "deny-until-proven", reason: "not required by current gpt-5.5 Responses path" },
+        { feature: "audio/TTS", status: "deny-until-proven", reason: "not required by current gpt-5.5 Responses path" },
+        { feature: "files/uploads/batches/assistants", status: "deny-until-proven", reason: "not required by current gpt-5.5 Responses path" },
+      ],
+    };
+  }
   const readable = configInventories.find((inv) => inv.readable && inv.agentRoutes.length > 0);
   const routes = readable ? readable.agentRoutes : [];
   const routeAgents = new Set(routes.map((route) => route.agent));
@@ -446,7 +509,7 @@ function runSelfTest() {
   };
   const inv = inventoryConfig("fixture", { ok: true, json: fixture, sha256: "fixture", meta: {} });
   const auth = authPrecedence([inv], [], { gateway: { environment: { OPENCLAW_CONFIG_PATH: "/x" } } });
-  const routing = agentRouting([inv]);
+  const routing = agentRouting([inv], { ok: false });
   const assertions = [
     ["provider apiKey redacted", inv.providers[0].apiKey.kind === "plaintext-or-token"],
     ["direct bypass detected", inv.providers[0].couldBypassProxy === true],
@@ -476,8 +539,9 @@ const pf = pfInventory();
 const colima = colimaInventory();
 const source = sourceContract();
 const egress = egressDecision(pf, colima);
-const auth = authPrecedence(configInventories, agentStores, launchd);
-const routing = agentRouting(configInventories);
+const operatorInventory = loadOperatorInventory();
+const auth = authPrecedenceWithOperatorEvidence(configInventories, agentStores, launchd, operatorInventory);
+const routing = agentRouting(configInventories, operatorInventory);
 
 const summary = {
   generatedAt: new Date().toISOString(),
@@ -489,6 +553,7 @@ const summary = {
   pf,
   colima,
   source,
+  operatorInventory: operatorInventory.ok ? { ok: true, path: operatorInventory.path, sha256: operatorInventory.sha256 } : operatorInventory,
   egress,
   auth,
   routing,

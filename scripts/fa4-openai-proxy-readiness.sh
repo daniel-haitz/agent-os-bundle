@@ -21,6 +21,7 @@ OPENCLAW_TRANSPORT="/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_mo
 OPENAI_SDK="/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/node_modules/openai/index.mjs"
 PROXY_SOURCE="$REPO_ROOT/src/openai-credential-proxy/openai-forward-proxy.mjs"
 FIXTURE_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-fixture-tests.mjs"
+CONTAINED_EGRESS_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-contained-egress-tests.mjs"
 INVENTORY_HELPER="$REPO_ROOT/scripts/fa4-openai-proxy-inventory.mjs"
 INVENTORY_JSON="$OUT_DIR/openai-proxy-production-inventory.json"
 
@@ -88,7 +89,7 @@ else
   fail_gate "GATE A — host and identity compatibility" "openai-credential-broker identity is absent"
 fi
 
-if [ -x "$NODE_BIN" ] && [ -f "$PROXY_SOURCE" ] && [ -f "$FIXTURE_TEST" ]; then
+if [ -x "$NODE_BIN" ] && [ -f "$PROXY_SOURCE" ] && [ -f "$FIXTURE_TEST" ] && [ -f "$CONTAINED_EGRESS_TEST" ]; then
   pass_gate "GATE B — proxy code/runtime custody"
 else
   fail_gate "GATE B — proxy code/runtime custody" "required proxy source/runtime fixture files are missing"
@@ -185,6 +186,17 @@ if "$NODE_BIN" "$FIXTURE_TEST" > "$OUT_DIR/fixture-tests.log" 2>&1; then
 else
   cat "$OUT_DIR/fixture-tests.log"
   fail_gate "FIXTURE PROXY TEST SUITE" "synthetic fixture tests failed"
+fi
+
+echo "Running isolated contained-egress proof fixture..."
+if "$NODE_BIN" "$CONTAINED_EGRESS_TEST" > "$OUT_DIR/contained-egress-tests.log" 2>&1; then
+  cat "$OUT_DIR/contained-egress-tests.log"
+  pass_gate "OPENAI PROXY CONTAINED EGRESS PROOF"
+  echo "OPENAI PROXY CONTAINED EGRESS PROOF: GO"
+else
+  cat "$OUT_DIR/contained-egress-tests.log"
+  fail_gate "OPENAI PROXY CONTAINED EGRESS PROOF" "contained-egress fixture failed"
+  echo "OPENAI PROXY CONTAINED EGRESS PROOF: NO-GO"
 fi
 
 capture_metadata "$METADATA_AFTER"
