@@ -5,10 +5,10 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 01fd460275a03f8250d590ffe8fee48f19c705e2
+private source repository commit: f1f951816b981a65134930735a4d3002bd0f8a29
 private source repository branch: main
-generated timestamp: 2026-07-16T18:24:53Z
-publication manifest governance commit: 01fd460275a03f8250d590ffe8fee48f19c705e2
+generated timestamp: 2026-07-16T19:46:23Z
+publication manifest governance commit: f1f951816b981a65134930735a4d3002bd0f8a29
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
 public bundle repository commit: <not embedded before publication commit exists>
@@ -141,14 +141,15 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - 2026-07-15 operator read-only validation captured service identity and filesystem evidence, but native OpenClaw, broker, and F-A3 runtime-identity checks were blocked by the harness's nested sudo design. The denials do not prove an underlying control failure. The corrected read-only validation path uses a fixed-operation `openclawgw` identity wrapper and remains to be operator-run.
 - 2026-07-15T184542Z operator read-only validation with the corrected identity wrapper proved OpenClaw version, gateway/broker/proxy identities, OpenClaw path modes, broker socket modes, broker health/search, and F-A3 clean/adversarial regressions. It also found bounded OpenClaw containment blockers: unsafe `ollama/qwen3-coder:30b` default fallback web access, gmail-reader shell/process exposure, plaintext OpenAI static API-key surfaces, pf disabled, stale launchd version metadata, and legacy config-health residue.
 - The file-backed and exec-backed SecretRef paths are superseded for OpenAI static-key custody. OpenClaw eagerly resolves SecretRefs into its runtime state, so zero-read upstream credential custody requires a local credential-injecting OpenAI forwarding proxy under the dedicated `openai-credential-broker` identity. OpenClaw may receive only a constrained synthetic local proxy token. This is an F-A4 design/readiness path, not production remediation or closure.
-- 2026-07-16 OpenAI proxy fixture, production inventory, contained-egress proof, and static cutover package validation are implemented in `scripts/fa4-openai-proxy-readiness.sh`, `scripts/fa4-openai-proxy-inventory.mjs`, `scripts/fa4-openai-proxy-contained-egress-tests.mjs`, and `scripts/fa4-openai-proxy-cutover.sh`. The fixture remains synthetic-only. Independent adversarial review of published ref `67ac296` returned `APPROVE WITH REQUIRED CORRECTIONS`: the package is a static design/dry-run package, not an executable production implementation. Production cutover and operator cutover dry-run are not authorized. Zero production mutation was verified.
+- 2026-07-16 OpenAI proxy fixture, production inventory, contained-egress proof, real Colima substrate proof, and static cutover package validation are implemented in `scripts/fa4-openai-proxy-readiness.sh`, `scripts/fa4-openai-proxy-inventory.mjs`, `scripts/fa4-openai-proxy-contained-egress-tests.mjs`, `scripts/fa4-openai-proxy-colima-substrate-proof.mjs`, and `scripts/fa4-openai-proxy-cutover.sh`. The fixture remains synthetic-only. Independent adversarial review of published ref `67ac296` returned `APPROVE WITH REQUIRED CORRECTIONS`: the package is a static design/dry-run package, not an executable production implementation. Production cutover and operator cutover dry-run are not authorized. Zero production mutation was verified.
 - Current OpenAI proxy package status:
   - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
   - `OPENAI PROXY SYNTHETIC PROOF: GO`
-  - `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+  - `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
   - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
   - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
   - `F-A4 STATUS: OPEN`
+- 2026-07-16 real Colima/internal-network substrate proof is recorded in `audits/F-A4-openai-proxy-colima-substrate-proof.md`. It proved temporary fixture containers and internal networks can enforce OpenClaw-side-to-proxy-only traffic, proxy-to-approved-upstream-only traffic, direct OpenAI hostname/IP/IPv6 denial, proxy arbitrary-destination denial, restart/reconnect policy preservation, token mount separation, and zero production mutation. The production placement decision is: OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network; the OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side network and a constrained upstream egress network. A host OpenClaw Gateway may orchestrate but must not originate direct OpenAI HTTP traffic after F-A4 closure.
 - Operator-level OpenAI inventory is recorded in `audits/F-A4-openai-proxy-production-inventory.json` without credential values or hashes. It identifies one current direct-bypass OpenAI credential source in `openclaw.json`, three direct OpenAI routes (`main`, `research-handoff-gate`, `email-researcher`), and two local-only routes (`heartbeat`, `gmail-reader`).
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
@@ -207,7 +208,7 @@ Research produces proposals. Implementation changes require explicit approval, s
 | F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
 | F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
 | F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — OPENAI PROXY STATIC PACKAGE REVIEWED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. OpenAI proxy design direction, synthetic transport proof, route inventory, and static cutover package exist, but independent review found production topology, real Colima substrate proof, local-token custody, executable transaction, executable rollback, and production network enforcement remain unresolved. Operator cutover dry-run and production cutover are not authorized. |
+| F-A4 Complete mediation and egress | IN BUILD — OPENAI PROXY SUBSTRATE PROOF PASSED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. OpenAI proxy design direction, synthetic transport proof, route inventory, static cutover package, and real temporary Colima substrate proof exist. Production transaction, executable credential migration, executable rollback, actual production proxy installation, production OpenClaw routing change, cold-start, reboot, and regression gates remain unresolved. Operator cutover dry-run and production cutover are not authorized. |
 | OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
 | F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
 | F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
@@ -269,7 +270,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Advance only the OpenAI forwarding-proxy readiness path. Current inventory resolves the intended egress direction to a contained-network design, and the isolated contained-egress fixture proves synthetic policy logic for the intended OpenClaw-side/proxy/upstream separation. It does not prove the real Colima substrate, actual container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart persistence, or proxy-only upstream access. The static proxy cutover package has completed independent review with required corrections; production cutover and operator cutover dry-run remain unauthorized. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
+1. Advance only the OpenAI forwarding-proxy readiness path. Current inventory resolves the intended egress direction to a contained-network design, the isolated contained-egress fixture proves synthetic policy logic, and the real temporary Colima substrate proof proves Docker/Colima internal-network behavior for the OpenClaw-side/proxy/upstream separation. Production cutover and operator cutover dry-run remain unauthorized until an executable production transaction and rollback package exist. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
@@ -280,21 +281,19 @@ The operator scripts follow the reusable Agent OS operator-action pattern: prefl
 
 ### Immediate bounded action
 
-Build and run a temporary, isolated Colima/internal-network substrate proof.
+Implement the production transaction and executable rollback package for the contained OpenAI proxy path.
 
-The proof must use fixture containers and temporary networks only; prove the OpenClaw-side fixture can reach only the proxy; prove the OpenClaw-side fixture cannot directly reach the OpenAI hostname, direct IP, or IPv6; prove the proxy fixture alone can reach the approved synthetic upstream; prove the proxy cannot reach arbitrary destinations; prove DNS, SNI/TLS, and restart behavior at the actual container-network layer where possible; verify host-network mode is not used; record UID/GID and mount behavior; tear down all temporary resources; and change no live OpenClaw state, credentials, launchd services, pf, production proxy policy, or production network.
-
-Do not authorize operator cutover dry-run or production cutover.
+Do not perform production cutover.
 
 Required results:
 
-1. Real Colima/internal-network substrate behavior is tested with fixture containers and temporary networks.
-2. OpenClaw-side fixture direct OpenAI hostname, direct-IP, and IPv6 egress are denied.
-3. OpenClaw-side fixture can reach only the fixture proxy for OpenAI traffic.
-4. Proxy fixture can reach only the approved synthetic upstream and cannot reach arbitrary destinations.
-5. DNS, SNI/TLS, proxy-environment, restart, host-network mode, UID/GID, and mount behavior are recorded.
-6. All temporary containers, networks, and fixture resources are torn down.
-7. Zero live OpenClaw, credential, launchd, `pf`, production proxy policy, or production network mutation is verified.
+1. Transactional production cutover script implements preflight, evidence capture, substrate verification, proxy staging, local-token staging, upstream-key migration, config/auth patching, gateway restart, functional route checks, residue scan, cold-start handoff, and closure evidence gates.
+2. Executable rollback restores every touched artifact across failures before and after config cutover.
+3. Real credential migration path avoids stdout, command-line, repository, image-layer, environment, and broad-evidence exposure.
+4. Production local-token path follows the substrate proof decision and is not placed under `/Users/openai-credential-broker/.../local-token/` unless separately proved.
+5. Production OpenClaw model-network execution is represented as a contained component; host OpenClaw does not originate direct OpenAI HTTP traffic after closure.
+6. Dry-run and fixture rollback pass before any operator production run is authorized.
+7. F-A4 remains open until production cutover, persistence, reboot, and regression evidence are captured.
 
 ### Locked sequence after the immediate action
 
@@ -773,6 +772,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+f1f9518 fa4: prove OpenAI proxy Colima substrate
 01fd460 fa4: reconcile OpenAI proxy cutover review status
 fd54990 fa4: prepare OpenAI proxy cutover package
 8c2d752 fa4: prove OpenAI proxy contained egress path
@@ -792,7 +792,6 @@ ee43b37 fa4: gate OpenAI credential broker remediation readiness
 7499158 validation: add exec-backed OpenAI SecretRef custody path
 d802175 validation: harden F-A4 SecretRef readiness and rollback
 45bc9ad validation: fix F-A4 tools exec schema patch
-ef7ebc0 validation: harden F-A4 containment readiness checks
 ```
 
 ## Repository Tree
@@ -819,6 +818,7 @@ audits/2026-06-12-sandbox-killswitch-discovery.md
 audits/F-A0-platform-hardening-audit.md
 audits/F-A1-negative-test-results.md
 audits/F-A4-foundation-hardening-validation.md
+audits/F-A4-openai-proxy-colima-substrate-proof.md
 audits/F-A4-openai-proxy-production-inventory.json
 deploy/openai-proxy/openai-proxy-deployment-manifest.json
 docs/ADR-014_OPENCLAW_2026_6_11_BASELINE.md
@@ -866,6 +866,7 @@ drafts/fa4-phase5/phase5-proof-commands.sh
 scripts/bundle-for-claude.sh
 scripts/end-session.sh
 scripts/fa4-openai-credential-broker-rundir.sh
+scripts/fa4-openai-proxy-colima-substrate-proof.mjs
 scripts/fa4-openai-proxy-contained-egress-tests.mjs
 scripts/fa4-openai-proxy-cutover.sh
 scripts/fa4-openai-proxy-fixture-tests.mjs
@@ -900,8 +901,8 @@ templates/DROP_FORMAT.md
 
 ## Publication validation
 ```text
-manifest commit: 01fd460275a03f8250d590ffe8fee48f19c705e2
-published files: 66
+manifest commit: f1f951816b981a65134930735a4d3002bd0f8a29
+published files: 68
 missing files count: 0
 ```
 
@@ -909,7 +910,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
-last validation timestamp: 2026-07-16T18:24:53Z
+last validation timestamp: 2026-07-16T19:46:23Z
 ```
 
 ---
@@ -960,6 +961,7 @@ Critical current checkpoint:
 - `scripts/fa4-operator-egress-proxy-repair.sh`
 - `src/openai-credential-broker/`
 - `scripts/fa4-openai-proxy-contained-egress-tests.mjs`
+- `scripts/fa4-openai-proxy-colima-substrate-proof.mjs`
 - `scripts/fa4-openai-proxy-cutover.sh`
 - `scripts/fa4-openai-proxy-fixture-tests.mjs`
 - `scripts/fa4-openai-proxy-inventory.mjs`
@@ -991,6 +993,7 @@ scripts/fa4-operator-openai-credential-broker-bootstrap.sh
 scripts/fa4-operator-egress-proxy-repair.sh
 src/openai-credential-broker/
 scripts/fa4-openai-proxy-contained-egress-tests.mjs
+scripts/fa4-openai-proxy-colima-substrate-proof.mjs
 scripts/fa4-openai-proxy-cutover.sh
 scripts/fa4-openai-proxy-fixture-tests.mjs
 scripts/fa4-openai-proxy-inventory.mjs
@@ -4375,6 +4378,216 @@ Containment readiness then exposed the resolver-side equivalent: `openclaw secre
 F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the previous runtime-identity validation defect, but OpenClaw containment findings, pf activation, stale launchd metadata, persistence/reboot validation, and durable evidence gates remain open until operator remediation and validation evidence pass.
 ```
 
+### audits/F-A4-openai-proxy-colima-substrate-proof.md
+```markdown
+# F-A4 OpenAI Proxy Colima Substrate Proof
+
+## Result
+
+`OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
+
+Evidence directory:
+
+`/Users/agent/fa4-openai-proxy-substrate-20260716T193354Z-f04c42`
+
+Raw evidence file:
+
+`/Users/agent/fa4-openai-proxy-substrate-20260716T193354Z-f04c42/substrate-proof.json`
+
+## Scope
+
+This proof used temporary Docker/Colima fixture resources only.
+
+It did not modify:
+
+- live OpenClaw configuration;
+- live OpenClaw credentials;
+- auth profiles;
+- generated stores;
+- launchd services;
+- `pf`;
+- production proxy policy;
+- production containers or networks;
+- Gmail broker;
+- Telegram configuration;
+- Ollama configuration.
+
+No production cutover, credential migration, or production proxy installation was performed.
+
+## Initial Substrate State
+
+- Colima was initially stopped before this task and was started using the existing profile without configuration flags.
+- Colima runtime during proof: Docker on macOS Virtualization Framework, `aarch64`, `virtiofs`.
+- Docker client context: `colima`.
+- Docker server: `29.5.2`.
+- Proof image: local `openclaw-sandbox:bookworm-slim`.
+- Existing containers before proof were OpenClaw sandbox containers on Docker network `none`; they were not modified.
+- Existing Docker networks before proof: `bridge`, `host`, `none`.
+- Existing Docker volumes before proof: none.
+
+## Temporary Topology
+
+Unique proof label:
+
+`ai.agent-os.proof=openai-proxy-substrate-20260716T193354Z-f04c42`
+
+Temporary internal networks:
+
+- `aos-oc-20260716T193354Z-f04c42`: OpenClaw-side fixture to proxy only.
+- `aos-up-20260716T193354Z-f04c42`: proxy to approved synthetic upstream only.
+- `aos-deny-20260716T193354Z-f04c42`: negative-control forbidden destination network.
+
+Temporary containers:
+
+- `aos-openclaw-20260716T193354Z-f04c42`: OpenClaw-side fixture.
+- `aos-proxy-20260716T193354Z-f04c42`: forwarding-proxy fixture, dual-homed between OpenClaw and upstream networks.
+- `aos-upstream-20260716T193354Z-f04c42`: approved synthetic TLS upstream.
+- `aos-forbidden-20260716T193354Z-f04c42`: arbitrary forbidden destination.
+- `aos-unrelated-20260716T193354Z-f04c42`: unrelated container for token-access denial.
+
+No host-network mode and no host-published ports were used.
+
+## Production Placement Decision
+
+OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network.
+
+The OpenAI proxy is a separate contained component dual-homed between:
+
+- an OpenClaw-side internal network; and
+- a constrained upstream egress network.
+
+The host OpenClaw Gateway may orchestrate, but it must not originate direct OpenAI HTTP traffic after F-A4 closure.
+
+Changing `models.providers.openai.baseUrl` on a host Gateway is not sufficient containment while `pf` remains disabled.
+
+## Allow Results
+
+All required allow checks passed:
+
+- OpenClaw-side fixture reached the forwarding proxy.
+- Proxy reached the approved synthetic upstream.
+- `POST /v1/responses` succeeded.
+- Streaming response handling worked.
+- Tool-shaped Responses request worked.
+- Synthetic local token was accepted.
+- Caller token was stripped upstream.
+- Synthetic upstream token was injected only at the proxy-to-upstream hop.
+- Container DNS resolved approved service names.
+- Proxy restart preserved intended policy.
+- OpenClaw-side fixture restart preserved intended policy.
+- Network reconnect preserved intended policy.
+
+## Deny Results
+
+All required deny checks passed from the OpenClaw-side fixture:
+
+- direct `api.openai.com` hostname;
+- direct OpenAI IP;
+- arbitrary external IPv4;
+- arbitrary external IPv6;
+- alternate DNS resolver bypass;
+- `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY` bypasses;
+- direct synthetic upstream access;
+- direct forbidden destination access;
+- `host.docker.internal` escape;
+- host gateway escape;
+- published host-port bypass;
+- restart/reconnect bypass.
+
+All required deny checks passed from the proxy fixture:
+
+- `example.com`;
+- arbitrary external hostname;
+- arbitrary IPv4;
+- arbitrary IPv6;
+- forbidden destination container;
+- alternate upstream port;
+- caller-controlled `Host`;
+- absolute URL;
+- `CONNECT`;
+- redirect to another host;
+- unsupported endpoint.
+
+## DNS, TLS, IPv4, And IPv6 Findings
+
+- Docker embedded DNS resolved service aliases on attached internal networks.
+- Custom DNS bypass was denied in the OpenClaw-side fixture because the internal network had no external route.
+- Synthetic TLS used fixture hostname `api.openai.test` and a fixture CA; the proxy required certificate validation for that hostname.
+- Arbitrary TLS destination by allowed IP was not accepted because the proxy's upstream hostname was fixed.
+- Redirects to another host were rejected.
+- IPv4 and IPv6 arbitrary external attempts failed from both OpenClaw-side and proxy fixtures.
+- Production must enforce fixed upstream host/SNI/TLS policy rather than static CDN IP lists, because `api.openai.com` CDN IPs can drift.
+
+## UID/GID And Mount Findings
+
+- OpenClaw-side fixture ran as UID/GID `555:555`.
+- Proxy fixture ran as UID/GID `540:740`.
+- Proxy code was mounted read-only.
+- Synthetic upstream credential was mounted only into the proxy fixture.
+- Synthetic local token was mounted read-only into the OpenClaw-side fixture and proxy fixture.
+- OpenClaw-side fixture could not read the upstream credential.
+- Proxy fixture could read the upstream credential.
+- Proxy fixture could read the local token.
+- Unrelated fixture container could read neither token.
+- Tokens did not appear in proxy logs or container inspect environment.
+
+## Local Token Custody Decision
+
+Do not place the OpenClaw-readable local token under:
+
+`/Users/openai-credential-broker/.../local-token/`
+
+That path remains rejected unless parent traversal and custody are separately proved.
+
+The proof supports a separate OpenClaw-owned local-token source mounted read-only into both:
+
+- the OpenClaw-side contained component; and
+- the OpenAI proxy contained component.
+
+The local token remains a constrained local proxy capability, not the upstream OpenAI credential.
+
+## Production Network Path Matrix
+
+| Source | Destination | Protocol/Port | Placement | Required | Enforcement point |
+|---|---|---:|---|---|---|
+| OpenClaw model-network component | OpenAI proxy | HTTP 18187 | contained | yes | internal Docker network membership |
+| OpenClaw model-network component | `api.openai.com` | HTTPS 443 | contained | no | no external route from internal network |
+| OpenAI proxy | `api.openai.com` | HTTPS 443 | contained upstream egress component | yes | upstream allowlist network/gateway required before production |
+| Gmail broker | Google APIs | HTTPS 443 | host broker | yes | unchanged; not routed through OpenAI proxy |
+| Telegram | Telegram API | HTTPS 443 | existing host/OpenClaw path | yes | unchanged; must be regression-tested before cutover |
+| local agents | Ollama `127.0.0.1:11434` | HTTP 11434 | host loopback | yes | unchanged local route |
+
+## Teardown And Zero-Mutation Proof
+
+- Temporary containers removed: PASS.
+- Temporary networks removed: PASS.
+- No temporary Docker volumes were created.
+- Live OpenClaw config/path metadata and readable hashes matched before/after.
+- LaunchDaemon plist hashes matched before/after.
+- Production proxy custody path remained absent.
+- `pf` was not changed by this proof.
+
+## Remaining Blockers
+
+- Production transaction is not implemented.
+- Executable credential migration is not implemented.
+- Executable rollback is not implemented.
+- Actual production proxy is not installed.
+- Actual production upstream credential custody is not installed.
+- Production OpenClaw routing is not changed.
+- Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
+- Cold-start and reboot validation remain open.
+
+## Final Status
+
+- `OPENAI PROXY PACKAGE STATIC READINESS: GO`
+- `OPENAI PROXY SYNTHETIC PROOF: GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
+- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+- `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
+- `F-A4 STATUS: OPEN`
+```
+
 ### audits/F-A4-openai-proxy-production-inventory.json
 ```markdown
 {
@@ -4465,21 +4678,21 @@ F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the p
 {
   "name": "agent-os-openai-proxy-cutover-package",
   "version": 1,
-  "status": "static-package-reviewed-corrections-required",
+  "status": "substrate-proof-passed-transaction-not-implemented",
   "productionMutationAuthorized": false,
-  "productionSubstrateReady": false,
+  "productionSubstrateProof": true,
   "productionTransactionImplemented": false,
   "productionCutoverExecuted": false,
   "topology": {
     "placement": "contained-colima-internal-network",
-    "placementStatus": "intended-not-proved-on-real-substrate",
+    "placementStatus": "proved-with-temporary-colima-substrate-fixture",
     "colimaProfile": "agent-os",
     "networkName": "agent-os-openai-egress",
     "networkCidr": "172.31.240.0/24",
     "ipv6": "disabled-deny-by-policy",
     "openclawSideComponent": {
-      "name": "agent-os-openclaw-network-sidecar",
-      "purpose": "UNRESOLVED: production must choose and prove the exact contained placement for OpenClaw-originated OpenAI traffic. A host LaunchDaemon with only baseUrl changed is insufficient while pf is disabled.",
+      "name": "agent-os-openclaw-model-network-component",
+      "purpose": "contained OpenClaw model-network execution component. Host OpenClaw may orchestrate, but must not originate direct OpenAI HTTP traffic after F-A4 closure.",
       "allowedEgress": [
         "agent-os-openai-forward-proxy:18187"
       ],
@@ -4517,14 +4730,13 @@ F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the p
     "rollbackBoundary": "before OpenClaw config/auth cutover and before removal of the direct provider apiKey"
   },
   "reviewRequiredCorrections": [
-    "prove actual Colima/internal-network substrate with fixture containers and temporary networks",
-    "resolve exact OpenClaw containment placement",
-    "prove UID/GID mapping inside Colima",
-    "prove local-token custody path and parent traversal permissions",
-    "implement executable credential migration",
+    "implement executable production transaction",
     "implement executable rollback",
-    "prove actual network enforcement, including DNS, IPv4, IPv6, direct-IP, restart, and host-network escape resistance",
-    "prove Gmail, Telegram, and Ollama network survival"
+    "stage actual production proxy and contained OpenClaw model-network component",
+    "implement executable credential migration",
+    "install actual upstream credential custody",
+    "prove Gmail, Telegram, and Ollama regression during cutover readiness",
+    "prove cold-start and reboot behavior"
   ],
   "artifacts": [
     {
@@ -4559,8 +4771,8 @@ F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the p
       "owner": "openclawgw",
       "group": "openclawgw",
       "mode": "0600",
-      "status": "unresolved-parent-traversal-and-custody-not-proved",
-      "purpose": "synthetic local bearer token readable by OpenClaw and mounted read-only to proxy",
+      "status": "path-rejected-use-separate-openclaw-owned-token-source",
+      "purpose": "rejected prior synthetic local bearer token path; do not place the OpenClaw-readable local token under broker home unless separately proved",
       "creationMethod": "generate at least 256 bits entropy via stdin/file write only; no command-line exposure",
       "rollback": "restore previous token or remove if absent-before"
     },
@@ -4634,7 +4846,7 @@ OpenClaw `2026.6.11 (e085fa1)` is the current documented runtime baseline.
 ```markdown
 # ADR-015 — OpenAI Credential Proxy Cutover Path
 
-**Status:** Approved design direction; production topology and cutover implementation not complete.
+**Status:** Approved design direction; production substrate proof passed; cutover implementation not complete.
 
 ## Decision
 
@@ -4642,7 +4854,7 @@ Agent OS will replace direct OpenAI static-key use in OpenClaw with a contained 
 
 OpenClaw will receive only a synthetic local proxy token. The real upstream OpenAI credential moves to proxy custody under the `openai-credential-broker` identity during a later authorized cutover.
 
-## Intended Topology
+## Production Placement
 
 - Placement: contained Colima/internal-network components.
 - OpenAI proxy: `agent-os-openai-forward-proxy`, identity `openai-credential-broker` (`uid=540`, `gid=740`).
@@ -4651,7 +4863,9 @@ OpenClaw will receive only a synthetic local proxy token. The real upstream Open
 - Proxy upstream is fixed to `https://api.openai.com`.
 - Host-only placement remains rejected while `pf` is disabled.
 
-The exact deployable topology is not yet approved. Independent review of published ref `67ac296` found the current package phrase "future network-originating OpenClaw component or gateway egress sidecar" insufficiently concrete. The next approved gate is a real temporary Colima/internal-network substrate proof using fixture containers and temporary networks. Changing `models.providers.openai.baseUrl` alone is not structural containment for a host OpenClaw Gateway while `pf` remains disabled.
+The real substrate proof resolved the placement decision: OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network. The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side internal network and a constrained upstream egress network. A host OpenClaw Gateway may orchestrate, but must not originate direct OpenAI HTTP traffic after F-A4 closure.
+
+Changing `models.providers.openai.baseUrl` alone is not structural containment for a host OpenClaw Gateway while `pf` remains disabled.
 
 ## Scope
 
@@ -4681,10 +4895,11 @@ The file-backed and exec-backed SecretRef OpenAI key paths are superseded for ze
 
 - Proxy transport/security fixture: `scripts/fa4-openai-proxy-fixture-tests.mjs`.
 - Contained-egress fixture: `scripts/fa4-openai-proxy-contained-egress-tests.mjs`.
+- Real Colima/internal-network substrate proof: `scripts/fa4-openai-proxy-colima-substrate-proof.mjs` and `audits/F-A4-openai-proxy-colima-substrate-proof.md`.
 - Operator inventory: `audits/F-A4-openai-proxy-production-inventory.json`.
 - Cutover package manifest: `deploy/openai-proxy/openai-proxy-deployment-manifest.json`.
 
-The contained-egress fixture is synthetic policy proof, not proof of actual Colima networking, container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart persistence, or proxy-only upstream access.
+The contained-egress fixture is synthetic policy proof. The real Colima/internal-network substrate proof separately validates Docker/Colima networking, container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart/reconnect behavior, proxy-only upstream access, UID/GID mapping, token mount separation, and teardown.
 ```
 
 ### docs/AGENT_OS_ARCHITECTURE_DECISIONS.md
@@ -5591,7 +5806,7 @@ No silent deletion is allowed.
 | ClawGuard source review before audit trust | Open | F-B observability governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` records ADOPT-PENDING-VERIFY before audit integrity reliance. |
 | Browser fill tool-side secret resolution | Open | Phase 6 secrets governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — OpenClaw Native Capability Reconciliation | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` and `docs/OPENCLAW_BUILD_PLAN.md` record the browser-fill SecretRef verification gate. |
 | OpenAI key plaintext custody flag | Open | F-A4 credential custody governance | `docs/ADR-015_OPENAI_CREDENTIAL_PROXY.md` and `docs/F-A4_OPENAI_PROXY_CUTOVER_PACKAGE.md` | Operator inventory in `audits/F-A4-openai-proxy-production-inventory.json` records one direct OpenAI credential source. The proxy package has static readiness and synthetic proof only; the real credential remains in OpenClaw until a later authorized cutover. |
-| OpenAI proxy production substrate proof | Open | F-A4 egress governance | `docs/F-A4_OPENAI_PROXY_CUTOVER_PACKAGE.md` and `deploy/openai-proxy/openai-proxy-deployment-manifest.json` | Independent review of published ref `67ac296` found actual Colima networking, container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart persistence, and proxy-only upstream access unproved. |
+| OpenAI proxy production transaction and rollback | Open | F-A4 egress governance | `docs/F-A4_OPENAI_PROXY_CUTOVER_PACKAGE.md` and `deploy/openai-proxy/openai-proxy-deployment-manifest.json` | `audits/F-A4-openai-proxy-colima-substrate-proof.md` records `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`. Production transaction, executable credential migration, executable rollback, cold-start, reboot, and regression evidence remain open. |
 | Gmail recovery passphrase escrow posture | Open | Gmail recovery governance | `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md` | Recovery runbook records operator-held-only passphrase custody and explicitly defers operational escrow changes. |
 | OpenClaw Security and Release Monitoring | Open | Platform maintenance governance | `docs/F-A4_CUTOVER_RUNBOOK.md` — Native OpenClaw Security Baseline Validation | OpenClaw evolves rapidly; Agent OS requires recurring validation of security advisories, runtime upgrades, and breaking changes before qualification or closure claims. |
 ```
@@ -9669,13 +9884,13 @@ managed proxy may still be active.
 ```markdown
 # F-A4 OpenAI Proxy Cutover Package
 
-**Status:** Static package reviewed with required corrections. Operator cutover dry-run and production cutover are not authorized.
+**Status:** Static package plus real substrate proof complete. Production transaction and cutover are not implemented or authorized.
 
 Current canonical status:
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
-- `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
 - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `F-A4 STATUS: OPEN`
@@ -9684,7 +9899,7 @@ Current canonical status:
 
 Prepare the controlled replacement of direct OpenAI credential use in OpenClaw with a contained credential-injecting OpenAI forwarding proxy.
 
-## Intended Topology
+## Production Placement
 
 - Colima profile: `agent-os`.
 - Network: `agent-os-openai-egress`.
@@ -9696,7 +9911,13 @@ Prepare the controlled replacement of direct OpenAI credential use in OpenClaw w
 
 OpenClaw host-only placement is not accepted while `pf` is disabled. The production egress boundary must be the contained network or a separately reviewed equivalent.
 
-Independent adversarial review of published ref `67ac296` found that production topology is not yet concrete enough for cutover. The phrase "future network-originating OpenClaw component or gateway egress sidecar" is not an implementable placement decision. A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled. The next approved task is a real temporary Colima/internal-network substrate proof using fixture containers and temporary networks.
+The real Colima/internal-network substrate proof resolved the placement decision:
+
+- OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network.
+- The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side internal network and a constrained upstream egress network.
+- A host OpenClaw Gateway may orchestrate, but must not originate direct OpenAI HTTP traffic after F-A4 closure.
+
+A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled.
 
 ## Credential Migration
 
@@ -9760,16 +9981,13 @@ These fixtures are not executable production rollback proof. Executable migratio
 
 ## Open Blockers
 
-- Exact production topology unresolved.
-- Real temporary Colima substrate proof not completed.
-- OpenClaw containment placement unresolved.
-- UID/GID mapping inside Colima unresolved.
-- Local-token path and traversal permissions unresolved.
+- Production transaction is not implemented.
+- Executable credential migration is not implemented.
+- Executable rollback is not implemented.
 - Actual upstream-key custody path not installed.
-- Executable credential migration not implemented.
-- Executable rollback not implemented.
-- Actual network enforcement not implemented.
-- Gmail, Telegram, and Ollama network matrix not proved.
+- Actual production proxy is not installed.
+- Production OpenClaw routing is not changed.
+- Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
 - Cold-start and reboot not proved.
 - Real production cutover not authorized.
 
@@ -9819,6 +10037,7 @@ These fixtures are not executable production rollback proof. Executable migratio
 - Proxy HTTP/security fixture: `39/39 PASS`.
 - Live OpenAI credential and route inventory is complete.
 - Synthetic contained-egress fixture: `23/23 PASS`.
+- Real temporary Colima/internal-network substrate proof: `GO`.
 - Rollback scenario fixture: `7/7 PASS`.
 - Static deployment manifest prepared.
 - Static cutover package prepared.
@@ -9829,7 +10048,7 @@ These fixtures are not executable production rollback proof. Executable migratio
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
-- `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
 - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `F-A4 STATUS: OPEN`
@@ -9838,16 +10057,13 @@ Rollback scenario fixtures are not executable production rollback proof.
 
 ## Active Blockers
 
-- Exact production topology unresolved.
-- Real temporary Colima substrate proof not completed.
-- OpenClaw containment placement unresolved.
-- UID/GID mapping inside Colima unresolved.
-- Local-token path and traversal permissions unresolved.
+- Production transaction is not implemented.
+- Executable credential migration is not implemented.
+- Executable rollback is not implemented.
 - Actual upstream-key custody path not installed.
-- Executable credential migration not implemented.
-- Executable rollback not implemented.
-- Actual network enforcement not implemented.
-- Gmail, Telegram, and Ollama network matrix not proved.
+- Actual production proxy is not installed.
+- Production OpenClaw routing is not changed.
+- Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
 - Cold-start and reboot not proved.
 - Real production cutover not authorized.
 
@@ -9864,21 +10080,16 @@ Rollback scenario fixtures are not executable production rollback proof.
 
 ## Approved Next Action
 
-Build and run a temporary, isolated Colima/internal-network substrate proof using fixture containers and temporary networks only.
+Implement the production transaction and executable rollback package for the contained OpenAI proxy path.
 
-The proof must:
+The next action may create scripts, manifests, fixtures, dry-run tooling, and rollback tooling. It must not perform production cutover.
 
-- prove the OpenClaw-side fixture can reach only the proxy;
-- prove the OpenClaw-side fixture cannot directly reach OpenAI hostname, direct IP, or IPv6;
-- prove the proxy fixture alone can reach the approved synthetic upstream;
-- prove the proxy cannot reach arbitrary destinations;
-- prove DNS, SNI/TLS, and restart behavior at the actual container-network layer where possible;
-- verify host-network mode is not used;
-- record UID/GID and mount behavior;
-- tear down all temporary resources;
-- change no live OpenClaw state, credentials, launchd services, `pf`, production proxy policy, or production network.
+The package must follow the substrate proof decision:
 
-Do not run operator cutover dry-run or production cutover.
+- OpenClaw model-network execution runs inside a contained component on an internal Docker/Colima network.
+- The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side network and a constrained upstream egress network.
+- Host OpenClaw may orchestrate but must not originate direct OpenAI HTTP traffic after F-A4 closure.
+- The local token must not be placed under `/Users/openai-credential-broker/.../local-token/` unless parent traversal and custody are separately proved.
 ```
 
 ### docs/F-B_OBSERVABILITY_DESIGN.md
@@ -12311,6 +12522,499 @@ chmod 0750 "$RUN_DIR"
 exit 0
 ```
 
+### scripts/fa4-openai-proxy-colima-substrate-proof.mjs
+```markdown
+#!/usr/bin/env node
+// Real Colima/Docker substrate proof for the Agent OS OpenAI proxy path.
+//
+// This proof creates only temporary, uniquely labeled Docker resources and
+// fixture files. It does not mount live OpenClaw state, use real credentials,
+// install services, or alter pf/launchd/OpenClaw production configuration.
+
+import { spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const repoRoot = new URL("..", import.meta.url).pathname.replace(/\/scripts\/?$/, "");
+const ts = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "Z");
+const suffix = `${ts}-${randomBytes(3).toString("hex")}`;
+const labelKey = "ai.agent-os.proof";
+const labelValue = `openai-proxy-substrate-${suffix}`;
+const outDir = process.argv[2] || join("/Users/agent", `fa4-openai-proxy-substrate-${suffix}`);
+const evidencePath = join(outDir, "substrate-proof.json");
+const image = process.env.AGENT_OS_SUBSTRATE_IMAGE || "openclaw-sandbox:bookworm-slim";
+
+const names = {
+  netOpenclaw: `aos-oc-${suffix}`,
+  netUpstream: `aos-up-${suffix}`,
+  netForbidden: `aos-deny-${suffix}`,
+  upstream: `aos-upstream-${suffix}`,
+  forbidden: `aos-forbidden-${suffix}`,
+  proxy: `aos-proxy-${suffix}`,
+  openclaw: `aos-openclaw-${suffix}`,
+  unrelated: `aos-unrelated-${suffix}`,
+};
+
+const livePaths = [
+  "/Users/agent/.openclaw/openclaw.json",
+  "/Users/agent/.openclaw/openclaw.sanitized.json",
+  "/Users/agent/.openclaw",
+  "/Library/LaunchDaemons/ai.openclaw.gateway.plist",
+  "/Library/LaunchDaemons/ai.agent-os-egress-proxy.plist",
+  "/Library/LaunchDaemons/ai.agent-os.gmail-broker.plist",
+  "/Users/openai-credential-broker/agent-os-openai-credential-broker",
+];
+
+const results = [];
+const blockers = [];
+const created = { networks: [], containers: [], volumes: [], files: [] };
+
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    timeout: options.timeout ?? 30000,
+    input: options.input,
+  });
+  return {
+    command: [command, ...args].join(" "),
+    status: result.status,
+    stdout: result.stdout || "",
+    stderr: result.stderr || "",
+    error: result.error?.message,
+  };
+}
+
+function docker(args, options) {
+  return run("docker", args, options);
+}
+
+function record(name, ok, detail = "") {
+  results.push({ name, ok, detail });
+  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? `: ${detail}` : ""}`);
+  if (!ok) blockers.push({ name, detail });
+}
+
+function sha(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function pathState(path) {
+  if (!existsSync(path)) return { path, exists: false };
+  const stat = run("stat", ["-f", "%Su\t%Sg\t%OLp\t%z\t%N", path]);
+  const hash = run("shasum", ["-a", "256", path]);
+  return {
+    path,
+    exists: true,
+    stat: stat.stdout.trim(),
+    sha256: stat.status === 0 && hash.status === 0 ? hash.stdout.trim().split(/\s+/)[0] : "not-readable-or-not-file",
+  };
+}
+
+function dockerState() {
+  return {
+    colima: run("colima", ["status"]),
+    dockerInfo: docker(["info", "--format", "{{json .}}"]),
+    containers: docker(["ps", "-a", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Networks}}\t{{.Ports}}"]),
+    networks: docker(["network", "ls", "--format", "{{.ID}}\t{{.Name}}\t{{.Driver}}\t{{.Scope}}"]),
+    volumes: docker(["volume", "ls", "--format", "{{.Name}}"]),
+  };
+}
+
+function writeFixtureFiles() {
+  mkdirSync(outDir, { recursive: true, mode: 0o700 });
+  const localToken = `local_${randomBytes(32).toString("hex")}`;
+  const upstreamToken = `upstream_${randomBytes(32).toString("hex")}`;
+  const localTokenPath = join(outDir, "openclaw-local-token");
+  const upstreamTokenPath = join(outDir, "openai-upstream-token");
+  writeFileSync(localTokenPath, `${localToken}\n`, { mode: 0o600 });
+  writeFileSync(upstreamTokenPath, `${upstreamToken}\n`, { mode: 0o600 });
+  chmodSync(localTokenPath, 0o600);
+  chmodSync(upstreamTokenPath, 0o600);
+  created.files.push(localTokenPath, upstreamTokenPath);
+
+  const opensslConf = join(outDir, "openssl.cnf");
+  writeFileSync(opensslConf, `
+[req]
+distinguished_name=req_distinguished_name
+x509_extensions=v3_req
+prompt=no
+[req_distinguished_name]
+CN=api.openai.test
+[v3_req]
+subjectAltName=@alt_names
+[alt_names]
+DNS.1=api.openai.test
+`);
+  const key = join(outDir, "upstream.key");
+  const cert = join(outDir, "upstream.crt");
+  const openssl = run("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-keyout", key, "-out", cert, "-config", opensslConf, "-sha256"], { timeout: 30000 });
+  record("synthetic TLS certificate generated", openssl.status === 0, openssl.status === 0 ? "api.openai.test" : openssl.stderr.trim());
+  chmodSync(key, 0o600);
+  chmodSync(cert, 0o644);
+  created.files.push(opensslConf, key, cert);
+
+  const upstreamPy = join(outDir, "upstream.py");
+  writeFileSync(upstreamPy, String.raw`
+import hashlib, http.server, json, ssl, sys
+captures_path, cert_path, key_path = sys.argv[1], sys.argv[2], sys.argv[3]
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("content-length", "0") or "0"))
+        capture = {
+            "method": self.command,
+            "path": self.path,
+            "host": self.headers.get("host"),
+            "authorization_hash": hashlib.sha256((self.headers.get("authorization") or "").encode()).hexdigest(),
+            "has_x_api_key": "x-api-key" in [k.lower() for k in self.headers.keys()],
+            "has_proxy_authorization": "proxy-authorization" in [k.lower() for k in self.headers.keys()],
+            "body_hash": hashlib.sha256(body).hexdigest(),
+            "body_len": len(body),
+        }
+        with open(captures_path, "a") as f:
+            f.write(json.dumps(capture) + "\n")
+        if self.headers.get("x-fixture-redirect"):
+            self.send_response(302)
+            self.send_header("location", "https://example.com/escape")
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("content-type", "text/event-stream")
+        self.end_headers()
+        self.wfile.write(b"event: response.created\n")
+        self.wfile.write(b"data: {\"type\":\"response.created\"}\n\n")
+        self.wfile.write(b"event: response.completed\n")
+        self.wfile.write(b"data: {\"type\":\"response.completed\"}\n\n")
+        self.wfile.write(b"data: [DONE]\n\n")
+    def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200); self.end_headers(); self.wfile.write(b"ok\n")
+        else:
+            self.send_response(404); self.end_headers()
+    def log_message(self, *args): pass
+httpd = http.server.ThreadingHTTPServer(("0.0.0.0", 9443), Handler)
+httpd.socket = ssl.wrap_socket(httpd.socket, certfile=cert_path, keyfile=key_path, server_side=True)
+httpd.serve_forever()
+`);
+  const proxyPy = join(outDir, "proxy.py");
+  writeFileSync(proxyPy, String.raw`
+import hashlib, http.client, http.server, json, os, ssl, sys, urllib.parse
+local_path, upstream_path, ca_path, log_path = sys.argv[1:5]
+local_token = open(local_path).read().strip()
+upstream_token = open(upstream_path).read().strip()
+def log(event, **fields):
+    safe = {"event": event, **fields}
+    with open(log_path, "a") as f: f.write(json.dumps(safe) + "\n")
+def deny(h, code, msg):
+    h.send_response(code); h.send_header("content-type", "application/json"); h.end_headers(); h.wfile.write(json.dumps({"error": msg}).encode()+b"\n")
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_CONNECT(self): deny(self, 405, "connect_denied")
+    def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200); self.end_headers(); self.wfile.write(b"ok\n")
+        else: deny(self, 404, "path_denied")
+    def do_POST(self):
+        host = (self.headers.get("host") or "").split(":", 1)[0]
+        if host not in ("openai-proxy", "127.0.0.1", "localhost"): return deny(self, 400, "host_denied")
+        if self.path.startswith("http://") or self.path.startswith("https://"): return deny(self, 400, "absolute_url_denied")
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path != "/v1/responses": return deny(self, 404, "path_denied")
+        auth_headers = [v for k,v in self.headers.items() if k.lower() == "authorization"]
+        if len(auth_headers) != 1 or auth_headers[0] != "Bearer " + local_token: return deny(self, 401, "auth_denied")
+        lower = {k.lower(): v for k,v in self.headers.items()}
+        for bad in ("x-api-key", "proxy-authorization", "forwarded"):
+            if bad in lower: return deny(self, 400, "forbidden_header")
+        for key in lower:
+            if key.startswith("x-forwarded-"): return deny(self, 400, "forbidden_header")
+        body = self.rfile.read(int(self.headers.get("content-length", "0") or "0"))
+        ctx = ssl.create_default_context(cafile=ca_path)
+        conn = http.client.HTTPSConnection("api.openai.test", 9443, context=ctx, timeout=5)
+        headers = {"authorization": "Bearer " + upstream_token, "content-type": self.headers.get("content-type", "application/json"), "host": "api.openai.test:9443"}
+        if self.headers.get("x-fixture-redirect"): headers["x-fixture-redirect"] = "1"
+        conn.request("POST", "/v1/responses", body=body, headers=headers)
+        resp = conn.getresponse()
+        if resp.status in (301,302,303,307,308):
+            resp.read(); return deny(self, 502, "redirect_denied")
+        self.send_response(resp.status)
+        self.send_header("content-type", resp.getheader("content-type", "application/octet-stream"))
+        self.end_headers()
+        while True:
+            chunk = resp.read(64)
+            if not chunk: break
+            self.wfile.write(chunk); self.wfile.flush()
+        log("request_complete", path=parsed.path, status=resp.status)
+    def log_message(self, *args): pass
+http.server.ThreadingHTTPServer(("0.0.0.0", 18187), Handler).serve_forever()
+`);
+  chmodSync(upstreamPy, 0o444);
+  chmodSync(proxyPy, 0o444);
+  created.files.push(upstreamPy, proxyPy);
+  return { localToken, upstreamToken, localTokenPath, upstreamTokenPath, key, cert, upstreamPy, proxyPy };
+}
+
+function createNetwork(name, internal = true) {
+  const args = ["network", "create", "--label", `${labelKey}=${labelValue}`];
+  if (internal) args.push("--internal");
+  args.push(name);
+  const result = docker(args);
+  if (result.status === 0) created.networks.push(name);
+  record(`network created ${name}`, result.status === 0, result.status === 0 ? "internal=true" : result.stderr.trim());
+}
+
+function createContainer(args, name) {
+  const result = docker(args);
+  if (result.status === 0) created.containers.push(name);
+  record(`container created ${name}`, result.status === 0, result.status === 0 ? "" : result.stderr.trim());
+}
+
+function startContainer(name) {
+  const result = docker(["start", name]);
+  record(`container started ${name}`, result.status === 0, result.status === 0 ? "" : result.stderr.trim());
+}
+
+function execContainer(name, command, options = {}) {
+  return docker(["exec", name, "sh", "-lc", command], { timeout: options.timeout ?? 15000 });
+}
+
+function pySocketStatusRequest(name, requestText, expectedStatus) {
+  const encoded = Buffer.from(requestText).toString("base64");
+  const cmd = `python3 - <<'PY'
+import base64, socket, sys
+req = base64.b64decode("${encoded}")
+s = socket.create_connection(("openai-proxy", 18187), timeout=3)
+s.sendall(req)
+data = b""
+while b"\\r\\n\\r\\n" not in data:
+    chunk = s.recv(4096)
+    if not chunk:
+        break
+    data += chunk
+s.close()
+sys.exit(0 if b" ${expectedStatus} " in data.split(b"\\r\\n", 1)[0] else 1)
+PY`;
+  return execContainer(name, cmd);
+}
+
+function httpStatus(name, url, extra = "") {
+  const cmd = `curl -ksS -o /tmp/body.out -w '%{http_code}' ${extra} '${url}'`;
+  const result = execContainer(name, cmd);
+  return { status: result.status, code: result.stdout.trim(), stderr: result.stderr.trim() };
+}
+
+function readCaptures(path) {
+  if (!existsSync(path)) return [];
+  return readFileSync(path, "utf8").trim().split(/\n+/).filter(Boolean).map((line) => JSON.parse(line));
+}
+
+function cleanup() {
+  for (const container of [...created.containers].reverse()) {
+    docker(["rm", "-f", container], { timeout: 15000 });
+  }
+  for (const network of [...created.networks].reverse()) {
+    docker(["network", "rm", network], { timeout: 15000 });
+  }
+}
+
+function verifyNoResidue() {
+  const containers = docker(["ps", "-a", "--filter", `label=${labelKey}=${labelValue}`, "--format", "{{.Names}}"]);
+  const networks = docker(["network", "ls", "--filter", `label=${labelKey}=${labelValue}`, "--format", "{{.Name}}"]);
+  record("temporary containers removed", containers.status === 0 && containers.stdout.trim() === "", containers.stdout.trim());
+  record("temporary networks removed", networks.status === 0 && networks.stdout.trim() === "", networks.stdout.trim());
+}
+
+async function main() {
+  mkdirSync(outDir, { recursive: true, mode: 0o700 });
+  const beforeLive = livePaths.map(pathState);
+  const beforeDocker = dockerState();
+  const fixture = writeFixtureFiles();
+  const capturesPath = join(outDir, "upstream-captures.jsonl");
+  const proxyLog = join(outDir, "proxy.log");
+
+  try {
+    record("docker server available", beforeDocker.dockerInfo.status === 0, beforeDocker.dockerInfo.status === 0 ? "colima context" : beforeDocker.dockerInfo.stderr.trim());
+    record("proof image available locally", docker(["image", "inspect", image]).status === 0, image);
+
+    createNetwork(names.netOpenclaw, true);
+    createNetwork(names.netUpstream, true);
+    createNetwork(names.netForbidden, true);
+
+    createContainer([
+      "create", "--name", names.upstream, "--network", names.netUpstream, "--network-alias", "api.openai.test",
+      "--label", `${labelKey}=${labelValue}`, "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=8m",
+      "-v", `${fixture.upstreamPy}:/upstream.py:ro`,
+      "-v", `${fixture.cert}:/upstream.crt:ro`,
+      "-v", `${fixture.key}:/upstream.key:ro`,
+      "-v", `${outDir}:/evidence`,
+      image, "python3", "/upstream.py", "/evidence/upstream-captures.jsonl", "/upstream.crt", "/upstream.key",
+    ], names.upstream);
+    createContainer([
+      "create", "--name", names.forbidden, "--network", names.netForbidden,
+      "--label", `${labelKey}=${labelValue}`, "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=4m",
+      image, "python3", "-m", "http.server", "8080",
+    ], names.forbidden);
+    createContainer([
+      "create", "--name", names.proxy, "--network", names.netOpenclaw, "--network-alias", "openai-proxy",
+      "--label", `${labelKey}=${labelValue}`, "--user", "540:740", "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=8m",
+      "-v", `${fixture.proxyPy}:/proxy.py:ro`,
+      "-v", `${fixture.localTokenPath}:/local-token:ro`,
+      "-v", `${fixture.upstreamTokenPath}:/upstream-token:ro`,
+      "-v", `${fixture.cert}:/upstream.crt:ro`,
+      "-v", `${outDir}:/evidence`,
+      image, "python3", "/proxy.py", "/local-token", "/upstream-token", "/upstream.crt", "/evidence/proxy.log",
+    ], names.proxy);
+    const connectProxy = docker(["network", "connect", "--alias", "openai-proxy-upstream", names.netUpstream, names.proxy]);
+    record("proxy connected to upstream network", connectProxy.status === 0, connectProxy.status === 0 ? "dual-homed proxy" : connectProxy.stderr.trim());
+
+    createContainer([
+      "create", "--name", names.openclaw, "--network", names.netOpenclaw,
+      "--label", `${labelKey}=${labelValue}`, "--user", "555:555", "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=8m",
+      "-v", `${fixture.localTokenPath}:/local-token:ro`,
+      image, "sleep", "3600",
+    ], names.openclaw);
+    createContainer([
+      "create", "--name", names.unrelated, "--network", names.netOpenclaw,
+      "--label", `${labelKey}=${labelValue}`, "--user", "777:777", "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=4m",
+      image, "sleep", "3600",
+    ], names.unrelated);
+
+    for (const name of [names.upstream, names.forbidden, names.proxy, names.openclaw, names.unrelated]) startContainer(name);
+
+    const inspectProxy = docker(["inspect", names.proxy]);
+    const inspectOpenclaw = docker(["inspect", names.openclaw]);
+    writeFileSync(join(outDir, "proxy.inspect.json"), inspectProxy.stdout, { mode: 0o600 });
+    writeFileSync(join(outDir, "openclaw.inspect.json"), inspectOpenclaw.stdout, { mode: 0o600 });
+    record("host network mode absent", !inspectProxy.stdout.includes('"NetworkMode": "host"') && !inspectOpenclaw.stdout.includes('"NetworkMode": "host"'));
+    record("no host-published ports", !inspectProxy.stdout.includes('"HostPort": "') && !inspectOpenclaw.stdout.includes('"HostPort": "'));
+
+    const dns = execContainer(names.openclaw, "python3 - <<'PY'\nimport socket\nprint(socket.gethostbyname('openai-proxy'))\nPY\ncat /etc/resolv.conf");
+    record("container DNS resolves proxy service name", dns.status === 0, dns.stdout.split("\n")[0] || dns.stderr.trim());
+    const proxyDns = execContainer(names.proxy, "python3 - <<'PY'\nimport socket\nprint(socket.gethostbyname('api.openai.test'))\nPY\ncat /etc/resolv.conf");
+    record("proxy DNS resolves approved upstream service name", proxyDns.status === 0, proxyDns.stdout.split("\n")[0] || proxyDns.stderr.trim());
+
+    const payload = JSON.stringify({ model: "gpt-5.5", input: [{ role: "user", content: [{ type: "input_text", text: "fixture" }] }], tools: [{ type: "function", name: "fixture_tool", parameters: { type: "object", properties: {} } }], stream: true });
+    const allow = execContainer(names.openclaw, `TOKEN="$(cat /local-token)" && curl -ksS -N -o /tmp/proxy.out -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' --data '${payload.replace(/'/g, "'\\''")}' http://openai-proxy:18187/v1/responses && grep -q 'response.completed' /tmp/proxy.out`);
+    record("openclaw-side fixture reaches forwarding proxy", allow.status === 0 && allow.stdout.includes("200"), allow.stdout.trim() || allow.stderr.trim());
+
+    const captures = readCaptures(capturesPath);
+    const expectedUpstreamHash = sha(`Bearer ${fixture.upstreamTokenPath ? readFileSync(fixture.upstreamTokenPath, "utf8").trim() : ""}`);
+    record("proxy reaches approved synthetic upstream", captures.length >= 1);
+    record("POST /v1/responses succeeds", captures.at(-1)?.path === "/v1/responses" && captures.at(-1)?.method === "POST");
+    record("streaming works", execContainer(names.openclaw, "grep -q 'response.completed' /tmp/proxy.out").status === 0);
+    record("tool-shaped request works", (captures.at(-1)?.body_len || 0) > 0);
+    record("synthetic upstream token injected only proxy-to-upstream", captures.at(-1)?.authorization_hash === expectedUpstreamHash);
+    record("caller token stripped upstream", captures.at(-1)?.authorization_hash !== sha(`Bearer ${readFileSync(fixture.localTokenPath, "utf8").trim()}`));
+
+    record("wrong local token rejected", httpStatus(names.openclaw, "http://openai-proxy:18187/v1/responses", "-X POST -H 'Authorization: Bearer wrong' --data '{}'").code === "401");
+    record("direct api.openai.com hostname denied", httpStatus(names.openclaw, "https://api.openai.com/v1/responses", "--connect-timeout 2").status !== 0);
+    record("direct OpenAI IP denied", httpStatus(names.openclaw, "https://104.18.33.45/v1/responses", "--connect-timeout 2").status !== 0);
+    record("arbitrary external IPv4 denied", httpStatus(names.openclaw, "http://93.184.216.34", "--connect-timeout 2").status !== 0);
+    record("arbitrary external IPv6 denied", httpStatus(names.openclaw, "http://[2606:4700::6812:212d]/", "--connect-timeout 2").status !== 0);
+    record("alternate DNS resolver bypass denied", execContainer(names.openclaw, "curl -ksS --dns-servers 1.1.1.1 --connect-timeout 2 https://api.openai.com/ >/tmp/dns.out 2>/tmp/dns.err").status !== 0);
+    record("HTTP_PROXY bypass denied", execContainer(names.openclaw, "HTTP_PROXY=http://93.184.216.34:8080 curl -ksS --connect-timeout 2 https://api.openai.com/ >/tmp/http-proxy.out 2>/tmp/http-proxy.err").status !== 0);
+    record("HTTPS_PROXY bypass denied", execContainer(names.openclaw, "HTTPS_PROXY=http://93.184.216.34:8080 curl -ksS --connect-timeout 2 https://api.openai.com/ >/tmp/https-proxy.out 2>/tmp/https-proxy.err").status !== 0);
+    record("ALL_PROXY bypass denied", execContainer(names.openclaw, "ALL_PROXY=http://93.184.216.34:8080 curl -ksS --connect-timeout 2 https://api.openai.com/ >/tmp/all-proxy.out 2>/tmp/all-proxy.err").status !== 0);
+    record("openclaw direct synthetic upstream denied", httpStatus(names.openclaw, "https://api.openai.test:9443/v1/responses", "--connect-timeout 2").status !== 0);
+    record("openclaw direct forbidden destination denied", httpStatus(names.openclaw, `http://${names.forbidden}:8080`, "--connect-timeout 2").status !== 0);
+    record("host.docker.internal escape denied", httpStatus(names.openclaw, "http://host.docker.internal:80", "--connect-timeout 2").status !== 0);
+    record("host gateway escape denied", execContainer(names.openclaw, "python3 - <<'PY'\nimport socket, struct, sys\ntry:\n    route = open('/proc/net/route').read().splitlines()[1:]\n    gw = None\n    for line in route:\n        f=line.split()\n        if f[1] == '00000000':\n            gw = socket.inet_ntoa(struct.pack('<L', int(f[2], 16)))\n            break\n    if not gw:\n        sys.exit(0)\n    s=socket.create_connection((gw, 80), timeout=2)\n    s.close()\n    sys.exit(1)\nexcept Exception:\n    sys.exit(0)\nPY").status === 0);
+
+    record("proxy arbitrary external hostname denied", httpStatus(names.proxy, "https://example.com", "--connect-timeout 2").status !== 0);
+    record("proxy arbitrary IPv4 denied", httpStatus(names.proxy, "http://93.184.216.34", "--connect-timeout 2").status !== 0);
+    record("proxy arbitrary IPv6 denied", httpStatus(names.proxy, "http://[2606:4700::6812:212d]/", "--connect-timeout 2").status !== 0);
+    record("proxy forbidden destination container denied", httpStatus(names.proxy, `http://${names.forbidden}:8080`, "--connect-timeout 2").status !== 0);
+    record("proxy alternate upstream port denied", httpStatus(names.proxy, "https://api.openai.test:9444/v1/responses", "--connect-timeout 2").status !== 0);
+    record("caller-controlled Host rejected", httpStatus(names.openclaw, "http://openai-proxy:18187/v1/responses", "-X POST -H 'Host: api.openai.com' --data '{}'").code === "400");
+    record("absolute URL rejected", pySocketStatusRequest(names.openclaw, `POST http://api.openai.com/v1/responses HTTP/1.1\r\nHost: openai-proxy:18187\r\nAuthorization: Bearer ${readFileSync(fixture.localTokenPath, "utf8").trim()}\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`, 400).status === 0);
+    record("CONNECT rejected", pySocketStatusRequest(names.openclaw, "CONNECT api.openai.com:443 HTTP/1.1\r\nHost: api.openai.com:443\r\nConnection: close\r\n\r\n", 405).status === 0);
+    record("redirect to another host rejected", httpStatus(names.openclaw, "http://openai-proxy:18187/v1/responses", "-X POST -H \"Authorization: Bearer $(cat /local-token)\" -H 'x-fixture-redirect: 1' --data '{}'").code === "502");
+    record("unsupported endpoint rejected", httpStatus(names.openclaw, "http://openai-proxy:18187/v1/models", "-H \"Authorization: Bearer $(cat /local-token)\"").code === "404");
+
+    record("openclaw cannot read upstream credential", execContainer(names.openclaw, "test ! -e /run/secrets/upstream-token").status === 0);
+    record("proxy can read upstream credential", execContainer(names.proxy, "test -r /upstream-token").status === 0);
+    record("proxy can read local token", execContainer(names.proxy, "test -r /local-token").status === 0);
+    record("unrelated container cannot read tokens", execContainer(names.unrelated, "test ! -e /local-token && test ! -e /upstream-token").status === 0);
+    record("proxy code mounted read-only", execContainer(names.proxy, "test -r /proxy.py && test ! -w /proxy.py").status === 0);
+    record("token absent from container environment", !inspectProxy.stdout.includes(readFileSync(fixture.localTokenPath, "utf8").trim()) && !inspectProxy.stdout.includes(readFileSync(fixture.upstreamTokenPath, "utf8").trim()));
+    const logs = docker(["logs", names.proxy]);
+    record("tokens absent from proxy logs", !logs.stdout.includes(readFileSync(fixture.localTokenPath, "utf8").trim()) && !logs.stdout.includes(readFileSync(fixture.upstreamTokenPath, "utf8").trim()));
+
+    const restartProxy = docker(["restart", names.proxy]);
+    record("proxy restart succeeds", restartProxy.status === 0);
+    const restartOpenclaw = docker(["restart", names.openclaw]);
+    record("openclaw-side restart succeeds", restartOpenclaw.status === 0);
+    const postRestart = execContainer(names.openclaw, `TOKEN="$(cat /local-token)" && curl -ksS -o /tmp/restart.out -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' --data '{}' http://openai-proxy:18187/v1/responses`);
+    record("policy preserved after container restart", postRestart.status === 0 && postRestart.stdout.includes("200"));
+    const reconnect = docker(["network", "disconnect", names.netOpenclaw, names.openclaw]);
+    const reconnect2 = docker(["network", "connect", names.netOpenclaw, names.openclaw]);
+    record("network reconnect succeeds", reconnect.status === 0 && reconnect2.status === 0);
+    record("network reconnect bypass denied", httpStatus(names.openclaw, "https://api.openai.com/v1/responses", "--connect-timeout 2").status !== 0);
+
+    const afterLive = livePaths.map(pathState);
+    const zeroMutation = JSON.stringify(beforeLive) === JSON.stringify(afterLive);
+    record("zero production file mutation", zeroMutation);
+
+    const evidence = {
+      result: blockers.length === 0 ? "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO" : "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: NO-GO",
+      timestamp: new Date().toISOString(),
+      label: { [labelKey]: labelValue },
+      image,
+      initialState: { docker: beforeDocker, livePaths: beforeLive },
+      finalLivePaths: afterLive,
+      topology: {
+        productionPlacementDecision: "OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network. The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side internal network and a constrained upstream egress network. Host OpenClaw may orchestrate but must not originate direct OpenAI HTTP traffic after closure.",
+        networks: [
+          { name: names.netOpenclaw, internal: true, role: "OpenClaw-side to proxy only" },
+          { name: names.netUpstream, internal: true, role: "proxy to approved synthetic upstream only" },
+          { name: names.netForbidden, internal: true, role: "negative-control destination not connected to proxy/openclaw" },
+        ],
+        components: names,
+      },
+      pathMatrix: [
+        { source: "OpenClaw model-network component", destination: "OpenAI proxy", protocol: "HTTP 18187", placement: "contained", required: true, enforcementPoint: "internal Docker network membership" },
+        { source: "OpenClaw model-network component", destination: "api.openai.com", protocol: "HTTPS 443", placement: "contained", required: false, enforcementPoint: "no external route from internal network" },
+        { source: "OpenAI proxy", destination: "api.openai.com", protocol: "HTTPS 443", placement: "contained upstream egress component", required: true, enforcementPoint: "upstream allowlist network/gateway required before production" },
+        { source: "Gmail broker", destination: "Google APIs", protocol: "HTTPS 443", placement: "host broker", required: true, enforcementPoint: "unchanged; not routed through OpenAI proxy" },
+        { source: "Telegram", destination: "Telegram API", protocol: "HTTPS 443", placement: "host/OpenClaw existing path", required: true, enforcementPoint: "unchanged; must be regression-tested before cutover" },
+        { source: "local agents", destination: "Ollama 127.0.0.1:11434", protocol: "HTTP 11434", placement: "host loopback", required: true, enforcementPoint: "unchanged local route" },
+      ],
+      dnsTlsFindings: {
+        containerDnsPath: "Docker embedded DNS resolves service aliases on attached internal networks.",
+        customDnsBypass: "Denied in the OpenClaw-side fixture because the internal network has no external route.",
+        cdnIpDrift: "Production must enforce by fixed upstream component/SNI/TLS policy, not a static CDN IP list.",
+        tlsValidation: "Synthetic upstream used a fixture CA and hostname api.openai.test; proxy connection required certificate validation for that hostname.",
+        redirects: "Proxy rejects 3xx redirects to other hosts.",
+        ipv4Ipv6Parity: "OpenClaw-side and proxy arbitrary IPv4/IPv6 attempts failed on internal networks.",
+      },
+      localTokenDecision: "Do not place the OpenClaw-readable local token under /Users/openai-credential-broker unless traversal is separately proved. The proof supports a separate OpenClaw-owned local-token source mounted read-only into both the OpenClaw-side component and proxy.",
+      results,
+      blockers,
+    };
+    writeFileSync(evidencePath, JSON.stringify(evidence, null, 2), { mode: 0o600 });
+  } finally {
+    cleanup();
+    verifyNoResidue();
+    const afterDocker = dockerState();
+    writeFileSync(join(outDir, "docker-before.json"), JSON.stringify(beforeDocker, null, 2), { mode: 0o600 });
+    writeFileSync(join(outDir, "docker-after.json"), JSON.stringify(afterDocker, null, 2), { mode: 0o600 });
+  }
+
+  console.log(`EVIDENCE: ${evidencePath}`);
+  if (blockers.length) {
+    console.log("OPENAI PROXY PRODUCTION SUBSTRATE PROOF: NO-GO");
+    process.exit(2);
+  }
+  console.log("OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO");
+}
+
+main().catch((error) => {
+  console.error(`FATAL ${error.stack || error.message}`);
+  cleanup();
+  verifyNoResidue();
+  console.log("OPENAI PROXY PRODUCTION SUBSTRATE PROOF: NO-GO");
+  process.exit(2);
+});
+```
+
 ### scripts/fa4-openai-proxy-contained-egress-tests.mjs
 ```markdown
 #!/usr/bin/env node
@@ -13765,6 +14469,8 @@ CONTAINED_EGRESS_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-contained-egress-test
 INVENTORY_HELPER="$REPO_ROOT/scripts/fa4-openai-proxy-inventory.mjs"
 CUTOVER_SCRIPT="$REPO_ROOT/scripts/fa4-openai-proxy-cutover.sh"
 ROLLBACK_FIXTURES="$REPO_ROOT/scripts/fa4-openai-proxy-rollback-fixtures.mjs"
+SUBSTRATE_PROOF="$REPO_ROOT/scripts/fa4-openai-proxy-colima-substrate-proof.mjs"
+SUBSTRATE_AUDIT="$REPO_ROOT/audits/F-A4-openai-proxy-colima-substrate-proof.md"
 DEPLOYMENT_MANIFEST="$REPO_ROOT/deploy/openai-proxy/openai-proxy-deployment-manifest.json"
 INVENTORY_JSON="$OUT_DIR/openai-proxy-production-inventory.json"
 
@@ -13838,10 +14544,10 @@ else
   fail_gate "GATE B — proxy code/runtime custody" "required proxy source/runtime fixture files are missing"
 fi
 
-if [ -f "$CUTOVER_SCRIPT" ] && [ -f "$ROLLBACK_FIXTURES" ] && [ -f "$DEPLOYMENT_MANIFEST" ]; then
+if [ -f "$CUTOVER_SCRIPT" ] && [ -f "$ROLLBACK_FIXTURES" ] && [ -f "$SUBSTRATE_PROOF" ] && [ -f "$DEPLOYMENT_MANIFEST" ]; then
   pass_gate "GATE M — cutover package artifacts"
 else
-  fail_gate "GATE M — cutover package artifacts" "cutover script, rollback fixtures, or deployment manifest missing"
+  fail_gate "GATE M — cutover package artifacts" "cutover script, rollback fixtures, substrate proof, or deployment manifest missing"
 fi
 
 if rg -n "apiKey: SecretInputSchema|baseUrl: string\\(\\)\\.min\\(1\\)|auth: union" \
@@ -13856,6 +14562,14 @@ if [ -f "$DEPLOYMENT_MANIFEST" ] && "$NODE_BIN" -e "const fs=require('fs'); cons
   pass_gate "GATE D — upstream-key custody design"
 else
   fail_gate "GATE D — upstream-key custody design" "deployment manifest lacks broker-owned 0600 upstream credential store"
+fi
+
+if [ -f "$SUBSTRATE_AUDIT" ] && rg -n "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO" "$SUBSTRATE_AUDIT" >/dev/null; then
+  pass_gate "GATE N — real Colima substrate proof"
+  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO"
+else
+  fail_gate "GATE N — real Colima substrate proof" "real substrate proof audit is missing or not GO"
+  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: NO-GO"
 fi
 
 if [ -f "$OPENCLAW_TRANSPORT" ] && [ -f "$OPENAI_SDK" ]; then
@@ -13983,7 +14697,7 @@ if [ -s "$FAILURES" ]; then
   cat "$FAILURES"
   echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
   echo "OPENAI PROXY SYNTHETIC PROOF: SEE FAILURES"
-  echo "OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO"
+  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: SEE FAILURES"
   echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
   echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
   echo "F-A4 STATUS: OPEN"
@@ -13993,7 +14707,7 @@ fi
 echo "NONE"
 echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
 echo "OPENAI PROXY SYNTHETIC PROOF: GO"
-echo "OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO"
+echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO"
 echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
 echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
 echo "F-A4 STATUS: OPEN"

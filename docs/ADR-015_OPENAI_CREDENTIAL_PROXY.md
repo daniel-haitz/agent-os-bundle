@@ -1,6 +1,6 @@
 # ADR-015 — OpenAI Credential Proxy Cutover Path
 
-**Status:** Approved design direction; production topology and cutover implementation not complete.
+**Status:** Approved design direction; production substrate proof passed; cutover implementation not complete.
 
 ## Decision
 
@@ -8,7 +8,7 @@ Agent OS will replace direct OpenAI static-key use in OpenClaw with a contained 
 
 OpenClaw will receive only a synthetic local proxy token. The real upstream OpenAI credential moves to proxy custody under the `openai-credential-broker` identity during a later authorized cutover.
 
-## Intended Topology
+## Production Placement
 
 - Placement: contained Colima/internal-network components.
 - OpenAI proxy: `agent-os-openai-forward-proxy`, identity `openai-credential-broker` (`uid=540`, `gid=740`).
@@ -17,7 +17,9 @@ OpenClaw will receive only a synthetic local proxy token. The real upstream Open
 - Proxy upstream is fixed to `https://api.openai.com`.
 - Host-only placement remains rejected while `pf` is disabled.
 
-The exact deployable topology is not yet approved. Independent review of published ref `67ac296` found the current package phrase "future network-originating OpenClaw component or gateway egress sidecar" insufficiently concrete. The next approved gate is a real temporary Colima/internal-network substrate proof using fixture containers and temporary networks. Changing `models.providers.openai.baseUrl` alone is not structural containment for a host OpenClaw Gateway while `pf` remains disabled.
+The real substrate proof resolved the placement decision: OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network. The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side internal network and a constrained upstream egress network. A host OpenClaw Gateway may orchestrate, but must not originate direct OpenAI HTTP traffic after F-A4 closure.
+
+Changing `models.providers.openai.baseUrl` alone is not structural containment for a host OpenClaw Gateway while `pf` remains disabled.
 
 ## Scope
 
@@ -47,7 +49,8 @@ The file-backed and exec-backed SecretRef OpenAI key paths are superseded for ze
 
 - Proxy transport/security fixture: `scripts/fa4-openai-proxy-fixture-tests.mjs`.
 - Contained-egress fixture: `scripts/fa4-openai-proxy-contained-egress-tests.mjs`.
+- Real Colima/internal-network substrate proof: `scripts/fa4-openai-proxy-colima-substrate-proof.mjs` and `audits/F-A4-openai-proxy-colima-substrate-proof.md`.
 - Operator inventory: `audits/F-A4-openai-proxy-production-inventory.json`.
 - Cutover package manifest: `deploy/openai-proxy/openai-proxy-deployment-manifest.json`.
 
-The contained-egress fixture is synthetic policy proof, not proof of actual Colima networking, container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart persistence, or proxy-only upstream access.
+The contained-egress fixture is synthetic policy proof. The real Colima/internal-network substrate proof separately validates Docker/Colima networking, container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart/reconnect behavior, proxy-only upstream access, UID/GID mapping, token mount separation, and teardown.

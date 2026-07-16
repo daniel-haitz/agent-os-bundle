@@ -1,21 +1,21 @@
 {
   "name": "agent-os-openai-proxy-cutover-package",
   "version": 1,
-  "status": "static-package-reviewed-corrections-required",
+  "status": "substrate-proof-passed-transaction-not-implemented",
   "productionMutationAuthorized": false,
-  "productionSubstrateReady": false,
+  "productionSubstrateProof": true,
   "productionTransactionImplemented": false,
   "productionCutoverExecuted": false,
   "topology": {
     "placement": "contained-colima-internal-network",
-    "placementStatus": "intended-not-proved-on-real-substrate",
+    "placementStatus": "proved-with-temporary-colima-substrate-fixture",
     "colimaProfile": "agent-os",
     "networkName": "agent-os-openai-egress",
     "networkCidr": "172.31.240.0/24",
     "ipv6": "disabled-deny-by-policy",
     "openclawSideComponent": {
-      "name": "agent-os-openclaw-network-sidecar",
-      "purpose": "UNRESOLVED: production must choose and prove the exact contained placement for OpenClaw-originated OpenAI traffic. A host LaunchDaemon with only baseUrl changed is insufficient while pf is disabled.",
+      "name": "agent-os-openclaw-model-network-component",
+      "purpose": "contained OpenClaw model-network execution component. Host OpenClaw may orchestrate, but must not originate direct OpenAI HTTP traffic after F-A4 closure.",
       "allowedEgress": [
         "agent-os-openai-forward-proxy:18187"
       ],
@@ -53,14 +53,13 @@
     "rollbackBoundary": "before OpenClaw config/auth cutover and before removal of the direct provider apiKey"
   },
   "reviewRequiredCorrections": [
-    "prove actual Colima/internal-network substrate with fixture containers and temporary networks",
-    "resolve exact OpenClaw containment placement",
-    "prove UID/GID mapping inside Colima",
-    "prove local-token custody path and parent traversal permissions",
-    "implement executable credential migration",
+    "implement executable production transaction",
     "implement executable rollback",
-    "prove actual network enforcement, including DNS, IPv4, IPv6, direct-IP, restart, and host-network escape resistance",
-    "prove Gmail, Telegram, and Ollama network survival"
+    "stage actual production proxy and contained OpenClaw model-network component",
+    "implement executable credential migration",
+    "install actual upstream credential custody",
+    "prove Gmail, Telegram, and Ollama regression during cutover readiness",
+    "prove cold-start and reboot behavior"
   ],
   "artifacts": [
     {
@@ -95,8 +94,8 @@
       "owner": "openclawgw",
       "group": "openclawgw",
       "mode": "0600",
-      "status": "unresolved-parent-traversal-and-custody-not-proved",
-      "purpose": "synthetic local bearer token readable by OpenClaw and mounted read-only to proxy",
+      "status": "path-rejected-use-separate-openclaw-owned-token-source",
+      "purpose": "rejected prior synthetic local bearer token path; do not place the OpenClaw-readable local token under broker home unless separately proved",
       "creationMethod": "generate at least 256 bits entropy via stdin/file write only; no command-line exposure",
       "rollback": "restore previous token or remove if absent-before"
     },

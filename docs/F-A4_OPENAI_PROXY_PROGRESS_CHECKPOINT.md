@@ -29,6 +29,7 @@
 - Proxy HTTP/security fixture: `39/39 PASS`.
 - Live OpenAI credential and route inventory is complete.
 - Synthetic contained-egress fixture: `23/23 PASS`.
+- Real temporary Colima/internal-network substrate proof: `GO`.
 - Rollback scenario fixture: `7/7 PASS`.
 - Static deployment manifest prepared.
 - Static cutover package prepared.
@@ -39,7 +40,7 @@
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
-- `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
 - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `F-A4 STATUS: OPEN`
@@ -48,16 +49,13 @@ Rollback scenario fixtures are not executable production rollback proof.
 
 ## Active Blockers
 
-- Exact production topology unresolved.
-- Real temporary Colima substrate proof not completed.
-- OpenClaw containment placement unresolved.
-- UID/GID mapping inside Colima unresolved.
-- Local-token path and traversal permissions unresolved.
+- Production transaction is not implemented.
+- Executable credential migration is not implemented.
+- Executable rollback is not implemented.
 - Actual upstream-key custody path not installed.
-- Executable credential migration not implemented.
-- Executable rollback not implemented.
-- Actual network enforcement not implemented.
-- Gmail, Telegram, and Ollama network matrix not proved.
+- Actual production proxy is not installed.
+- Production OpenClaw routing is not changed.
+- Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
 - Cold-start and reboot not proved.
 - Real production cutover not authorized.
 
@@ -74,18 +72,13 @@ Rollback scenario fixtures are not executable production rollback proof.
 
 ## Approved Next Action
 
-Build and run a temporary, isolated Colima/internal-network substrate proof using fixture containers and temporary networks only.
+Implement the production transaction and executable rollback package for the contained OpenAI proxy path.
 
-The proof must:
+The next action may create scripts, manifests, fixtures, dry-run tooling, and rollback tooling. It must not perform production cutover.
 
-- prove the OpenClaw-side fixture can reach only the proxy;
-- prove the OpenClaw-side fixture cannot directly reach OpenAI hostname, direct IP, or IPv6;
-- prove the proxy fixture alone can reach the approved synthetic upstream;
-- prove the proxy cannot reach arbitrary destinations;
-- prove DNS, SNI/TLS, and restart behavior at the actual container-network layer where possible;
-- verify host-network mode is not used;
-- record UID/GID and mount behavior;
-- tear down all temporary resources;
-- change no live OpenClaw state, credentials, launchd services, `pf`, production proxy policy, or production network.
+The package must follow the substrate proof decision:
 
-Do not run operator cutover dry-run or production cutover.
+- OpenClaw model-network execution runs inside a contained component on an internal Docker/Colima network.
+- The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side network and a constrained upstream egress network.
+- Host OpenClaw may orchestrate but must not originate direct OpenAI HTTP traffic after F-A4 closure.
+- The local token must not be placed under `/Users/openai-credential-broker/.../local-token/` unless parent traversal and custody are separately proved.

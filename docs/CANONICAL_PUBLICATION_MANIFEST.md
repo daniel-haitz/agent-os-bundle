@@ -43,6 +43,7 @@ Critical current checkpoint:
 - `scripts/fa4-operator-egress-proxy-repair.sh`
 - `src/openai-credential-broker/`
 - `scripts/fa4-openai-proxy-contained-egress-tests.mjs`
+- `scripts/fa4-openai-proxy-colima-substrate-proof.mjs`
 - `scripts/fa4-openai-proxy-cutover.sh`
 - `scripts/fa4-openai-proxy-fixture-tests.mjs`
 - `scripts/fa4-openai-proxy-inventory.mjs`
@@ -74,6 +75,7 @@ scripts/fa4-operator-openai-credential-broker-bootstrap.sh
 scripts/fa4-operator-egress-proxy-repair.sh
 src/openai-credential-broker/
 scripts/fa4-openai-proxy-contained-egress-tests.mjs
+scripts/fa4-openai-proxy-colima-substrate-proof.mjs
 scripts/fa4-openai-proxy-cutover.sh
 scripts/fa4-openai-proxy-fixture-tests.mjs
 scripts/fa4-openai-proxy-inventory.mjs

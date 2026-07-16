@@ -25,6 +25,8 @@ CONTAINED_EGRESS_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-contained-egress-test
 INVENTORY_HELPER="$REPO_ROOT/scripts/fa4-openai-proxy-inventory.mjs"
 CUTOVER_SCRIPT="$REPO_ROOT/scripts/fa4-openai-proxy-cutover.sh"
 ROLLBACK_FIXTURES="$REPO_ROOT/scripts/fa4-openai-proxy-rollback-fixtures.mjs"
+SUBSTRATE_PROOF="$REPO_ROOT/scripts/fa4-openai-proxy-colima-substrate-proof.mjs"
+SUBSTRATE_AUDIT="$REPO_ROOT/audits/F-A4-openai-proxy-colima-substrate-proof.md"
 DEPLOYMENT_MANIFEST="$REPO_ROOT/deploy/openai-proxy/openai-proxy-deployment-manifest.json"
 INVENTORY_JSON="$OUT_DIR/openai-proxy-production-inventory.json"
 
@@ -98,10 +100,10 @@ else
   fail_gate "GATE B — proxy code/runtime custody" "required proxy source/runtime fixture files are missing"
 fi
 
-if [ -f "$CUTOVER_SCRIPT" ] && [ -f "$ROLLBACK_FIXTURES" ] && [ -f "$DEPLOYMENT_MANIFEST" ]; then
+if [ -f "$CUTOVER_SCRIPT" ] && [ -f "$ROLLBACK_FIXTURES" ] && [ -f "$SUBSTRATE_PROOF" ] && [ -f "$DEPLOYMENT_MANIFEST" ]; then
   pass_gate "GATE M — cutover package artifacts"
 else
-  fail_gate "GATE M — cutover package artifacts" "cutover script, rollback fixtures, or deployment manifest missing"
+  fail_gate "GATE M — cutover package artifacts" "cutover script, rollback fixtures, substrate proof, or deployment manifest missing"
 fi
 
 if rg -n "apiKey: SecretInputSchema|baseUrl: string\\(\\)\\.min\\(1\\)|auth: union" \
@@ -116,6 +118,14 @@ if [ -f "$DEPLOYMENT_MANIFEST" ] && "$NODE_BIN" -e "const fs=require('fs'); cons
   pass_gate "GATE D — upstream-key custody design"
 else
   fail_gate "GATE D — upstream-key custody design" "deployment manifest lacks broker-owned 0600 upstream credential store"
+fi
+
+if [ -f "$SUBSTRATE_AUDIT" ] && rg -n "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO" "$SUBSTRATE_AUDIT" >/dev/null; then
+  pass_gate "GATE N — real Colima substrate proof"
+  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO"
+else
+  fail_gate "GATE N — real Colima substrate proof" "real substrate proof audit is missing or not GO"
+  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: NO-GO"
 fi
 
 if [ -f "$OPENCLAW_TRANSPORT" ] && [ -f "$OPENAI_SDK" ]; then
@@ -243,7 +253,7 @@ if [ -s "$FAILURES" ]; then
   cat "$FAILURES"
   echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
   echo "OPENAI PROXY SYNTHETIC PROOF: SEE FAILURES"
-  echo "OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO"
+  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: SEE FAILURES"
   echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
   echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
   echo "F-A4 STATUS: OPEN"
@@ -253,7 +263,7 @@ fi
 echo "NONE"
 echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
 echo "OPENAI PROXY SYNTHETIC PROOF: GO"
-echo "OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO"
+echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO"
 echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
 echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
 echo "F-A4 STATUS: OPEN"

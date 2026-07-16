@@ -1,12 +1,12 @@
 # F-A4 OpenAI Proxy Cutover Package
 
-**Status:** Static package reviewed with required corrections. Operator cutover dry-run and production cutover are not authorized.
+**Status:** Static package plus real substrate proof complete. Production transaction and cutover are not implemented or authorized.
 
 Current canonical status:
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
-- `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
 - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `F-A4 STATUS: OPEN`
@@ -15,7 +15,7 @@ Current canonical status:
 
 Prepare the controlled replacement of direct OpenAI credential use in OpenClaw with a contained credential-injecting OpenAI forwarding proxy.
 
-## Intended Topology
+## Production Placement
 
 - Colima profile: `agent-os`.
 - Network: `agent-os-openai-egress`.
@@ -27,7 +27,13 @@ Prepare the controlled replacement of direct OpenAI credential use in OpenClaw w
 
 OpenClaw host-only placement is not accepted while `pf` is disabled. The production egress boundary must be the contained network or a separately reviewed equivalent.
 
-Independent adversarial review of published ref `67ac296` found that production topology is not yet concrete enough for cutover. The phrase "future network-originating OpenClaw component or gateway egress sidecar" is not an implementable placement decision. A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled. The next approved task is a real temporary Colima/internal-network substrate proof using fixture containers and temporary networks.
+The real Colima/internal-network substrate proof resolved the placement decision:
+
+- OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network.
+- The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side internal network and a constrained upstream egress network.
+- A host OpenClaw Gateway may orchestrate, but must not originate direct OpenAI HTTP traffic after F-A4 closure.
+
+A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled.
 
 ## Credential Migration
 
@@ -91,16 +97,13 @@ These fixtures are not executable production rollback proof. Executable migratio
 
 ## Open Blockers
 
-- Exact production topology unresolved.
-- Real temporary Colima substrate proof not completed.
-- OpenClaw containment placement unresolved.
-- UID/GID mapping inside Colima unresolved.
-- Local-token path and traversal permissions unresolved.
+- Production transaction is not implemented.
+- Executable credential migration is not implemented.
+- Executable rollback is not implemented.
 - Actual upstream-key custody path not installed.
-- Executable credential migration not implemented.
-- Executable rollback not implemented.
-- Actual network enforcement not implemented.
-- Gmail, Telegram, and Ollama network matrix not proved.
+- Actual production proxy is not installed.
+- Production OpenClaw routing is not changed.
+- Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
 - Cold-start and reboot not proved.
 - Real production cutover not authorized.
 
