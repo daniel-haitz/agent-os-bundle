@@ -1,14 +1,16 @@
 # F-A4 OpenAI Proxy Cutover Package
 
-**Status:** Production transaction package implemented for dry-run/review. Production execution and cutover are not authorized.
+**Status:** Static package and fixture evidence only. Independent review rejected the package as a production transaction implementation. Production execution, operator dry-run, and cutover are not authorized.
 
 Current canonical status:
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
-- `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
-- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO`
+- `OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): GO`
+- `OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL`
+- `OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
+- `OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED`
 - `F-A4 STATUS: OPEN`
 
 ## Purpose
@@ -27,13 +29,13 @@ Prepare the controlled replacement of direct OpenAI credential use in OpenClaw w
 
 OpenClaw host-only placement is not accepted while `pf` is disabled. The production egress boundary must be the contained network or a separately reviewed equivalent.
 
-The real Colima/internal-network substrate proof resolved the placement decision:
+The real temporary Colima/internal-network substrate proof proved fixture network behavior, but it did not resolve the production OpenClaw placement decision. The following rejected statement is retained for history only:
 
-- OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network.
-- The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side internal network and a constrained upstream egress network.
-- A host OpenClaw Gateway may orchestrate, but must not originate direct OpenAI HTTP traffic after F-A4 closure.
+- Rejected placement: OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network, with the OpenAI proxy as a separate dual-homed component.
 
 A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled.
+
+Read-only reconciliation in `audits/F-A4-openai-proxy-architecture-reconciliation.md` found this rejected placement is not constructible as written on installed OpenClaw `2026.6.11`: model-provider HTTP originates inside the host Gateway process, and the package does not preserve the existing host Gmail broker Unix-socket boundary or host Ollama loopback model routes.
 
 ## Credential Migration
 
@@ -59,9 +61,10 @@ The local proxy token is a constrained local capability token, not an upstream O
 - Minimum entropy: 256 bits.
 - OpenClaw visibility: allowed.
 - OpenAI usability: none.
-- Storage: `/Users/agent/.openclaw/openai-proxy/local-token`.
-- Ownership/mode: `openclawgw:openclawgw 0600`.
-- Runtime use: mounted read-only into the contained OpenClaw model-network component and the OpenAI proxy component.
+- Rejected single-file storage: `/Users/agent/.openclaw/openai-proxy/local-token`.
+- Rejected ownership/mode for shared use: `openclawgw:openclawgw 0600`.
+- Reason: a `0600` file owned by `openclawgw` is not normally readable by proxy UID `540`; the substrate proof did not prove this exact production mount/ownership arrangement.
+- Bounded alternative to evaluate: one OpenClaw-owned token file and one broker-owned proxy token file with identical generated contents and transactional rotation.
 - Rotation: generate new token, update proxy/OpenClaw config transactionally, validate, then retire old token.
 
 The rejected path `/Users/openai-credential-broker/.../local-token/` must not be used for the OpenClaw-readable local token.
@@ -70,25 +73,25 @@ The rejected path `/Users/openai-credential-broker/.../local-token/` must not be
 
 `scripts/fa4-openai-proxy-cutover.sh` defaults to dry-run mode.
 
-Dry-run implements and validates:
+Dry-run currently validates static package structure and fixture plans:
 
 - deployment manifest;
 - topology;
 - package files;
 - config patch preview;
-- 22 transaction phases;
+- a listed 22-phase transaction specification;
 - touched-artifact manifest;
 - credential migration design;
 - auth cleanup plan;
 - regression plan;
-- generated rollback script;
+- generated rollback preview;
 - executable transaction fixture suite.
 
 The production flag is present only as a reviewed future entry point and is hard-disabled in the current phase.
 
 ## Rollback
 
-Executable rollback support is in `scripts/fa4-openai-proxy-rollback.mjs` and `scripts/fa4-openai-proxy-transaction-fixtures.mjs`.
+Fixture rollback support is in `scripts/fa4-openai-proxy-rollback.mjs` and `scripts/fa4-openai-proxy-transaction-fixtures.mjs`.
 
 Historical rollback scenario fixtures are in `scripts/fa4-openai-proxy-rollback-fixtures.mjs`.
 
@@ -104,10 +107,14 @@ Rollback scenarios include:
 
 Temporary restoration of the old direct OpenAI route after cutover requires explicit operator approval and evidence.
 
-`scripts/fa4-openai-proxy-transaction-fixtures.mjs` mutates temporary files only and verifies rollback for failures before credential migration, after credential migration, after config patch, proxy start failure, contained OpenClaw failure, gateway restart failure, route-test failure, Gmail/Telegram/Ollama regression failure, source-key removal failure, cold-start failure, and reboot failure.
+`scripts/fa4-openai-proxy-transaction-fixtures.mjs` mutates temporary files only. It does not prove production rollback of owner/group, ACL/xattrs, Docker/Colima state, service state, launchd state, source credential custody, or startup ordering.
 
 ## Open Blockers
 
+- Production placement decision reopened; contained OpenClaw model-network component is not supported as written.
+- Local-token custody is unresolved.
+- Executable production transaction is not implemented.
+- Executable production rollback is not implemented.
 - Actual upstream-key custody path not installed.
 - Actual production proxy is not installed.
 - Production OpenClaw routing is not changed.

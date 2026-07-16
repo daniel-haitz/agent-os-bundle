@@ -310,14 +310,14 @@ function sourceContract() {
 function egressDecision(pf, colima) {
   const pfEnabled = pf.statusLine === "Enabled";
   return {
-    selectedPlacement: "contained-network-placement-required",
+    selectedPlacement: "production-placement-reopened",
     hostOnlyAccepted: false,
-    reason: "With pf disabled, the host LaunchDaemon openclawgw process has no active per-service egress wall. Direct IPv4/IPv6/DNS/direct-IP bypass cannot be structurally denied on host-only placement.",
+    reason: "With pf disabled, the host LaunchDaemon openclawgw process has no active per-service egress wall. The previous contained model-network component placement is also not accepted as written because installed OpenClaw has no supported model-network sidecar/worker boundary and the placement does not preserve host Gmail broker and Ollama paths.",
     enforceableDesign: {
       processes: [
-        "OpenClaw network-originating runtime must be inside the contained Colima/internal-network boundary or behind an equivalent proven network namespace.",
+        "Placement decision reopened: identify a supported OpenClaw transport/process boundary before production transaction implementation.",
         "OpenAI forwarding proxy runs as UID/GID 540/740 inside that contained placement, with root-controlled code/runtime and broker-owned credential store mounted read-only where required.",
-        "Host launchd may supervise or start the contained service, but host openclawgw must not retain unrestricted direct external egress for production closure while pf remains disabled.",
+        "Host launchd may supervise only after a supported placement is proven; host openclawgw must not retain unrestricted direct external egress for production closure while pf remains disabled.",
       ],
       listener: "contained private address or explicitly published local endpoint reachable only by the intended OpenClaw runtime",
       baseUrl: "http://<contained-openai-proxy>/v1",
@@ -558,7 +558,7 @@ const summary = {
   auth,
   routing,
   gateStatus: {
-    egressPlacement: egress.livePfEnabled ? "FAIL" : "PASS_DESIGN_ONLY",
+    egressPlacement: "FAIL_REOPENED",
     authPrecedence: auth.unresolvedProtectedEvidence === 0 ? "PASS" : "FAIL",
     agentFallback: routing.unknownRouteCount === 0 ? "PASS" : "FAIL",
   },

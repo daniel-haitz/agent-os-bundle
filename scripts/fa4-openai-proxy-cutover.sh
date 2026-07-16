@@ -62,8 +62,10 @@ echo "Output: $OUT_DIR"
 if [ "$MODE" = "production" ]; then
   fail "PRODUCTION MODE" "production execution is hard-disabled pending independent review and operator authorization"
   echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
-  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO"
   echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
+  echo "OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED"
   exit 2
 fi
 
@@ -93,14 +95,14 @@ else
   fail "TOPOLOGY" "manifest topology must be contained-colima-internal-network"
 fi
 
-if [ "$(json_get productionTransactionImplemented)" = "true" ]; then
-  pass "TRANSACTION IMPLEMENTATION FLAG"
+if [ "$(json_get productionTransactionSpecification)" = "partial" ] && [ "$(json_get productionTransactionExecutable)" = "false" ]; then
+  pass "TRANSACTION STATUS FLAG"
 else
-  fail "TRANSACTION IMPLEMENTATION FLAG" "manifest must mark productionTransactionImplemented=true"
+  fail "TRANSACTION STATUS FLAG" "manifest must mark partial specification and non-executable transaction"
 fi
 
 echo
-echo "Production transaction phases implemented:"
+echo "Production transaction phases specified but not executable:"
 cat <<'PHASES'
 1. preflight
 2. evidence capture
@@ -167,7 +169,7 @@ cat > "$TOUCHED_MANIFEST" <<'JSON'
       "mode": "0600",
       "existsBeforeCutover": false,
       "creator": "operator cutover transaction",
-      "consumer": "contained OpenClaw model-network component and OpenAI proxy container via read-only mount",
+      "consumer": "rejected shared single-file token design; placement/local-token custody reopened",
       "backupRule": "capture absent-before state and parent metadata before creation",
       "rollbackRule": "remove if absent-before; restore previous file and metadata if existing-before"
     },
@@ -211,7 +213,7 @@ cat > "$TOUCHED_MANIFEST" <<'JSON'
       "mode": "0440",
       "existsBeforeCutover": true,
       "creator": "existing OpenClaw installation; patched by operator cutover transaction",
-      "consumer": "OpenClaw gateway and contained model-network component",
+      "consumer": "OpenClaw gateway; contained model-network consumer rejected pending placement reconciliation",
       "backupRule": "copy exact bytes and metadata before patch",
       "rollbackRule": "restore exact bytes and metadata; direct route restoration after cutover requires explicit operator approval"
     },
@@ -222,7 +224,7 @@ cat > "$TOUCHED_MANIFEST" <<'JSON'
       "mode": "internal network",
       "existsBeforeCutover": false,
       "creator": "operator cutover transaction",
-      "consumer": "contained OpenClaw model-network component and proxy",
+      "consumer": "rejected contained OpenClaw model-network component and proxy",
       "backupRule": "record absent-before network state",
       "rollbackRule": "remove only if created by this transaction label"
     },
@@ -318,7 +320,7 @@ cat > "$REGRESSION_PLAN" <<'JSON'
     "gateway supervision regression",
     "research/web routing regression"
   ],
-  "postReboot": ["proxy starts before contained OpenClaw model-network component", "gateway does not restore direct OpenAI route", "residue scan remains clean"]
+  "postReboot": ["placement-dependent startup ordering unresolved", "gateway does not restore direct OpenAI route", "residue scan remains clean"]
 }
 JSON
 chmod 0600 "$REGRESSION_PLAN"
@@ -381,11 +383,15 @@ if [ -s "$FAILURES" ]; then
   echo "Cutover package blockers:"
   cat "$FAILURES"
   echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
-  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO"
   echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
+  echo "OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED"
   exit 2
 fi
 
 echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
-echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO"
+echo "OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL"
+echo "OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO"
 echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
+echo "OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED"

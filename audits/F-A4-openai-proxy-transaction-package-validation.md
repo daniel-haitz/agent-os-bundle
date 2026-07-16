@@ -4,14 +4,18 @@
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
-- `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
-- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO`
+- `OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): GO`
+- `OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL`
+- `OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
+- `OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED`
 - `F-A4 STATUS: OPEN`
+
+This supersedes the earlier `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO` wording. Independent review of `PUBLISHED_REF 0fcde94` rejected the package as a production transaction implementation. See `audits/F-A4-openai-proxy-architecture-reconciliation.md`.
 
 ## Scope
 
-This validation covers the production transaction and executable rollback package only.
+This validation covers the static transaction specification and fixture rollback package only.
 
 It did not:
 
@@ -24,14 +28,14 @@ It did not:
 - change `pf`;
 - change Gmail broker, Telegram, or Ollama configuration.
 
-## Implemented Package
+## Static Package
 
 - Transaction driver: `scripts/fa4-openai-proxy-cutover.sh`.
-- Rollback executor: `scripts/fa4-openai-proxy-rollback.mjs`.
+- Rollback fixture helper: `scripts/fa4-openai-proxy-rollback.mjs`.
 - Transaction fixture suite: `scripts/fa4-openai-proxy-transaction-fixtures.mjs`.
 - Deployment manifest: `deploy/openai-proxy/openai-proxy-deployment-manifest.json`.
 
-Production mode remains hard-disabled until independent adversarial review and operator authorization.
+Production mode remains hard-disabled. Operator dry-run and production cutover are not authorized.
 
 ## Production Artifact Paths
 
@@ -47,7 +51,7 @@ Production mode remains hard-disabled until independent adversarial review and o
 
 ## Transaction Phases
 
-The dry-run transaction implements 22 phases:
+The dry-run transaction lists 22 phases, but does not implement a production-executable cutover:
 
 1. preflight
 2. evidence capture
@@ -76,7 +80,7 @@ The dry-run transaction implements 22 phases:
 
 - Credential migration fixture: PASS.
 - Residue-scan fixture: PASS.
-- Executable rollback fixture stages: PASS.
+- Fixture rollback stages: PASS.
 - Evidence non-disclosure fixture: PASS.
 - Transaction fixture total: `19/19 PASS`.
 - Historical rollback scenario fixture: `7/7 PASS`.

@@ -110,8 +110,8 @@ fi
 
 if rg -n "apiKey: SecretInputSchema|baseUrl: string\\(\\)\\.min\\(1\\)|auth: union" \
   /Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist/zod-schema.core-DGUr-AGH.js >/dev/null; then
-  pass_gate "GATE C — local-token compatibility"
-  echo "LOCAL TOKEN MECHANISM: protected OpenClaw provider apiKey configuration value"
+  fail_gate "GATE C — local-token compatibility" "single openclawgw-owned 0600 token file cannot serve proxy UID 540; two-file custody model required"
+  echo "LOCAL TOKEN MECHANISM: UNRESOLVED"
 else
   fail_gate "GATE C — local-token compatibility" "installed schema evidence for provider apiKey/baseUrl/auth was not found"
 fi
@@ -124,10 +124,10 @@ fi
 
 if [ -f "$SUBSTRATE_AUDIT" ] && rg -n "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO" "$SUBSTRATE_AUDIT" >/dev/null; then
   pass_gate "GATE N — real Colima substrate proof"
-  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO"
+  echo "OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): GO"
 else
   fail_gate "GATE N — real Colima substrate proof" "real substrate proof audit is missing or not GO"
-  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: NO-GO"
+  echo "OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): NO-GO"
 fi
 
 if [ -f "$OPENCLAW_TRANSPORT" ] && [ -f "$OPENAI_SDK" ]; then
@@ -262,11 +262,13 @@ echo
 echo "Readiness blockers:"
 if [ -s "$FAILURES" ]; then
   cat "$FAILURES"
-  echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
-  echo "OPENAI PROXY SYNTHETIC PROOF: SEE FAILURES"
-  echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: SEE FAILURES"
-  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: SEE FAILURES"
+  echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
+  echo "OPENAI PROXY SYNTHETIC PROOF: GO"
+  echo "OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): GO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO"
   echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
+  echo "OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED"
   echo "F-A4 STATUS: OPEN"
   exit 2
 fi
@@ -274,7 +276,9 @@ fi
 echo "NONE"
 echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
 echo "OPENAI PROXY SYNTHETIC PROOF: GO"
-echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO"
-echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO"
+echo "OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): GO"
+echo "OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL"
+echo "OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO"
 echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
+echo "OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED"
 echo "F-A4 STATUS: OPEN"
