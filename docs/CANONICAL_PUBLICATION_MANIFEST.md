@@ -19,6 +19,10 @@ Critical onboarding document:
 
 - `docs/AGENT_ONBOARDING_PROTOCOL.md`
 
+Critical current checkpoint:
+
+- `docs/F-A4_OPENAI_PROXY_PROGRESS_CHECKPOINT.md`
+
 ## Published Evidence
 
 - `audits/`
@@ -54,6 +58,7 @@ CONTROL.md
 OPERATING_CONSTITUTION.md
 docs/
 docs/AGENT_ONBOARDING_PROTOCOL.md
+docs/F-A4_OPENAI_PROXY_PROGRESS_CHECKPOINT.md
 audits/
 scripts/wrap-up.sh
 scripts/bundle-for-claude.sh

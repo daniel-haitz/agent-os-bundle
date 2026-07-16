@@ -1,17 +1,21 @@
 {
   "name": "agent-os-openai-proxy-cutover-package",
   "version": 1,
-  "status": "prepared-not-applied",
+  "status": "static-package-reviewed-corrections-required",
   "productionMutationAuthorized": false,
+  "productionSubstrateReady": false,
+  "productionTransactionImplemented": false,
+  "productionCutoverExecuted": false,
   "topology": {
     "placement": "contained-colima-internal-network",
+    "placementStatus": "intended-not-proved-on-real-substrate",
     "colimaProfile": "agent-os",
     "networkName": "agent-os-openai-egress",
     "networkCidr": "172.31.240.0/24",
     "ipv6": "disabled-deny-by-policy",
     "openclawSideComponent": {
       "name": "agent-os-openclaw-network-sidecar",
-      "purpose": "future network-originating OpenClaw component or gateway egress sidecar; host launchd gateway must not retain unrestricted direct OpenAI egress for F-A4 closure",
+      "purpose": "UNRESOLVED: production must choose and prove the exact contained placement for OpenClaw-originated OpenAI traffic. A host LaunchDaemon with only baseUrl changed is insufficient while pf is disabled.",
       "allowedEgress": [
         "agent-os-openai-forward-proxy:18187"
       ],
@@ -48,6 +52,16 @@
     ],
     "rollbackBoundary": "before OpenClaw config/auth cutover and before removal of the direct provider apiKey"
   },
+  "reviewRequiredCorrections": [
+    "prove actual Colima/internal-network substrate with fixture containers and temporary networks",
+    "resolve exact OpenClaw containment placement",
+    "prove UID/GID mapping inside Colima",
+    "prove local-token custody path and parent traversal permissions",
+    "implement executable credential migration",
+    "implement executable rollback",
+    "prove actual network enforcement, including DNS, IPv4, IPv6, direct-IP, restart, and host-network escape resistance",
+    "prove Gmail, Telegram, and Ollama network survival"
+  ],
   "artifacts": [
     {
       "path": "/Users/openai-credential-broker/agent-os-openai-credential-broker/runtime/node",
@@ -81,6 +95,7 @@
       "owner": "openclawgw",
       "group": "openclawgw",
       "mode": "0600",
+      "status": "unresolved-parent-traversal-and-custody-not-proved",
       "purpose": "synthetic local bearer token readable by OpenClaw and mounted read-only to proxy",
       "creationMethod": "generate at least 256 bits entropy via stdin/file write only; no command-line exposure",
       "rollback": "restore previous token or remove if absent-before"

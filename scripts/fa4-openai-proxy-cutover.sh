@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Controlled OpenAI proxy cutover package driver.
+# Controlled OpenAI proxy static cutover package validator.
 #
 # Default mode is dry-run and read-only. Production mode is intentionally gated
-# and must not be used until an independent review approves the package.
+# because this script does not implement the production transaction.
 
 set -euo pipefail
 
@@ -46,13 +46,15 @@ json_get() {
   "$NODE_BIN" -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const v=process.argv[2].split('.').reduce((a,k)=>a&&a[k],j); console.log(v ?? '')" "$MANIFEST" "$1"
 }
 
-echo "F-A4 OpenAI proxy cutover package driver"
+echo "F-A4 OpenAI proxy static cutover package validator"
 echo "Mode: $MODE"
 echo "Output: $OUT_DIR"
 
 if [ "$MODE" = "production" ]; then
-  fail "PRODUCTION MODE" "production cutover execution is not authorized by this package"
-  echo "OPENAI PROXY CUTOVER PACKAGE READINESS: NO-GO"
+  fail "PRODUCTION MODE" "production cutover transaction is not implemented by this static package validator"
+  echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+  echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
   exit 2
 fi
 
@@ -134,8 +136,12 @@ echo
 if [ -s "$FAILURES" ]; then
   echo "Cutover package blockers:"
   cat "$FAILURES"
-  echo "OPENAI PROXY CUTOVER PACKAGE READINESS: NO-GO"
+  echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+  echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
   exit 2
 fi
 
-echo "OPENAI PROXY CUTOVER PACKAGE READINESS: GO"
+echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
+echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"

@@ -1,12 +1,21 @@
 # F-A4 OpenAI Proxy Cutover Package
 
-**Status:** Prepared for independent review and operator dry-run. Production cutover is not authorized by this document.
+**Status:** Static package reviewed with required corrections. Operator cutover dry-run and production cutover are not authorized.
+
+Current canonical status:
+
+- `OPENAI PROXY PACKAGE STATIC READINESS: GO`
+- `OPENAI PROXY SYNTHETIC PROOF: GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+- `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
+- `F-A4 STATUS: OPEN`
 
 ## Purpose
 
 Prepare the controlled replacement of direct OpenAI credential use in OpenClaw with a contained credential-injecting OpenAI forwarding proxy.
 
-## Final Topology
+## Intended Topology
 
 - Colima profile: `agent-os`.
 - Network: `agent-os-openai-egress`.
@@ -17,6 +26,8 @@ Prepare the controlled replacement of direct OpenAI credential use in OpenClaw w
 - Host-published ports: none in the target design.
 
 OpenClaw host-only placement is not accepted while `pf` is disabled. The production egress boundary must be the contained network or a separately reviewed equivalent.
+
+Independent adversarial review of published ref `67ac296` found that production topology is not yet concrete enough for cutover. The phrase "future network-originating OpenClaw component or gateway egress sidecar" is not an implementable placement decision. A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled. The next approved task is a real temporary Colima/internal-network substrate proof using fixture containers and temporary networks.
 
 ## Credential Migration
 
@@ -58,11 +69,11 @@ Dry-run validates:
 - cutover phases;
 - credential migration design.
 
-The production flag is present only as a reviewed future entry point and is not authorized in the current phase.
+The production flag is present only as a reviewed future entry point and is not authorized in the current phase. The script is currently a static package validator, not an implementation of the nineteen production cutover phases.
 
 ## Rollback
 
-Rollback fixtures are in `scripts/fa4-openai-proxy-rollback-fixtures.mjs`.
+Rollback scenario fixtures are in `scripts/fa4-openai-proxy-rollback-fixtures.mjs`.
 
 Rollback scenarios include:
 
@@ -75,6 +86,23 @@ Rollback scenarios include:
 - reboot persistence failure.
 
 Temporary restoration of the old direct OpenAI route after cutover requires explicit operator approval and evidence.
+
+These fixtures are not executable production rollback proof. Executable migration and rollback remain open blockers.
+
+## Open Blockers
+
+- Exact production topology unresolved.
+- Real temporary Colima substrate proof not completed.
+- OpenClaw containment placement unresolved.
+- UID/GID mapping inside Colima unresolved.
+- Local-token path and traversal permissions unresolved.
+- Actual upstream-key custody path not installed.
+- Executable credential migration not implemented.
+- Executable rollback not implemented.
+- Actual network enforcement not implemented.
+- Gmail, Telegram, and Ollama network matrix not proved.
+- Cold-start and reboot not proved.
+- Real production cutover not authorized.
 
 ## Closure Evidence Checklist
 

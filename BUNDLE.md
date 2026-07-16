@@ -5,10 +5,10 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: fd54990b7be304ee58ebd2e1992e78ebfd222b9e
+private source repository commit: 01fd460275a03f8250d590ffe8fee48f19c705e2
 private source repository branch: main
-generated timestamp: 2026-07-16T17:11:12Z
-publication manifest governance commit: fd54990b7be304ee58ebd2e1992e78ebfd222b9e
+generated timestamp: 2026-07-16T18:24:53Z
+publication manifest governance commit: 01fd460275a03f8250d590ffe8fee48f19c705e2
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
 public bundle repository commit: <not embedded before publication commit exists>
@@ -141,7 +141,14 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - 2026-07-15 operator read-only validation captured service identity and filesystem evidence, but native OpenClaw, broker, and F-A3 runtime-identity checks were blocked by the harness's nested sudo design. The denials do not prove an underlying control failure. The corrected read-only validation path uses a fixed-operation `openclawgw` identity wrapper and remains to be operator-run.
 - 2026-07-15T184542Z operator read-only validation with the corrected identity wrapper proved OpenClaw version, gateway/broker/proxy identities, OpenClaw path modes, broker socket modes, broker health/search, and F-A3 clean/adversarial regressions. It also found bounded OpenClaw containment blockers: unsafe `ollama/qwen3-coder:30b` default fallback web access, gmail-reader shell/process exposure, plaintext OpenAI static API-key surfaces, pf disabled, stale launchd version metadata, and legacy config-health residue.
 - The file-backed and exec-backed SecretRef paths are superseded for OpenAI static-key custody. OpenClaw eagerly resolves SecretRefs into its runtime state, so zero-read upstream credential custody requires a local credential-injecting OpenAI forwarding proxy under the dedicated `openai-credential-broker` identity. OpenClaw may receive only a constrained synthetic local proxy token. This is an F-A4 design/readiness path, not production remediation or closure.
-- 2026-07-16 OpenAI proxy fixture, production inventory, contained-egress proof, and cutover package readiness are implemented in `scripts/fa4-openai-proxy-readiness.sh`, `scripts/fa4-openai-proxy-inventory.mjs`, `scripts/fa4-openai-proxy-contained-egress-tests.mjs`, and `scripts/fa4-openai-proxy-cutover.sh`. The fixture remains synthetic-only. The controlled cutover package is prepared for independent review/operator dry-run, but production cutover is not authorized. Zero production mutation was verified.
+- 2026-07-16 OpenAI proxy fixture, production inventory, contained-egress proof, and static cutover package validation are implemented in `scripts/fa4-openai-proxy-readiness.sh`, `scripts/fa4-openai-proxy-inventory.mjs`, `scripts/fa4-openai-proxy-contained-egress-tests.mjs`, and `scripts/fa4-openai-proxy-cutover.sh`. The fixture remains synthetic-only. Independent adversarial review of published ref `67ac296` returned `APPROVE WITH REQUIRED CORRECTIONS`: the package is a static design/dry-run package, not an executable production implementation. Production cutover and operator cutover dry-run are not authorized. Zero production mutation was verified.
+- Current OpenAI proxy package status:
+  - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
+  - `OPENAI PROXY SYNTHETIC PROOF: GO`
+  - `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+  - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+  - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
+  - `F-A4 STATUS: OPEN`
 - Operator-level OpenAI inventory is recorded in `audits/F-A4-openai-proxy-production-inventory.json` without credential values or hashes. It identifies one current direct-bypass OpenAI credential source in `openclaw.json`, three direct OpenAI routes (`main`, `research-handoff-gate`, `email-researcher`), and two local-only routes (`heartbeat`, `gmail-reader`).
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
@@ -200,7 +207,7 @@ Research produces proposals. Implementation changes require explicit approval, s
 | F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
 | F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
 | F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — REMEDIATION PACKAGE PREPARED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. Operator-owned egress proxy repair and read-only validation scripts are prepared, but native audit/secrets/sandbox checks, egress proxy, pf evidence, stale launchd version metadata, and runtime-identity regression remain open until operator execution records evidence. |
+| F-A4 Complete mediation and egress | IN BUILD — OPENAI PROXY STATIC PACKAGE REVIEWED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. OpenAI proxy design direction, synthetic transport proof, route inventory, and static cutover package exist, but independent review found production topology, real Colima substrate proof, local-token custody, executable transaction, executable rollback, and production network enforcement remain unresolved. Operator cutover dry-run and production cutover are not authorized. |
 | OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
 | F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
 | F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
@@ -262,7 +269,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Advance only the OpenAI forwarding-proxy readiness path. Current inventory resolves egress placement to a contained-network design, and the isolated contained-egress fixture proves the intended OpenClaw-side/proxy/upstream separation. The controlled proxy cutover package is prepared for independent review/operator dry-run; production cutover remains unauthorized. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
+1. Advance only the OpenAI forwarding-proxy readiness path. Current inventory resolves the intended egress direction to a contained-network design, and the isolated contained-egress fixture proves synthetic policy logic for the intended OpenClaw-side/proxy/upstream separation. It does not prove the real Colima substrate, actual container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart persistence, or proxy-only upstream access. The static proxy cutover package has completed independent review with required corrections; production cutover and operator cutover dry-run remain unauthorized. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
@@ -273,17 +280,21 @@ The operator scripts follow the reusable Agent OS operator-action pattern: prefl
 
 ### Immediate bounded action
 
-Submit the controlled OpenAI proxy cutover package for independent review, or run the operator dry-run only. Do not install the production proxy or change live OpenClaw configuration, credentials, auth profiles, generated stores, launchd services, pf, or proxy policy.
+Build and run a temporary, isolated Colima/internal-network substrate proof.
+
+The proof must use fixture containers and temporary networks only; prove the OpenClaw-side fixture can reach only the proxy; prove the OpenClaw-side fixture cannot directly reach the OpenAI hostname, direct IP, or IPv6; prove the proxy fixture alone can reach the approved synthetic upstream; prove the proxy cannot reach arbitrary destinations; prove DNS, SNI/TLS, and restart behavior at the actual container-network layer where possible; verify host-network mode is not used; record UID/GID and mount behavior; tear down all temporary resources; and change no live OpenClaw state, credentials, launchd services, pf, production proxy policy, or production network.
+
+Do not authorize operator cutover dry-run or production cutover.
 
 Required results:
 
-1. Unsafe `ollama/qwen3-coder:30b` default fallback web access is removed or denied.
-2. gmail-reader has no general process capability and no general shell path beyond an explicitly validated fixed broker-client surface.
-3. OpenClaw has no usable real upstream OpenAI key; OpenAI traffic routes through an authenticated local forwarding proxy with only a constrained synthetic local token visible to OpenClaw, and direct authenticated fallback paths are removed or neutralized.
-4. Native OpenClaw security/secrets/sandbox validation runs through the approved read-only path.
-5. Corrected egress proxy repair harness runs repeatably, and proxy/pf evidence is captured through the approved operator path.
-6. Launchd `OPENCLAW_SERVICE_VERSION` metadata is reconciled with live OpenClaw `2026.6.11 (e085fa1)`.
-7. F-A1/F-A2/F-A3 bounded regression remains passing for the actual gateway/runtime identity where required by the F-A4 cutover gate.
+1. Real Colima/internal-network substrate behavior is tested with fixture containers and temporary networks.
+2. OpenClaw-side fixture direct OpenAI hostname, direct-IP, and IPv6 egress are denied.
+3. OpenClaw-side fixture can reach only the fixture proxy for OpenAI traffic.
+4. Proxy fixture can reach only the approved synthetic upstream and cannot reach arbitrary destinations.
+5. DNS, SNI/TLS, proxy-environment, restart, host-network mode, UID/GID, and mount behavior are recorded.
+6. All temporary containers, networks, and fixture resources are torn down.
+7. Zero live OpenClaw, credential, launchd, `pf`, production proxy policy, or production network mutation is verified.
 
 ### Locked sequence after the immediate action
 
@@ -762,6 +773,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+01fd460 fa4: reconcile OpenAI proxy cutover review status
 fd54990 fa4: prepare OpenAI proxy cutover package
 8c2d752 fa4: prove OpenAI proxy contained egress path
 43aee75 fa4: expand OpenAI proxy production inventory gates
@@ -781,7 +793,6 @@ ee43b37 fa4: gate OpenAI credential broker remediation readiness
 d802175 validation: harden F-A4 SecretRef readiness and rollback
 45bc9ad validation: fix F-A4 tools exec schema patch
 ef7ebc0 validation: harden F-A4 containment readiness checks
-a37cb6d validation: use behavioral broker argPattern checks
 ```
 
 ## Repository Tree
@@ -833,6 +844,7 @@ docs/F-A4_LOCK_2B_0READ_CREDENTIAL_CUSTODY.md
 docs/F-A4_LOCK_2B_LAUNCHDAEMON_PLIST_DRAFT.md
 docs/F-A4_LOCK_PHASE5_EGRESS_WALL_DRAFT.md
 docs/F-A4_OPENAI_PROXY_CUTOVER_PACKAGE.md
+docs/F-A4_OPENAI_PROXY_PROGRESS_CHECKPOINT.md
 docs/F-B_OBSERVABILITY_DESIGN.md
 docs/OPENCLAW_BUILD_PLAN.md
 docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md
@@ -888,8 +900,8 @@ templates/DROP_FORMAT.md
 
 ## Publication validation
 ```text
-manifest commit: fd54990b7be304ee58ebd2e1992e78ebfd222b9e
-published files: 65
+manifest commit: 01fd460275a03f8250d590ffe8fee48f19c705e2
+published files: 66
 missing files count: 0
 ```
 
@@ -897,7 +909,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
-last validation timestamp: 2026-07-16T17:11:12Z
+last validation timestamp: 2026-07-16T18:24:53Z
 ```
 
 ---
@@ -923,6 +935,10 @@ This includes the manifest itself, architecture decisions, change-control standa
 Critical onboarding document:
 
 - `docs/AGENT_ONBOARDING_PROTOCOL.md`
+
+Critical current checkpoint:
+
+- `docs/F-A4_OPENAI_PROXY_PROGRESS_CHECKPOINT.md`
 
 ## Published Evidence
 
@@ -959,6 +975,7 @@ CONTROL.md
 OPERATING_CONSTITUTION.md
 docs/
 docs/AGENT_ONBOARDING_PROTOCOL.md
+docs/F-A4_OPENAI_PROXY_PROGRESS_CHECKPOINT.md
 audits/
 scripts/wrap-up.sh
 scripts/bundle-for-claude.sh
@@ -4448,17 +4465,21 @@ F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the p
 {
   "name": "agent-os-openai-proxy-cutover-package",
   "version": 1,
-  "status": "prepared-not-applied",
+  "status": "static-package-reviewed-corrections-required",
   "productionMutationAuthorized": false,
+  "productionSubstrateReady": false,
+  "productionTransactionImplemented": false,
+  "productionCutoverExecuted": false,
   "topology": {
     "placement": "contained-colima-internal-network",
+    "placementStatus": "intended-not-proved-on-real-substrate",
     "colimaProfile": "agent-os",
     "networkName": "agent-os-openai-egress",
     "networkCidr": "172.31.240.0/24",
     "ipv6": "disabled-deny-by-policy",
     "openclawSideComponent": {
       "name": "agent-os-openclaw-network-sidecar",
-      "purpose": "future network-originating OpenClaw component or gateway egress sidecar; host launchd gateway must not retain unrestricted direct OpenAI egress for F-A4 closure",
+      "purpose": "UNRESOLVED: production must choose and prove the exact contained placement for OpenClaw-originated OpenAI traffic. A host LaunchDaemon with only baseUrl changed is insufficient while pf is disabled.",
       "allowedEgress": [
         "agent-os-openai-forward-proxy:18187"
       ],
@@ -4495,6 +4516,16 @@ F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the p
     ],
     "rollbackBoundary": "before OpenClaw config/auth cutover and before removal of the direct provider apiKey"
   },
+  "reviewRequiredCorrections": [
+    "prove actual Colima/internal-network substrate with fixture containers and temporary networks",
+    "resolve exact OpenClaw containment placement",
+    "prove UID/GID mapping inside Colima",
+    "prove local-token custody path and parent traversal permissions",
+    "implement executable credential migration",
+    "implement executable rollback",
+    "prove actual network enforcement, including DNS, IPv4, IPv6, direct-IP, restart, and host-network escape resistance",
+    "prove Gmail, Telegram, and Ollama network survival"
+  ],
   "artifacts": [
     {
       "path": "/Users/openai-credential-broker/agent-os-openai-credential-broker/runtime/node",
@@ -4528,6 +4559,7 @@ F-A4 remains **not closed**. The validated broker/F-A3 regressions unblock the p
       "owner": "openclawgw",
       "group": "openclawgw",
       "mode": "0600",
+      "status": "unresolved-parent-traversal-and-custody-not-proved",
       "purpose": "synthetic local bearer token readable by OpenClaw and mounted read-only to proxy",
       "creationMethod": "generate at least 256 bits entropy via stdin/file write only; no command-line exposure",
       "rollback": "restore previous token or remove if absent-before"
@@ -4602,7 +4634,7 @@ OpenClaw `2026.6.11 (e085fa1)` is the current documented runtime baseline.
 ```markdown
 # ADR-015 — OpenAI Credential Proxy Cutover Path
 
-**Status:** Approved design; production cutover not executed.
+**Status:** Approved design direction; production topology and cutover implementation not complete.
 
 ## Decision
 
@@ -4610,7 +4642,7 @@ Agent OS will replace direct OpenAI static-key use in OpenClaw with a contained 
 
 OpenClaw will receive only a synthetic local proxy token. The real upstream OpenAI credential moves to proxy custody under the `openai-credential-broker` identity during a later authorized cutover.
 
-## Production Topology
+## Intended Topology
 
 - Placement: contained Colima/internal-network components.
 - OpenAI proxy: `agent-os-openai-forward-proxy`, identity `openai-credential-broker` (`uid=540`, `gid=740`).
@@ -4618,6 +4650,8 @@ OpenClaw will receive only a synthetic local proxy token. The real upstream Open
 - OpenAI API adapter remains `openai-responses`.
 - Proxy upstream is fixed to `https://api.openai.com`.
 - Host-only placement remains rejected while `pf` is disabled.
+
+The exact deployable topology is not yet approved. Independent review of published ref `67ac296` found the current package phrase "future network-originating OpenClaw component or gateway egress sidecar" insufficiently concrete. The next approved gate is a real temporary Colima/internal-network substrate proof using fixture containers and temporary networks. Changing `models.providers.openai.baseUrl` alone is not structural containment for a host OpenClaw Gateway while `pf` remains disabled.
 
 ## Scope
 
@@ -4649,6 +4683,8 @@ The file-backed and exec-backed SecretRef OpenAI key paths are superseded for ze
 - Contained-egress fixture: `scripts/fa4-openai-proxy-contained-egress-tests.mjs`.
 - Operator inventory: `audits/F-A4-openai-proxy-production-inventory.json`.
 - Cutover package manifest: `deploy/openai-proxy/openai-proxy-deployment-manifest.json`.
+
+The contained-egress fixture is synthetic policy proof, not proof of actual Colima networking, container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart persistence, or proxy-only upstream access.
 ```
 
 ### docs/AGENT_OS_ARCHITECTURE_DECISIONS.md
@@ -4691,7 +4727,7 @@ This document supersedes research notes and discussion artifacts for approved ar
 | OpenClaw logical agents are OS security principals by default | REJECT |
 | Plugin, MCP, and connector governance is required | ADOPT |
 | Current Gmail reader/researcher model assignments documented | ADOPT |
-| OpenAI static-key custody moves to contained credential-injecting proxy | ADOPT |
+| OpenAI static-key custody moves to contained credential-injecting proxy | ADOPT AS DESIGN DIRECTION; PRODUCTION TOPOLOGY PENDING |
 | Change-control standard establishes mandatory reconciliation between runtime state, operational state, evidence, and canonical documentation. | ADOPT |
 | Change-control standard is adopted as an enforced operating model. | ADOPT |
 | Cedar becomes the initial policy engine | DEFER |
@@ -5554,7 +5590,8 @@ No silent deletion is allowed.
 | Aquaman source audit + native SecretRef comparison | Open | Phase 6 secrets governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — OpenClaw Native Capability Reconciliation | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` records ADOPT-PENDING-VERIFY and source-audit/native-SecretRef comparison requirement. |
 | ClawGuard source review before audit trust | Open | F-B observability governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — Security obligation register references | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` records ADOPT-PENDING-VERIFY before audit integrity reliance. |
 | Browser fill tool-side secret resolution | Open | Phase 6 secrets governance | `docs/AGENT_OS_ARCHITECTURE_DECISIONS.md` — OpenClaw Native Capability Reconciliation | `docs/OPENCLAW_DECISIONS_AND_ADDITIONS.md` and `docs/OPENCLAW_BUILD_PLAN.md` record the browser-fill SecretRef verification gate. |
-| OpenAI key plaintext custody flag | Open | F-A4 credential custody governance | `docs/ADR-015_OPENAI_CREDENTIAL_PROXY.md` and `docs/F-A4_OPENAI_PROXY_CUTOVER_PACKAGE.md` | Operator inventory in `audits/F-A4-openai-proxy-production-inventory.json` records one direct OpenAI credential source. The contained proxy cutover package is prepared, but the real credential remains in OpenClaw until a later authorized cutover. |
+| OpenAI key plaintext custody flag | Open | F-A4 credential custody governance | `docs/ADR-015_OPENAI_CREDENTIAL_PROXY.md` and `docs/F-A4_OPENAI_PROXY_CUTOVER_PACKAGE.md` | Operator inventory in `audits/F-A4-openai-proxy-production-inventory.json` records one direct OpenAI credential source. The proxy package has static readiness and synthetic proof only; the real credential remains in OpenClaw until a later authorized cutover. |
+| OpenAI proxy production substrate proof | Open | F-A4 egress governance | `docs/F-A4_OPENAI_PROXY_CUTOVER_PACKAGE.md` and `deploy/openai-proxy/openai-proxy-deployment-manifest.json` | Independent review of published ref `67ac296` found actual Colima networking, container DNS, IPv4/IPv6 denial, direct-IP denial, host-network escape resistance, restart persistence, and proxy-only upstream access unproved. |
 | Gmail recovery passphrase escrow posture | Open | Gmail recovery governance | `docs/AGENT_OS_GMAIL_RECOVERY_RUNBOOK.md` | Recovery runbook records operator-held-only passphrase custody and explicitly defers operational escrow changes. |
 | OpenClaw Security and Release Monitoring | Open | Platform maintenance governance | `docs/F-A4_CUTOVER_RUNBOOK.md` — Native OpenClaw Security Baseline Validation | OpenClaw evolves rapidly; Agent OS requires recurring validation of security advisories, runtime upgrades, and breaking changes before qualification or closure claims. |
 ```
@@ -7385,7 +7422,9 @@ The locked OpenClaw config remains root-owned and must not be loosened for valid
 
 If `ai.agent-os-egress-proxy` exits with `EX_CONFIG`, use `scripts/fa4-operator-egress-proxy-repair.sh` from an operator root shell to install the reviewed `drafts/fa4-phase5/` proxy artifacts into their root-owned runtime paths and restart only the proxy LaunchDaemon. This repair does not edit OpenClaw config or pf configuration.
 
-If read-only validation reports OpenClaw critical findings for unsafe local-model web fallback, gmail-reader shell/process exposure, or supported plaintext OpenAI API-key surfaces, do not advance the superseded exec SecretRef remediation path. The approved OpenAI static-key custody direction is a local credential-injecting OpenAI forwarding proxy under the dedicated `openai-credential-broker` identity. Run `scripts/fa4-openai-proxy-readiness.sh` to capture synthetic proxy fixture results, contained-network egress proof, auth precedence inventory, agent/fallback inventory, and zero-production-mutation evidence. Production remediation is not authorized until the controlled proxy cutover/readiness package is prepared, reviewed, and approved.
+If read-only validation reports OpenClaw critical findings for unsafe local-model web fallback, gmail-reader shell/process exposure, or supported plaintext OpenAI API-key surfaces, do not advance the superseded exec SecretRef remediation path. The approved OpenAI static-key custody direction is a local credential-injecting OpenAI forwarding proxy under the dedicated `openai-credential-broker` identity. Run `scripts/fa4-openai-proxy-readiness.sh` to capture synthetic proxy fixture results, contained-network policy fixture proof, auth precedence inventory, agent/fallback inventory, and zero-production-mutation evidence.
+
+Independent review of the static proxy package found required corrections before any operator dry-run or production cutover. The package is static-ready and synthetic-proof-ready, but the real Colima substrate, concrete OpenClaw containment placement, local-token custody path, executable migration, executable rollback, and production network enforcement remain open. The approved next step is a temporary isolated Colima/internal-network substrate proof using fixture containers and temporary networks only.
 
 Before provisioning the `openai-credential-broker` identity, run `scripts/fa4-operator-openai-credential-broker-bootstrap.sh --dry-run` and require `IDENTITY BOOTSTRAP DRY RUN: GO`. The bootstrap dry-run is non-mutating and must be reviewed before the mutating identity bootstrap is executed.
 
@@ -9630,13 +9669,22 @@ managed proxy may still be active.
 ```markdown
 # F-A4 OpenAI Proxy Cutover Package
 
-**Status:** Prepared for independent review and operator dry-run. Production cutover is not authorized by this document.
+**Status:** Static package reviewed with required corrections. Operator cutover dry-run and production cutover are not authorized.
+
+Current canonical status:
+
+- `OPENAI PROXY PACKAGE STATIC READINESS: GO`
+- `OPENAI PROXY SYNTHETIC PROOF: GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+- `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
+- `F-A4 STATUS: OPEN`
 
 ## Purpose
 
 Prepare the controlled replacement of direct OpenAI credential use in OpenClaw with a contained credential-injecting OpenAI forwarding proxy.
 
-## Final Topology
+## Intended Topology
 
 - Colima profile: `agent-os`.
 - Network: `agent-os-openai-egress`.
@@ -9647,6 +9695,8 @@ Prepare the controlled replacement of direct OpenAI credential use in OpenClaw w
 - Host-published ports: none in the target design.
 
 OpenClaw host-only placement is not accepted while `pf` is disabled. The production egress boundary must be the contained network or a separately reviewed equivalent.
+
+Independent adversarial review of published ref `67ac296` found that production topology is not yet concrete enough for cutover. The phrase "future network-originating OpenClaw component or gateway egress sidecar" is not an implementable placement decision. A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled. The next approved task is a real temporary Colima/internal-network substrate proof using fixture containers and temporary networks.
 
 ## Credential Migration
 
@@ -9688,11 +9738,11 @@ Dry-run validates:
 - cutover phases;
 - credential migration design.
 
-The production flag is present only as a reviewed future entry point and is not authorized in the current phase.
+The production flag is present only as a reviewed future entry point and is not authorized in the current phase. The script is currently a static package validator, not an implementation of the nineteen production cutover phases.
 
 ## Rollback
 
-Rollback fixtures are in `scripts/fa4-openai-proxy-rollback-fixtures.mjs`.
+Rollback scenario fixtures are in `scripts/fa4-openai-proxy-rollback-fixtures.mjs`.
 
 Rollback scenarios include:
 
@@ -9706,6 +9756,23 @@ Rollback scenarios include:
 
 Temporary restoration of the old direct OpenAI route after cutover requires explicit operator approval and evidence.
 
+These fixtures are not executable production rollback proof. Executable migration and rollback remain open blockers.
+
+## Open Blockers
+
+- Exact production topology unresolved.
+- Real temporary Colima substrate proof not completed.
+- OpenClaw containment placement unresolved.
+- UID/GID mapping inside Colima unresolved.
+- Local-token path and traversal permissions unresolved.
+- Actual upstream-key custody path not installed.
+- Executable credential migration not implemented.
+- Executable rollback not implemented.
+- Actual network enforcement not implemented.
+- Gmail, Telegram, and Ollama network matrix not proved.
+- Cold-start and reboot not proved.
+- Real production cutover not authorized.
+
 ## Closure Evidence Checklist
 
 - Proxy artifact hashes match manifest.
@@ -9717,6 +9784,101 @@ Temporary restoration of the old direct OpenAI route after cutover requires expl
 - Arbitrary proxy egress is denied.
 - Residue scan finds no real OpenAI credential in OpenClaw-readable files, env, children, logs, generated stores, or snapshots.
 - Cold-start and reboot validation pass.
+```
+
+### docs/F-A4_OPENAI_PROXY_PROGRESS_CHECKPOINT.md
+```markdown
+# F-A4 OpenAI Proxy Progress Checkpoint
+
+## Governing Rules
+
+- `CONTROL.md` is authoritative for accepted current state, blockers, and next action.
+- `OPERATING_CONSTITUTION.md` and `docs/AGENT_OS_CHANGE_CONTROL_STANDARD.md` govern conduct.
+- Live runtime evidence is authoritative for observed facts.
+- Historical handoff/status documents are context only.
+- Do not claim F-A4 closure from partial evidence.
+
+## Runtime Baseline
+
+- Installed OpenClaw baseline: `2026.6.11 (e085fa1)`.
+- Gateway identity: `openclawgw`.
+- Gmail broker identity: `gmailbroker`.
+- OpenAI credential broker identity: `openai-credential-broker` (`uid=540`, `gid=740`).
+- `pf` remains disabled and must not be enabled by the OpenAI proxy package workstream.
+
+## Current Phase
+
+- Phase: `F-A4 Complete mediation and egress`.
+- Status: `OPEN`.
+- Production OpenAI proxy cutover: not authorized.
+
+## Completed Evidence
+
+- Exact OpenAI Responses transport feasibility is proven for `openai/gpt-5.5`.
+- Forwarding-proxy architecture direction is approved.
+- Proxy HTTP/security fixture: `39/39 PASS`.
+- Live OpenAI credential and route inventory is complete.
+- Synthetic contained-egress fixture: `23/23 PASS`.
+- Rollback scenario fixture: `7/7 PASS`.
+- Static deployment manifest prepared.
+- Static cutover package prepared.
+- Zero production mutation verified.
+- Independent adversarial review completed for published ref `67ac296`.
+
+## Current F-A4 Substatus
+
+- `OPENAI PROXY PACKAGE STATIC READINESS: GO`
+- `OPENAI PROXY SYNTHETIC PROOF: GO`
+- `OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO`
+- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+- `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
+- `F-A4 STATUS: OPEN`
+
+Rollback scenario fixtures are not executable production rollback proof.
+
+## Active Blockers
+
+- Exact production topology unresolved.
+- Real temporary Colima substrate proof not completed.
+- OpenClaw containment placement unresolved.
+- UID/GID mapping inside Colima unresolved.
+- Local-token path and traversal permissions unresolved.
+- Actual upstream-key custody path not installed.
+- Executable credential migration not implemented.
+- Executable rollback not implemented.
+- Actual network enforcement not implemented.
+- Gmail, Telegram, and Ollama network matrix not proved.
+- Cold-start and reboot not proved.
+- Real production cutover not authorized.
+
+## Superseded Approaches
+
+- File-backed SecretRef for the real OpenAI static key.
+- Exec-backed SecretRef resolver for the real OpenAI static key.
+- OpenClaw validator patch as the OpenAI credential-custody solution.
+
+## Latest Publication Baseline
+
+- Private commit entering this reconciliation: `fd54990b7be304ee58ebd2e1992e78ebfd222b9e`.
+- Published ref entering this reconciliation: `67ac296 @ 2026-07-16T17:11:12Z`.
+
+## Approved Next Action
+
+Build and run a temporary, isolated Colima/internal-network substrate proof using fixture containers and temporary networks only.
+
+The proof must:
+
+- prove the OpenClaw-side fixture can reach only the proxy;
+- prove the OpenClaw-side fixture cannot directly reach OpenAI hostname, direct IP, or IPv6;
+- prove the proxy fixture alone can reach the approved synthetic upstream;
+- prove the proxy cannot reach arbitrary destinations;
+- prove DNS, SNI/TLS, and restart behavior at the actual container-network layer where possible;
+- verify host-network mode is not used;
+- record UID/GID and mount behavior;
+- tear down all temporary resources;
+- change no live OpenClaw state, credentials, launchd services, `pf`, production proxy policy, or production network.
+
+Do not run operator cutover dry-run or production cutover.
 ```
 
 ### docs/F-B_OBSERVABILITY_DESIGN.md
@@ -12490,10 +12652,10 @@ run().catch(async (error) => {
 ### scripts/fa4-openai-proxy-cutover.sh
 ```markdown
 #!/usr/bin/env bash
-# Controlled OpenAI proxy cutover package driver.
+# Controlled OpenAI proxy static cutover package validator.
 #
 # Default mode is dry-run and read-only. Production mode is intentionally gated
-# and must not be used until an independent review approves the package.
+# because this script does not implement the production transaction.
 
 set -euo pipefail
 
@@ -12537,13 +12699,15 @@ json_get() {
   "$NODE_BIN" -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const v=process.argv[2].split('.').reduce((a,k)=>a&&a[k],j); console.log(v ?? '')" "$MANIFEST" "$1"
 }
 
-echo "F-A4 OpenAI proxy cutover package driver"
+echo "F-A4 OpenAI proxy static cutover package validator"
 echo "Mode: $MODE"
 echo "Output: $OUT_DIR"
 
 if [ "$MODE" = "production" ]; then
-  fail "PRODUCTION MODE" "production cutover execution is not authorized by this package"
-  echo "OPENAI PROXY CUTOVER PACKAGE READINESS: NO-GO"
+  fail "PRODUCTION MODE" "production cutover transaction is not implemented by this static package validator"
+  echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+  echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
   exit 2
 fi
 
@@ -12625,11 +12789,15 @@ echo
 if [ -s "$FAILURES" ]; then
   echo "Cutover package blockers:"
   cat "$FAILURES"
-  echo "OPENAI PROXY CUTOVER PACKAGE READINESS: NO-GO"
+  echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+  echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
   exit 2
 fi
 
-echo "OPENAI PROXY CUTOVER PACKAGE READINESS: GO"
+echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
+echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
 ```
 
 ### scripts/fa4-openai-proxy-fixture-tests.mjs
@@ -13759,6 +13927,7 @@ echo "LAUNCHD DESIGN: ai.agent-os.openai-forward-proxy under openai-credential-b
 pass_gate "GATE J — launchd/cold-start design"
 
 echo "ROLLBACK DESIGN: reuse deployment manifest and rollback pattern; production rollback script not generated by this harness."
+echo "ROLLBACK PROOF LIMIT: rollback scenario fixtures are not executable production rollback proof."
 pass_gate "GATE K — rollback prerequisites"
 
 echo "Running isolated synthetic proxy fixture suite..."
@@ -13812,17 +13981,22 @@ echo
 echo "Readiness blockers:"
 if [ -s "$FAILURES" ]; then
   cat "$FAILURES"
-  echo "OPENAI PROXY IMPLEMENTATION READINESS: NO-GO"
-  echo "OPENAI PROXY PRODUCTION INVENTORY: NO-GO"
-  echo "OPENAI PROXY CUTOVER PACKAGE READINESS: NO-GO"
+  echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
+  echo "OPENAI PROXY SYNTHETIC PROOF: SEE FAILURES"
+  echo "OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+  echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
+  echo "F-A4 STATUS: OPEN"
   exit 2
 fi
 
 echo "NONE"
-echo "PRODUCTION CUTOVER EXECUTED: NO"
-echo "OPENAI PROXY IMPLEMENTATION READINESS: GO"
-echo "OPENAI PROXY PRODUCTION INVENTORY: GO"
-echo "OPENAI PROXY CUTOVER PACKAGE READINESS: GO"
+echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
+echo "OPENAI PROXY SYNTHETIC PROOF: GO"
+echo "OPENAI PROXY PRODUCTION SUBSTRATE READY: NO-GO"
+echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
+echo "F-A4 STATUS: OPEN"
 ```
 
 ### scripts/fa4-openai-proxy-rollback-fixtures.mjs
