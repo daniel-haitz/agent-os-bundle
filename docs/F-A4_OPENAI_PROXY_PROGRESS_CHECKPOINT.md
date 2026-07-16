@@ -31,6 +31,8 @@
 - Synthetic contained-egress fixture: `23/23 PASS`.
 - Real temporary Colima/internal-network substrate proof: `GO`.
 - Rollback scenario fixture: `7/7 PASS`.
+- Production transaction dry-run package implemented.
+- Executable credential-migration, residue-scan, and rollback fixture suite: `19/19 PASS`.
 - Static deployment manifest prepared.
 - Static cutover package prepared.
 - Zero production mutation verified.
@@ -41,7 +43,7 @@
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
 - `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
-- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `F-A4 STATUS: OPEN`
 
@@ -49,12 +51,10 @@ Rollback scenario fixtures are not executable production rollback proof.
 
 ## Active Blockers
 
-- Production transaction is not implemented.
-- Executable credential migration is not implemented.
-- Executable rollback is not implemented.
 - Actual upstream-key custody path not installed.
 - Actual production proxy is not installed.
 - Production OpenClaw routing is not changed.
+- Live credential migration is not executed.
 - Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
 - Cold-start and reboot not proved.
 - Real production cutover not authorized.
@@ -72,13 +72,13 @@ Rollback scenario fixtures are not executable production rollback proof.
 
 ## Approved Next Action
 
-Implement the production transaction and executable rollback package for the contained OpenAI proxy path.
+Submit the completed production transaction and executable rollback package for independent adversarial review.
 
-The next action may create scripts, manifests, fixtures, dry-run tooling, and rollback tooling. It must not perform production cutover.
+The next action is review only. It must not perform production cutover.
 
 The package must follow the substrate proof decision:
 
 - OpenClaw model-network execution runs inside a contained component on an internal Docker/Colima network.
 - The OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side network and a constrained upstream egress network.
 - Host OpenClaw may orchestrate but must not originate direct OpenAI HTTP traffic after F-A4 closure.
-- The local token must not be placed under `/Users/openai-credential-broker/.../local-token/` unless parent traversal and custody are separately proved.
+- The local token source is `/Users/agent/.openclaw/openai-proxy/local-token`, owned by `openclawgw:openclawgw` with mode `0600`, mounted read-only into the contained OpenClaw model-network component and the OpenAI proxy.

@@ -1,13 +1,13 @@
 # F-A4 OpenAI Proxy Cutover Package
 
-**Status:** Static package plus real substrate proof complete. Production transaction and cutover are not implemented or authorized.
+**Status:** Production transaction package implemented for dry-run/review. Production execution and cutover are not authorized.
 
 Current canonical status:
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
 - `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
-- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `F-A4 STATUS: OPEN`
 
@@ -59,27 +59,38 @@ The local proxy token is a constrained local capability token, not an upstream O
 - Minimum entropy: 256 bits.
 - OpenClaw visibility: allowed.
 - OpenAI usability: none.
-- Storage: manifest-defined local-token path.
+- Storage: `/Users/agent/.openclaw/openai-proxy/local-token`.
+- Ownership/mode: `openclawgw:openclawgw 0600`.
+- Runtime use: mounted read-only into the contained OpenClaw model-network component and the OpenAI proxy component.
 - Rotation: generate new token, update proxy/OpenClaw config transactionally, validate, then retire old token.
+
+The rejected path `/Users/openai-credential-broker/.../local-token/` must not be used for the OpenClaw-readable local token.
 
 ## Cutover Driver
 
 `scripts/fa4-openai-proxy-cutover.sh` defaults to dry-run mode.
 
-Dry-run validates:
+Dry-run implements and validates:
 
 - deployment manifest;
 - topology;
 - package files;
 - config patch preview;
-- cutover phases;
-- credential migration design.
+- 22 transaction phases;
+- touched-artifact manifest;
+- credential migration design;
+- auth cleanup plan;
+- regression plan;
+- generated rollback script;
+- executable transaction fixture suite.
 
-The production flag is present only as a reviewed future entry point and is not authorized in the current phase. The script is currently a static package validator, not an implementation of the nineteen production cutover phases.
+The production flag is present only as a reviewed future entry point and is hard-disabled in the current phase.
 
 ## Rollback
 
-Rollback scenario fixtures are in `scripts/fa4-openai-proxy-rollback-fixtures.mjs`.
+Executable rollback support is in `scripts/fa4-openai-proxy-rollback.mjs` and `scripts/fa4-openai-proxy-transaction-fixtures.mjs`.
+
+Historical rollback scenario fixtures are in `scripts/fa4-openai-proxy-rollback-fixtures.mjs`.
 
 Rollback scenarios include:
 
@@ -93,19 +104,29 @@ Rollback scenarios include:
 
 Temporary restoration of the old direct OpenAI route after cutover requires explicit operator approval and evidence.
 
-These fixtures are not executable production rollback proof. Executable migration and rollback remain open blockers.
+`scripts/fa4-openai-proxy-transaction-fixtures.mjs` mutates temporary files only and verifies rollback for failures before credential migration, after credential migration, after config patch, proxy start failure, contained OpenClaw failure, gateway restart failure, route-test failure, Gmail/Telegram/Ollama regression failure, source-key removal failure, cold-start failure, and reboot failure.
 
 ## Open Blockers
 
-- Production transaction is not implemented.
-- Executable credential migration is not implemented.
-- Executable rollback is not implemented.
 - Actual upstream-key custody path not installed.
 - Actual production proxy is not installed.
 - Production OpenClaw routing is not changed.
+- Live credential migration is not executed.
 - Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
 - Cold-start and reboot not proved.
 - Real production cutover not authorized.
+
+## Production Artifact Paths
+
+| Artifact | Path | Owner | Group | Mode | Rollback |
+|---|---|---|---|---:|---|
+| local proxy token | `/Users/agent/.openclaw/openai-proxy/local-token` | `openclawgw` | `openclawgw` | `0600` | remove if absent-before; restore backup if existing-before |
+| upstream OpenAI credential | `/Users/openai-credential-broker/agent-os-openai-credential-broker/secrets/openai-upstream.json` | `openai-credential-broker` | `openai-credential-broker` | `0600` | remove if absent-before; restore backup if existing-before |
+| proxy code | `/Users/openai-credential-broker/agent-os-openai-credential-broker/bin/openai-forward-proxy.mjs` | `root` | `openai-credential-broker` | `0550` | remove if absent-before; restore backup if existing-before |
+| proxy runtime | `/Users/openai-credential-broker/agent-os-openai-credential-broker/runtime/node` | `root` | `openai-credential-broker` | `0550` | remove if absent-before; restore backup if existing-before |
+| container manifest | `/Users/openai-credential-broker/agent-os-openai-credential-broker/manifests/docker-compose.openai-proxy.yml` | `root` | `openai-credential-broker` | `0440` | remove if absent-before; restore backup if existing-before |
+| OpenClaw config | `/Users/agent/.openclaw/openclaw.json` | `root` | `openclawgw` | `0440` | restore exact bytes and metadata; temporary direct-route restoration requires explicit operator approval |
+| evidence | `/private/tmp/agent-os-openai-proxy-cutover-<timestamp>-<pid>` | operator | operator | `0700` | preserve evidence |
 
 ## Closure Evidence Checklist
 

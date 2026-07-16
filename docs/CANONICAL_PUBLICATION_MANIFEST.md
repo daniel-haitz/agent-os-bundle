@@ -48,7 +48,9 @@ Critical current checkpoint:
 - `scripts/fa4-openai-proxy-fixture-tests.mjs`
 - `scripts/fa4-openai-proxy-inventory.mjs`
 - `scripts/fa4-openai-proxy-readiness.sh`
+- `scripts/fa4-openai-proxy-rollback.mjs`
 - `scripts/fa4-openai-proxy-rollback-fixtures.mjs`
+- `scripts/fa4-openai-proxy-transaction-fixtures.mjs`
 - `src/openai-credential-proxy/`
 - `deploy/openai-proxy/`
 
@@ -80,7 +82,9 @@ scripts/fa4-openai-proxy-cutover.sh
 scripts/fa4-openai-proxy-fixture-tests.mjs
 scripts/fa4-openai-proxy-inventory.mjs
 scripts/fa4-openai-proxy-readiness.sh
+scripts/fa4-openai-proxy-rollback.mjs
 scripts/fa4-openai-proxy-rollback-fixtures.mjs
+scripts/fa4-openai-proxy-transaction-fixtures.mjs
 src/openai-credential-proxy/
 deploy/openai-proxy/
 ```

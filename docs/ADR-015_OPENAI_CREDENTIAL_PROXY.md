@@ -1,6 +1,6 @@
 # ADR-015 — OpenAI Credential Proxy Cutover Path
 
-**Status:** Approved design direction; production substrate proof passed; cutover implementation not complete.
+**Status:** Approved design direction; production substrate proof passed; transaction package implemented; cutover not executed.
 
 ## Decision
 
@@ -40,6 +40,8 @@ Local-only routes remain unchanged:
 - The proxy strips caller credential headers and injects exactly one upstream `Authorization` header.
 - OpenClaw direct egress to OpenAI is denied by the contained-network policy after cutover.
 - Realtime, image, audio/TTS, file/upload, batch, and assistant/thread endpoints are denied until separately proven.
+- The constrained local proxy token is stored at `/Users/agent/.openclaw/openai-proxy/local-token` as `openclawgw:openclawgw 0600` and mounted read-only into contained components.
+- The upstream OpenAI key is stored at `/Users/openai-credential-broker/agent-os-openai-credential-broker/secrets/openai-upstream.json` as `openai-credential-broker:openai-credential-broker 0600` and mounted read-only into the proxy only.
 
 ## Superseded Path
 
@@ -50,6 +52,7 @@ The file-backed and exec-backed SecretRef OpenAI key paths are superseded for ze
 - Proxy transport/security fixture: `scripts/fa4-openai-proxy-fixture-tests.mjs`.
 - Contained-egress fixture: `scripts/fa4-openai-proxy-contained-egress-tests.mjs`.
 - Real Colima/internal-network substrate proof: `scripts/fa4-openai-proxy-colima-substrate-proof.mjs` and `audits/F-A4-openai-proxy-colima-substrate-proof.md`.
+- Production transaction dry-run and rollback package: `scripts/fa4-openai-proxy-cutover.sh`, `scripts/fa4-openai-proxy-rollback.mjs`, and `scripts/fa4-openai-proxy-transaction-fixtures.mjs`.
 - Operator inventory: `audits/F-A4-openai-proxy-production-inventory.json`.
 - Cutover package manifest: `deploy/openai-proxy/openai-proxy-deployment-manifest.json`.
 

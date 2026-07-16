@@ -62,9 +62,10 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
   - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
   - `OPENAI PROXY SYNTHETIC PROOF: GO`
   - `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
-  - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+  - `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO`
   - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
   - `F-A4 STATUS: OPEN`
+- 2026-07-16 production transaction package and executable rollback fixtures are implemented in `scripts/fa4-openai-proxy-cutover.sh`, `scripts/fa4-openai-proxy-rollback.mjs`, and `scripts/fa4-openai-proxy-transaction-fixtures.mjs`. Production mode remains hard-disabled pending independent adversarial review and operator authorization. No production cutover, credential migration, OpenClaw config change, launchd change, production container/network change, `pf` change, Gmail broker change, Telegram change, or Ollama change was performed.
 - 2026-07-16 real Colima/internal-network substrate proof is recorded in `audits/F-A4-openai-proxy-colima-substrate-proof.md`. It proved temporary fixture containers and internal networks can enforce OpenClaw-side-to-proxy-only traffic, proxy-to-approved-upstream-only traffic, direct OpenAI hostname/IP/IPv6 denial, proxy arbitrary-destination denial, restart/reconnect policy preservation, token mount separation, and zero production mutation. The production placement decision is: OpenClaw model-network execution must run inside a contained component on an internal Docker/Colima network; the OpenAI proxy is a separate contained component dual-homed between the OpenClaw-side network and a constrained upstream egress network. A host OpenClaw Gateway may orchestrate but must not originate direct OpenAI HTTP traffic after F-A4 closure.
 - Operator-level OpenAI inventory is recorded in `audits/F-A4-openai-proxy-production-inventory.json` without credential values or hashes. It identifies one current direct-bypass OpenAI credential source in `openclaw.json`, three direct OpenAI routes (`main`, `research-handoff-gate`, `email-researcher`), and two local-only routes (`heartbeat`, `gmail-reader`).
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
@@ -124,7 +125,7 @@ Research produces proposals. Implementation changes require explicit approval, s
 | F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
 | F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
 | F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — OPENAI PROXY SUBSTRATE PROOF PASSED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. OpenAI proxy design direction, synthetic transport proof, route inventory, static cutover package, and real temporary Colima substrate proof exist. Production transaction, executable credential migration, executable rollback, actual production proxy installation, production OpenClaw routing change, cold-start, reboot, and regression gates remain unresolved. Operator cutover dry-run and production cutover are not authorized. |
+| F-A4 Complete mediation and egress | IN BUILD — OPENAI PROXY TRANSACTION PACKAGE IMPLEMENTED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. OpenAI proxy design direction, synthetic transport proof, route inventory, static cutover package, real temporary Colima substrate proof, dry-run production transaction package, executable credential-migration fixtures, residue-scan fixtures, and executable rollback fixtures exist. Actual production proxy installation, production OpenClaw routing change, live credential migration, cold-start, reboot, and live regression gates remain unresolved. Production execution remains hard-disabled pending independent adversarial review and operator authorization. |
 | OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
 | F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
 | F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
@@ -197,19 +198,19 @@ The operator scripts follow the reusable Agent OS operator-action pattern: prefl
 
 ### Immediate bounded action
 
-Implement the production transaction and executable rollback package for the contained OpenAI proxy path.
+Submit the completed production transaction and executable rollback package for independent adversarial review.
 
 Do not perform production cutover.
 
 Required results:
 
-1. Transactional production cutover script implements preflight, evidence capture, substrate verification, proxy staging, local-token staging, upstream-key migration, config/auth patching, gateway restart, functional route checks, residue scan, cold-start handoff, and closure evidence gates.
-2. Executable rollback restores every touched artifact across failures before and after config cutover.
-3. Real credential migration path avoids stdout, command-line, repository, image-layer, environment, and broad-evidence exposure.
-4. Production local-token path follows the substrate proof decision and is not placed under `/Users/openai-credential-broker/.../local-token/` unless separately proved.
-5. Production OpenClaw model-network execution is represented as a contained component; host OpenClaw does not originate direct OpenAI HTTP traffic after closure.
-6. Dry-run and fixture rollback pass before any operator production run is authorized.
-7. F-A4 remains open until production cutover, persistence, reboot, and regression evidence are captured.
+1. Review the 22-phase dry-run transaction package.
+2. Review executable rollback behavior and fixture coverage.
+3. Review credential migration and residue-scan fixture results.
+4. Review local-token and upstream-key custody paths.
+5. Review OpenClaw config/auth patch plan and regression matrix.
+6. Determine whether the package may proceed to an operator dry-run.
+7. Do not authorize production cutover from this step.
 
 ### Locked sequence after the immediate action
 

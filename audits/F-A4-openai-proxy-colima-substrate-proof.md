@@ -185,7 +185,7 @@ The local token remains a constrained local proxy capability, not the upstream O
 - Production proxy custody path remained absent.
 - `pf` was not changed by this proof.
 
-## Remaining Blockers
+## Remaining Blockers At Time Of Substrate Proof
 
 - Production transaction is not implemented.
 - Executable credential migration is not implemented.
@@ -196,11 +196,13 @@ The local token remains a constrained local proxy capability, not the upstream O
 - Gmail, Telegram, and Ollama regression must be run during later cutover readiness.
 - Cold-start and reboot validation remain open.
 
+The first three blockers above were later superseded by `audits/F-A4-openai-proxy-transaction-package-validation.md`, which records the dry-run transaction and executable rollback package as implemented. Production cutover, live credential migration, production proxy installation, live routing changes, cold-start, reboot, and live regressions remain open.
+
 ## Final Status
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
 - `OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO`
-- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO`
+- `OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: SUPERSEDED BY audits/F-A4-openai-proxy-transaction-package-validation.md`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `F-A4 STATUS: OPEN`

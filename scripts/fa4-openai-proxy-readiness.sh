@@ -25,6 +25,8 @@ CONTAINED_EGRESS_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-contained-egress-test
 INVENTORY_HELPER="$REPO_ROOT/scripts/fa4-openai-proxy-inventory.mjs"
 CUTOVER_SCRIPT="$REPO_ROOT/scripts/fa4-openai-proxy-cutover.sh"
 ROLLBACK_FIXTURES="$REPO_ROOT/scripts/fa4-openai-proxy-rollback-fixtures.mjs"
+TRANSACTION_FIXTURES="$REPO_ROOT/scripts/fa4-openai-proxy-transaction-fixtures.mjs"
+ROLLBACK_EXECUTOR="$REPO_ROOT/scripts/fa4-openai-proxy-rollback.mjs"
 SUBSTRATE_PROOF="$REPO_ROOT/scripts/fa4-openai-proxy-colima-substrate-proof.mjs"
 SUBSTRATE_AUDIT="$REPO_ROOT/audits/F-A4-openai-proxy-colima-substrate-proof.md"
 DEPLOYMENT_MANIFEST="$REPO_ROOT/deploy/openai-proxy/openai-proxy-deployment-manifest.json"
@@ -100,10 +102,10 @@ else
   fail_gate "GATE B — proxy code/runtime custody" "required proxy source/runtime fixture files are missing"
 fi
 
-if [ -f "$CUTOVER_SCRIPT" ] && [ -f "$ROLLBACK_FIXTURES" ] && [ -f "$SUBSTRATE_PROOF" ] && [ -f "$DEPLOYMENT_MANIFEST" ]; then
+if [ -f "$CUTOVER_SCRIPT" ] && [ -f "$ROLLBACK_FIXTURES" ] && [ -f "$TRANSACTION_FIXTURES" ] && [ -f "$ROLLBACK_EXECUTOR" ] && [ -f "$SUBSTRATE_PROOF" ] && [ -f "$DEPLOYMENT_MANIFEST" ]; then
   pass_gate "GATE M — cutover package artifacts"
 else
-  fail_gate "GATE M — cutover package artifacts" "cutover script, rollback fixtures, substrate proof, or deployment manifest missing"
+  fail_gate "GATE M — cutover package artifacts" "cutover script, rollback fixtures, transaction fixtures, rollback executor, substrate proof, or deployment manifest missing"
 fi
 
 if rg -n "apiKey: SecretInputSchema|baseUrl: string\\(\\)\\.min\\(1\\)|auth: union" \
@@ -237,6 +239,15 @@ else
   fail_gate "OPENAI PROXY ROLLBACK FIXTURES" "rollback fixtures failed"
 fi
 
+echo "Running executable transaction fixture tests..."
+if "$NODE_BIN" "$TRANSACTION_FIXTURES" > "$OUT_DIR/transaction-fixtures.log" 2>&1; then
+  cat "$OUT_DIR/transaction-fixtures.log"
+  pass_gate "OPENAI PROXY TRANSACTION FIXTURES"
+else
+  cat "$OUT_DIR/transaction-fixtures.log"
+  fail_gate "OPENAI PROXY TRANSACTION FIXTURES" "transaction fixture tests failed"
+fi
+
 capture_metadata "$METADATA_AFTER"
 capture_hashes "$HASHES_AFTER"
 
@@ -254,7 +265,7 @@ if [ -s "$FAILURES" ]; then
   echo "OPENAI PROXY PACKAGE STATIC READINESS: NO-GO"
   echo "OPENAI PROXY SYNTHETIC PROOF: SEE FAILURES"
   echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: SEE FAILURES"
-  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+  echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: SEE FAILURES"
   echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
   echo "F-A4 STATUS: OPEN"
   exit 2
@@ -264,6 +275,6 @@ echo "NONE"
 echo "OPENAI PROXY PACKAGE STATIC READINESS: GO"
 echo "OPENAI PROXY SYNTHETIC PROOF: GO"
 echo "OPENAI PROXY PRODUCTION SUBSTRATE PROOF: GO"
-echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: NO"
+echo "OPENAI PROXY PRODUCTION TRANSACTION IMPLEMENTED: GO"
 echo "OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO"
 echo "F-A4 STATUS: OPEN"
