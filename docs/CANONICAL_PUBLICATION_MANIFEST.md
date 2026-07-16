@@ -39,6 +39,7 @@ Critical onboarding document:
 - `scripts/fa4-operator-egress-proxy-repair.sh`
 - `src/openai-credential-broker/`
 - `scripts/fa4-openai-proxy-fixture-tests.mjs`
+- `scripts/fa4-openai-proxy-inventory.mjs`
 - `scripts/fa4-openai-proxy-readiness.sh`
 - `src/openai-credential-proxy/`
 
@@ -64,6 +65,7 @@ scripts/fa4-operator-openai-credential-broker-bootstrap.sh
 scripts/fa4-operator-egress-proxy-repair.sh
 src/openai-credential-broker/
 scripts/fa4-openai-proxy-fixture-tests.mjs
+scripts/fa4-openai-proxy-inventory.mjs
 scripts/fa4-openai-proxy-readiness.sh
 src/openai-credential-proxy/
 ```

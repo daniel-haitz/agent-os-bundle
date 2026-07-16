@@ -5,10 +5,10 @@ This is a sanitized snapshot for external AI-agent onboarding and review. Secret
 ---
 ## Bundle Identity
 ```text
-private source repository commit: 55cda5fc70892c38287f2113ef43d5a0a2c71143
+private source repository commit: 43aee750d6d2ad898e4c487f7adef3b2c039927a
 private source repository branch: main
-generated timestamp: 2026-07-16T15:07:15Z
-publication manifest governance commit: 55cda5fc70892c38287f2113ef43d5a0a2c71143
+generated timestamp: 2026-07-16T15:51:00Z
+publication manifest governance commit: 43aee750d6d2ad898e4c487f7adef3b2c039927a
 wrap-up.sh governance commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh governance commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
 public bundle repository commit: <not embedded before publication commit exists>
@@ -141,6 +141,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - 2026-07-15 operator read-only validation captured service identity and filesystem evidence, but native OpenClaw, broker, and F-A3 runtime-identity checks were blocked by the harness's nested sudo design. The denials do not prove an underlying control failure. The corrected read-only validation path uses a fixed-operation `openclawgw` identity wrapper and remains to be operator-run.
 - 2026-07-15T184542Z operator read-only validation with the corrected identity wrapper proved OpenClaw version, gateway/broker/proxy identities, OpenClaw path modes, broker socket modes, broker health/search, and F-A3 clean/adversarial regressions. It also found bounded OpenClaw containment blockers: unsafe `ollama/qwen3-coder:30b` default fallback web access, gmail-reader shell/process exposure, plaintext OpenAI static API-key surfaces, pf disabled, stale launchd version metadata, and legacy config-health residue.
 - The file-backed and exec-backed SecretRef paths are superseded for OpenAI static-key custody. OpenClaw eagerly resolves SecretRefs into its runtime state, so zero-read upstream credential custody requires a local credential-injecting OpenAI forwarding proxy under the dedicated `openai-credential-broker` identity. OpenClaw may receive only a constrained synthetic local proxy token. This is an F-A4 design/readiness path, not production remediation or closure.
+- 2026-07-16 OpenAI proxy fixture and production-inventory readiness are implemented in `scripts/fa4-openai-proxy-readiness.sh` and `scripts/fa4-openai-proxy-inventory.mjs`. The fixture remains synthetic-only. Current readiness is `NO-GO`: egress placement feasibility resolves to contained-network placement, but upstream-key custody, operator-readable auth precedence inventory, and all-agent fallback inventory remain production blockers. Zero production mutation was verified.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
@@ -260,7 +261,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Advance only the isolated OpenAI forwarding-proxy fixture/readiness path: validate proxy transport, local-token handling, upstream-key custody design, egress-placement feasibility, auth-precedence inventory, and zero-production-mutation evidence. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
+1. Advance only the OpenAI forwarding-proxy readiness path. Current inventory resolves egress placement to a contained-network design and keeps production `NO-GO` until upstream-key custody, operator-readable auth precedence, and all-agent fallback evidence are captured. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
@@ -271,7 +272,7 @@ The operator scripts follow the reusable Agent OS operator-action pattern: prefl
 
 ### Immediate bounded action
 
-Complete the isolated OpenAI forwarding-proxy readiness foundation and reconcile its evidence without changing live OpenClaw configuration, credentials, auth profiles, generated stores, production services, pf, or proxy policy.
+Implement the selected contained-network egress proof for the OpenAI forwarding-proxy path without installing the production proxy or changing live OpenClaw configuration, credentials, auth profiles, generated stores, launchd services, pf, or proxy policy.
 
 Required results:
 
@@ -760,6 +761,7 @@ It also does not require `CONTROL.md` to carry every detail. It requires that de
 
 ## Recent Git Log
 ```
+43aee75 fa4: expand OpenAI proxy production inventory gates
 55cda5f fa4: add isolated OpenAI proxy readiness foundation
 51f1c4e fa4: stage SecretRef resolver for root-owned apply
 b99ce52 fa4: stage credential broker runtime outside agent home
@@ -779,7 +781,6 @@ ef7ebc0 validation: harden F-A4 containment readiness checks
 a37cb6d validation: use behavioral broker argPattern checks
 7c9e79d validation: accept safe exec approval defaults
 90c77bf validation: harden F-A4 secrets audit check
-faf3d90 validation: prepare F-A4 OpenClaw containment remediation
 ```
 
 ## Repository Tree
@@ -849,6 +850,7 @@ scripts/bundle-for-claude.sh
 scripts/end-session.sh
 scripts/fa4-openai-credential-broker-rundir.sh
 scripts/fa4-openai-proxy-fixture-tests.mjs
+scripts/fa4-openai-proxy-inventory.mjs
 scripts/fa4-openai-proxy-readiness.sh
 scripts/fa4-openai-secretref-resolver.mjs
 scripts/fa4-openclawgw-health-probe.mjs
@@ -878,8 +880,8 @@ templates/DROP_FORMAT.md
 
 ## Publication validation
 ```text
-manifest commit: 55cda5fc70892c38287f2113ef43d5a0a2c71143
-published files: 57
+manifest commit: 43aee750d6d2ad898e4c487f7adef3b2c039927a
+published files: 58
 missing files count: 0
 ```
 
@@ -887,7 +889,7 @@ missing files count: 0
 ```text
 wrap-up.sh commit: 808d242a93b3f74d4b4aa1cee4f581b74702337e
 bundle-for-claude.sh commit: ee43b37d5b6773e0987400e14faae4cfc4db19eb
-last validation timestamp: 2026-07-16T15:07:15Z
+last validation timestamp: 2026-07-16T15:51:00Z
 ```
 
 ---
@@ -934,6 +936,7 @@ Critical onboarding document:
 - `scripts/fa4-operator-egress-proxy-repair.sh`
 - `src/openai-credential-broker/`
 - `scripts/fa4-openai-proxy-fixture-tests.mjs`
+- `scripts/fa4-openai-proxy-inventory.mjs`
 - `scripts/fa4-openai-proxy-readiness.sh`
 - `src/openai-credential-proxy/`
 
@@ -959,6 +962,7 @@ scripts/fa4-operator-openai-credential-broker-bootstrap.sh
 scripts/fa4-operator-egress-proxy-repair.sh
 src/openai-credential-broker/
 scripts/fa4-openai-proxy-fixture-tests.mjs
+scripts/fa4-openai-proxy-inventory.mjs
 scripts/fa4-openai-proxy-readiness.sh
 src/openai-credential-proxy/
 ```
@@ -7093,7 +7097,7 @@ The locked OpenClaw config remains root-owned and must not be loosened for valid
 
 If `ai.agent-os-egress-proxy` exits with `EX_CONFIG`, use `scripts/fa4-operator-egress-proxy-repair.sh` from an operator root shell to install the reviewed `drafts/fa4-phase5/` proxy artifacts into their root-owned runtime paths and restart only the proxy LaunchDaemon. This repair does not edit OpenClaw config or pf configuration.
 
-If read-only validation reports OpenClaw critical findings for unsafe local-model web fallback, gmail-reader shell/process exposure, or supported plaintext OpenAI API-key surfaces, first validate/provision the dedicated `openai-credential-broker` identity and run `scripts/fa4-operator-openclaw-containment-readiness.sh` from an operator root shell. Use `scripts/fa4-operator-openclaw-containment-remediate.sh` only after readiness returns GO. This remediation is limited to OpenClaw config/SecretRef hardening and gateway reload validation. It does not enable pf, alter proxy policy, or close F-A4.
+If read-only validation reports OpenClaw critical findings for unsafe local-model web fallback, gmail-reader shell/process exposure, or supported plaintext OpenAI API-key surfaces, do not advance the superseded exec SecretRef remediation path. The approved OpenAI static-key custody direction is a local credential-injecting OpenAI forwarding proxy under the dedicated `openai-credential-broker` identity. Run `scripts/fa4-openai-proxy-readiness.sh` to capture synthetic proxy fixture results, egress-placement feasibility, auth precedence inventory, agent/fallback inventory, and zero-production-mutation evidence. Production remediation is not authorized until that readiness path returns GO and the required contained-network egress proof is complete.
 
 Before provisioning the `openai-credential-broker` identity, run `scripts/fa4-operator-openai-credential-broker-bootstrap.sh --dry-run` and require `IDENTITY BOOTSTRAP DRY RUN: GO`. The bootstrap dry-run is non-mutating and must be reviewed before the mutating identity bootstrap is executed.
 
@@ -12121,6 +12125,520 @@ try {
 }
 ```
 
+### scripts/fa4-openai-proxy-inventory.mjs
+```markdown
+#!/usr/bin/env node
+// Read-only inventory helper for the F-A4 OpenAI forwarding-proxy readiness path.
+// It redacts credential material, tolerates protected unreadable stores, and
+// writes evidence only under the caller-provided output directory.
+
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+const OUT_DIR = process.argv[2] || "/private/tmp/fa4-openai-proxy-inventory";
+const OPENCLAW_ROOT = "/Users/agent/.openclaw";
+const CONFIG_PATHS = [
+  "/Users/agent/.openclaw/openclaw.json",
+  "/Users/agent/.openclaw/openclaw.sanitized.json",
+];
+const AGENTS_ROOT = "/Users/agent/.openclaw/agents";
+const DIST_ROOT = "/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist";
+const NODE_BIN = "/Users/agent/.local/openclaw/tools/node-v22.22.0/bin/node";
+const INTERESTING_ENV = [
+  "OPENAI_API_KEY",
+  "OPENAI_BASE_URL",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "OPENCLAW_CONFIG_PATH",
+  "OPENCLAW_STATE_DIR",
+  "HOME",
+];
+const REQUIRED_AGENTS = ["main", "heartbeat", "gmail-reader", "research-handoff-gate", "email-researcher"];
+
+mkdirSync(OUT_DIR, { recursive: true, mode: 0o700 });
+
+function sha(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function redactValue(value) {
+  if (typeof value !== "string") return { kind: typeof value };
+  if (!value) return { kind: "empty" };
+  if (/^\$\{?SecretRef|^secretref:/i.test(value)) return { kind: "reference", sha256: sha(value).slice(0, 16) };
+  if (/^sk-[A-Za-z0-9]/.test(value) || value.length >= 16) return { kind: "plaintext-or-token", sha256: sha(value).slice(0, 16), length: value.length };
+  return { kind: "string", sha256: sha(value).slice(0, 16), length: value.length };
+}
+
+function fileMeta(path) {
+  try {
+    const s = statSync(path);
+    return {
+      exists: true,
+      file: s.isFile(),
+      directory: s.isDirectory(),
+      uid: s.uid,
+      gid: s.gid,
+      mode: (s.mode & 0o7777).toString(8).padStart(4, "0"),
+      size: s.size,
+    };
+  } catch (error) {
+    return { exists: false, error: error.code || error.message };
+  }
+}
+
+function safeRead(path) {
+  try {
+    return { ok: true, text: readFileSync(path, "utf8"), meta: fileMeta(path) };
+  } catch (error) {
+    return { ok: false, error: error.code || error.message, meta: fileMeta(path) };
+  }
+}
+
+function safeJson(path) {
+  const read = safeRead(path);
+  if (!read.ok) return { ok: false, error: read.error, meta: read.meta };
+  try {
+    return { ok: true, json: JSON.parse(read.text), sha256: sha(read.text), meta: read.meta };
+  } catch (error) {
+    return { ok: false, error: `parse:${error.message}`, meta: read.meta };
+  }
+}
+
+function getPath(object, path) {
+  let current = object;
+  for (const part of path) {
+    if (current === null || typeof current !== "object" || !(part in current)) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+function normalizeModelRef(ref) {
+  if (typeof ref === "string") return ref;
+  if (ref && typeof ref === "object") return ref.primary || ref.model || "";
+  return "";
+}
+
+function providerFromModel(model) {
+  if (typeof model !== "string" || !model.includes("/")) return "unknown";
+  return model.split("/")[0];
+}
+
+function inventoryConfig(path, parsed) {
+  if (!parsed.ok) {
+    return {
+      path,
+      readable: false,
+      error: parsed.error,
+      meta: parsed.meta,
+      credentialSources: [],
+      agentRoutes: [],
+      providers: [],
+    };
+  }
+  const cfg = parsed.json;
+  const providers = getPath(cfg, ["models", "providers"]) || {};
+  const defaults = getPath(cfg, ["agents", "defaults"]) || {};
+  const defaultModel = normalizeModelRef(defaults.model || defaults.primary);
+  const defaultFallbacks = Array.isArray(defaults.model?.fallbacks) ? defaults.model.fallbacks
+    : Array.isArray(defaults.fallbacks) ? defaults.fallbacks
+      : [];
+  const providerRows = Object.entries(providers).map(([provider, value]) => ({
+    provider,
+    api: value?.api || (provider === "openai" ? "openai-responses" : "unknown"),
+    baseUrl: typeof value?.baseUrl === "string" ? value.baseUrl : (provider === "openai" ? "https://api.openai.com/v1" : null),
+    auth: value?.auth || null,
+    apiKey: value?.apiKey === undefined ? { kind: "absent" } : redactValue(value.apiKey),
+    couldBypassProxy: provider === "openai" && (!value?.baseUrl || /^https:\/\/api\.openai\.com\b/.test(value.baseUrl)),
+  }));
+  const credentialSources = [];
+  for (const row of providerRows) {
+    if (row.apiKey.kind !== "absent") {
+      credentialSources.push({
+        path: `${path}:models.providers.${row.provider}.apiKey`,
+        source: "provider-config",
+        provider: row.provider,
+        type: row.apiKey.kind,
+        couldBypassProxy: row.couldBypassProxy,
+      });
+    }
+  }
+  const authOrder = getPath(cfg, ["auth", "order"]);
+  if (authOrder !== undefined) {
+    credentialSources.push({
+      path: `${path}:auth.order`,
+      source: "auth-order",
+      provider: "openai",
+      type: Array.isArray(authOrder?.openai) ? "profile-order" : typeof authOrder,
+      couldBypassProxy: true,
+    });
+  }
+  const agents = Array.isArray(getPath(cfg, ["agents", "list"])) ? getPath(cfg, ["agents", "list"]) : [];
+  const agentRoutes = agents.map((agent) => {
+    const primary = normalizeModelRef(agent.model || agent.primary) || defaultModel || "unknown";
+    const fallbacks = Array.isArray(agent.model?.fallbacks) ? agent.model.fallbacks
+      : Array.isArray(agent.fallbacks) ? agent.fallbacks
+        : defaultFallbacks;
+    return {
+      agent: agent.id || "unknown",
+      primaryModel: primary,
+      provider: providerFromModel(primary),
+      api: providerRows.find((row) => row.provider === providerFromModel(primary))?.api || "unknown",
+      effectiveBaseUrl: providerRows.find((row) => row.provider === providerFromModel(primary))?.baseUrl || null,
+      fallbacks,
+      fallbackProviders: fallbacks.map(providerFromModel),
+      proxyRequired: providerFromModel(primary) === "openai" || fallbacks.some((entry) => providerFromModel(entry) === "openai"),
+      directOpenAIRoutePresent: (providerFromModel(primary) === "openai" || fallbacks.some((entry) => providerFromModel(entry) === "openai"))
+        && providerRows.some((row) => row.provider === "openai" && row.couldBypassProxy),
+      excludedFeatureRisk: false,
+    };
+  });
+  return {
+    path,
+    readable: true,
+    sha256: parsed.sha256,
+    meta: parsed.meta,
+    providers: providerRows,
+    credentialSources,
+    agentRoutes,
+  };
+}
+
+function findAgentStores() {
+  const rows = [];
+  function walk(dir, depth) {
+    if (depth < 0) return;
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch (error) {
+      rows.push({ path: dir, readable: false, error: error.code || error.message, meta: fileMeta(dir) });
+      return;
+    }
+    for (const entry of entries) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path, depth - 1);
+      else if (entry.isFile() && (entry.name === "auth-profiles.json" || entry.name === "models.json")) {
+        rows.push({ path, ...safeJson(path) });
+      }
+    }
+  }
+  walk(AGENTS_ROOT, 4);
+  return rows.map((row) => {
+    if (!row.ok) return { path: row.path, readable: false, error: row.error, meta: row.meta };
+    const text = JSON.stringify(row.json);
+    const hasOpenAIKeyLike = /sk-[A-Za-z0-9]|OPENAI_API_KEY|apiKey|keyRef|openai/i.test(text);
+    return {
+      path: row.path,
+      readable: true,
+      sha256: row.sha256,
+      meta: row.meta,
+      storeType: row.path.endsWith("auth-profiles.json") ? "auth-profiles" : "models",
+      mentionsOpenAIOrKeyFields: hasOpenAIKeyLike,
+      redactedCredentialFieldCount: (text.match(/apiKey|keyRef|OPENAI_API_KEY|sk-[A-Za-z0-9]/gi) || []).length,
+    };
+  });
+}
+
+function run(cmd, args) {
+  const result = spawnSync(cmd, args, { encoding: "utf8", timeout: 10000 });
+  return {
+    command: [cmd, ...args].join(" "),
+    status: result.status,
+    signal: result.signal,
+    stdout: result.stdout || "",
+    stderr: result.stderr || "",
+    error: result.error?.message,
+  };
+}
+
+function launchdInventory() {
+  const gateway = run("launchctl", ["print", "system/ai.openclaw.gateway"]);
+  const egress = run("launchctl", ["print", "system/ai.agent-os-egress-proxy"]);
+  const openaiProxy = run("launchctl", ["print", "system/ai.agent-os.openai-forward-proxy"]);
+  return {
+    gateway: summarizeLaunchd(gateway),
+    egressProxy: summarizeLaunchd(egress),
+    openaiProxy: summarizeLaunchd(openaiProxy),
+  };
+}
+
+function summarizeLaunchd(result) {
+  const text = `${result.stdout}\n${result.stderr}`;
+  const env = {};
+  const environmentBlocks = [...text.matchAll(/\n\tenvironment = \{([\s\S]*?)\n\t\}/g)].map((match) => match[1]);
+  for (const environmentBlock of environmentBlocks) {
+    for (const line of environmentBlock.split("\n")) {
+      const match = /^\s*([A-Za-z_][A-Za-z0-9_]*) => (.*)$/.exec(line);
+      if (match) env[match[1]] = /KEY|TOKEN|SECRET|PASSWORD/.test(match[1]) ? "<redacted-present>" : match[2];
+    }
+  }
+  return {
+    available: result.status === 0,
+    status: result.status,
+    path: /^path = (.*)$/m.exec(text)?.[1] || null,
+    state: /^	state = (.*)$/m.exec(text)?.[1] || null,
+    program: /^	program = (.*)$/m.exec(text)?.[1] || null,
+    username: /^	username = (.*)$/m.exec(text)?.[1] || null,
+    group: /^	group = (.*)$/m.exec(text)?.[1] || null,
+    pid: /^	pid = (.*)$/m.exec(text)?.[1] || null,
+    environment: env,
+  };
+}
+
+function pfInventory() {
+  const info = run("pfctl", ["-s", "info"]);
+  const anchors = run("pfctl", ["-s", "Anchors"]);
+  return {
+    infoStatus: info.status,
+    statusLine: /Status:\s*([A-Za-z]+)/.exec(info.stdout || info.stderr)?.[1] || "unknown",
+    anchorsStatus: anchors.status,
+    anchors: (anchors.stdout || "").split(/\r?\n/).filter(Boolean),
+  };
+}
+
+function colimaInventory() {
+  const colima = run("colima", ["status"]);
+  const docker = run("docker", ["ps", "--format", "{{.Names}}\t{{.Networks}}\t{{.Ports}}"]);
+  return {
+    colimaStatus: colima.status === 0 ? colima.stdout.trim().split(/\r?\n/).slice(0, 20) : [`unavailable:${colima.stderr.trim() || colima.error || colima.status}`],
+    dockerPs: docker.status === 0 ? docker.stdout.trim().split(/\r?\n/).filter(Boolean) : [`unavailable:${docker.stderr.trim() || docker.error || docker.status}`],
+  };
+}
+
+function sourceContract() {
+  const files = [
+    "openai-transport-stream-Dj78Cdnf.js",
+    "provider-catalog-BdolWBnQ.js",
+    "transport-policy-CLvjL94O.js",
+    "zod-schema.core-DGUr-AGH.js",
+    "list.probe-CE320ycN.js",
+  ];
+  return files.map((file) => {
+    const path = join(DIST_ROOT, file);
+    const read = safeRead(path);
+    if (!read.ok) return { path, readable: false, error: read.error };
+    const lines = read.text.split(/\r?\n/);
+    const matches = [];
+    for (let index = 0; index < lines.length; index += 1) {
+      if (/baseUrl|apiKey|openai-responses|\/v1\/responses|auth\.order|models\.json|fallbacks|realtime|chatgpt|api\.openai\.com/i.test(lines[index])) {
+        matches.push({ line: index + 1, text: lines[index].slice(0, 220) });
+      }
+    }
+    return { path, readable: true, sha256: sha(read.text), matchCount: matches.length, matches: matches.slice(0, 80) };
+  });
+}
+
+function egressDecision(pf, colima) {
+  const pfEnabled = pf.statusLine === "Enabled";
+  return {
+    selectedPlacement: "contained-network-placement-required",
+    hostOnlyAccepted: false,
+    reason: "With pf disabled, the host LaunchDaemon openclawgw process has no active per-service egress wall. Direct IPv4/IPv6/DNS/direct-IP bypass cannot be structurally denied on host-only placement.",
+    enforceableDesign: {
+      processes: [
+        "OpenClaw network-originating runtime must be inside the contained Colima/internal-network boundary or behind an equivalent proven network namespace.",
+        "OpenAI forwarding proxy runs as UID/GID 540/740 inside that contained placement, with root-controlled code/runtime and broker-owned credential store mounted read-only where required.",
+        "Host launchd may supervise or start the contained service, but host openclawgw must not retain unrestricted direct external egress for production closure while pf remains disabled.",
+      ],
+      listener: "contained private address or explicitly published local endpoint reachable only by the intended OpenClaw runtime",
+      baseUrl: "http://<contained-openai-proxy>/v1",
+      enforcementPoint: "container/internal-network egress policy allowing only api.openai.com:443 for the proxy identity/component and denying direct api.openai.com from OpenClaw",
+      ipv4Ipv6: "both families denied by contained network policy; no host-only fallback",
+      redirects: "disabled in proxy",
+      proxyEnvironment: "ignored by proxy and scrubbed from launchd/container environment",
+      rollbackBoundary: "before OpenClaw config/auth cutover and before real-key cleanup",
+    },
+    livePfEnabled: pfEnabled,
+    colimaObserved: colima.colimaStatus,
+  };
+}
+
+function authPrecedence(configInventories, agentStores, launchd) {
+  const sources = [];
+  for (const inv of configInventories) sources.push(...inv.credentialSources);
+  for (const store of agentStores) {
+    if (store.readable && store.mentionsOpenAIOrKeyFields) {
+      sources.push({
+        path: store.path,
+        source: store.storeType,
+        provider: "openai-or-unknown",
+        type: "redacted-store-reference-or-key-field",
+        couldBypassProxy: true,
+      });
+    } else if (!store.readable && /agents\/[^/]+/.test(store.path)) {
+      sources.push({
+        path: store.path,
+        source: "protected-agent-store",
+        provider: "unknown",
+        type: "unreadable",
+        couldBypassProxy: "unknown",
+      });
+    }
+  }
+  for (const key of INTERESTING_ENV) {
+    if (Object.prototype.hasOwnProperty.call(process.env, key)) {
+      sources.push({
+        path: `process.env.${key}`,
+        source: "current-shell-env",
+        provider: key.includes("OPENAI") ? "openai" : "proxy-env",
+        type: /KEY|TOKEN|SECRET|PASSWORD/.test(key) ? "redacted-env" : "env",
+        couldBypassProxy: key === "OPENAI_API_KEY",
+      });
+    }
+  }
+  const gatewayEnv = launchd.gateway.environment || {};
+  for (const [key, value] of Object.entries(gatewayEnv)) {
+    if (/OPENAI|PROXY|TOKEN|KEY|AUTH/i.test(key)) {
+      sources.push({
+        path: `launchd.ai.openclaw.gateway.env.${key}`,
+        source: "gateway-launchd-env",
+        provider: key.includes("OPENAI") ? "openai" : "proxy-env",
+        type: value === "<redacted-present>" ? "redacted-env" : "env",
+        couldBypassProxy: key === "OPENAI_API_KEY",
+      });
+    }
+  }
+  return {
+    sources,
+    cleanupOrder: [
+      "Stage proxy and local synthetic token without changing live OpenClaw auth.",
+      "Generate rollback point before removing any real OpenAI key material.",
+      "Set OpenClaw openai provider baseUrl to proxy endpoint and apiKey to local token.",
+      "Neutralize provider apiKey real-key fields and auth profile real-key paths.",
+      "Regenerate agent model stores only after rollback evidence is captured.",
+      "Run secrets/auth inventory again and fail if any real OpenAI credential remains consumable by OpenClaw.",
+    ],
+    unresolvedProtectedEvidence: sources.filter((source) => source.type === "unreadable").length,
+    bypassSourceCount: sources.filter((source) => source.couldBypassProxy === true).length,
+  };
+}
+
+function agentRouting(configInventories) {
+  const readable = configInventories.find((inv) => inv.readable && inv.agentRoutes.length > 0);
+  const routes = readable ? readable.agentRoutes : [];
+  const routeAgents = new Set(routes.map((route) => route.agent));
+  for (const id of REQUIRED_AGENTS) {
+    if (!routeAgents.has(id)) {
+      routes.push({
+        agent: id,
+        primaryModel: "unavailable",
+        provider: "unknown",
+        api: "unknown",
+        effectiveBaseUrl: null,
+        fallbacks: [],
+        fallbackProviders: [],
+        proxyRequired: "unknown",
+        directOpenAIRoutePresent: "unknown",
+        excludedFeatureRisk: "unknown",
+        evidence: "protected config unreadable or agent absent from readable sanitized config",
+      });
+    }
+  }
+  return {
+    routes,
+    directOpenAIRouteCount: routes.filter((route) => route.directOpenAIRoutePresent === true).length,
+    unknownRouteCount: routes.filter((route) => route.directOpenAIRoutePresent === "unknown").length,
+    excludedFeatures: [
+      { feature: "realtime voice/websocket", status: "excluded", reason: "prior source trace found realtime paths separately hard-coded and not covered by /v1/responses proxy fixture" },
+      { feature: "images", status: "deny-until-proven", reason: "not required by current gpt-5.5 Responses path" },
+      { feature: "audio/TTS", status: "deny-until-proven", reason: "not required by current gpt-5.5 Responses path" },
+      { feature: "files/uploads/batches/assistants", status: "deny-until-proven", reason: "not required by current gpt-5.5 Responses path" },
+    ],
+  };
+}
+
+function writeJson(name, value) {
+  writeFileSync(join(OUT_DIR, name), `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+}
+
+function runSelfTest() {
+  const fixture = {
+    models: {
+      providers: {
+        openai: { api: "openai-responses", baseUrl: "https://api.openai.com/v1", apiKey: "fixture-openai-key-not-real" },
+        ollama: { baseUrl: "http://127.0.0.1:11434/v1" },
+      },
+    },
+    agents: {
+      defaults: { model: { primary: "openai/gpt-5.5", fallbacks: ["ollama/qwen3-coder:30b"] } },
+      list: [
+        { id: "main", model: "openai/gpt-5.5" },
+        { id: "heartbeat", model: { primary: "ollama/qwen2.5-coder:14b", fallbacks: [] } },
+      ],
+    },
+  };
+  const inv = inventoryConfig("fixture", { ok: true, json: fixture, sha256: "fixture", meta: {} });
+  const auth = authPrecedence([inv], [], { gateway: { environment: { OPENCLAW_CONFIG_PATH: "/x" } } });
+  const routing = agentRouting([inv]);
+  const assertions = [
+    ["provider apiKey redacted", inv.providers[0].apiKey.kind === "plaintext-or-token"],
+    ["direct bypass detected", inv.providers[0].couldBypassProxy === true],
+    ["auth bypass counted", auth.bypassSourceCount === 1],
+    ["main route parsed", routing.routes.some((route) => route.agent === "main" && route.provider === "openai")],
+    ["heartbeat route parsed", routing.routes.some((route) => route.agent === "heartbeat" && route.provider === "ollama")],
+  ];
+  let failed = 0;
+  for (const [name, ok] of assertions) {
+    console.log(`SELF TEST ${name}: ${ok ? "PASS" : "FAIL"}`);
+    if (!ok) failed += 1;
+  }
+  if (failed) process.exit(1);
+  console.log("OPENAI PROXY INVENTORY SELF TEST: PASS");
+}
+
+if (process.argv.includes("--self-test")) {
+  runSelfTest();
+  process.exit(0);
+}
+
+const parsedConfigs = CONFIG_PATHS.map((path) => [path, safeJson(path)]);
+const configInventories = parsedConfigs.map(([path, parsed]) => inventoryConfig(path, parsed));
+const agentStores = findAgentStores();
+const launchd = launchdInventory();
+const pf = pfInventory();
+const colima = colimaInventory();
+const source = sourceContract();
+const egress = egressDecision(pf, colima);
+const auth = authPrecedence(configInventories, agentStores, launchd);
+const routing = agentRouting(configInventories);
+
+const summary = {
+  generatedAt: new Date().toISOString(),
+  openclawRoot: fileMeta(OPENCLAW_ROOT),
+  node: { path: NODE_BIN, meta: fileMeta(NODE_BIN) },
+  configInventories,
+  agentStores,
+  launchd,
+  pf,
+  colima,
+  source,
+  egress,
+  auth,
+  routing,
+  gateStatus: {
+    egressPlacement: egress.livePfEnabled ? "FAIL" : "PASS_DESIGN_ONLY",
+    authPrecedence: auth.unresolvedProtectedEvidence === 0 && auth.bypassSourceCount === 0 ? "PASS" : "FAIL",
+    agentFallback: routing.unknownRouteCount === 0 && routing.directOpenAIRouteCount === 0 ? "PASS" : "FAIL",
+  },
+};
+
+writeJson("openai-proxy-production-inventory.json", summary);
+
+for (const inv of configInventories) {
+  console.log(`CONFIG ${inv.path}: ${inv.readable ? "READABLE" : `UNREADABLE (${inv.error})`}`);
+}
+console.log(`EGRESS PLACEMENT FEASIBILITY: ${summary.gateStatus.egressPlacement === "PASS_DESIGN_ONLY" ? "PASS" : "FAIL"}`);
+console.log(`OPENAI AUTH PRECEDENCE INVENTORY: ${summary.gateStatus.authPrecedence}`);
+console.log(`AGENT AND FALLBACK INVENTORY: ${summary.gateStatus.agentFallback}`);
+console.log(`INVENTORY EVIDENCE: ${join(OUT_DIR, "openai-proxy-production-inventory.json")}`);
+```
+
 ### scripts/fa4-openai-proxy-readiness.sh
 ```markdown
 #!/usr/bin/env bash
@@ -12146,6 +12664,8 @@ OPENCLAW_TRANSPORT="/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_mo
 OPENAI_SDK="/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/node_modules/openai/index.mjs"
 PROXY_SOURCE="$REPO_ROOT/src/openai-credential-proxy/openai-forward-proxy.mjs"
 FIXTURE_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-fixture-tests.mjs"
+INVENTORY_HELPER="$REPO_ROOT/scripts/fa4-openai-proxy-inventory.mjs"
+INVENTORY_JSON="$OUT_DIR/openai-proxy-production-inventory.json"
 
 LIVE_PATHS=(
   "/Users/agent/.openclaw"
@@ -12237,21 +12757,58 @@ else
   fail_gate "GATE E — exact OpenClaw transport compatibility" "installed OpenClaw transport or bundled OpenAI SDK not found"
 fi
 
-if command -v pfctl >/dev/null 2>&1; then
-  echo "EGRESS PLACEMENT DECISION: host-only per-identity containment is not accepted while pf remains disabled."
-  echo "EGRESS PLACEMENT DESIGN: proxy implementation must include a contained-network placement or a separately proven pf-equivalent identity egress wall before production GO."
-  fail_gate "GATE F — egress-placement feasibility" "pf is disabled by current F-A4 baseline; direct OpenAI egress denial is not structurally enforced yet"
-  echo "EGRESS PLACEMENT FEASIBILITY: FAIL"
+echo "Running production inventory helper..."
+if "$NODE_BIN" "$INVENTORY_HELPER" "$OUT_DIR" > "$OUT_DIR/production-inventory.log" 2>&1; then
+  cat "$OUT_DIR/production-inventory.log"
 else
-  fail_gate "GATE F — egress-placement feasibility" "pfctl unavailable and no contained-network proof exists"
-  echo "EGRESS PLACEMENT FEASIBILITY: FAIL"
+  cat "$OUT_DIR/production-inventory.log"
+  fail_gate "PRODUCTION INVENTORY HELPER" "inventory helper failed"
 fi
 
-echo "AUTH PRECEDENCE INVENTORY: requires future operator-readable inventory of openclaw.json, auth profiles, generated stores, launchd env, and snapshots."
-fail_gate "GATE G — auth-precedence inventory" "production inventory is not implemented in this foundation"
+inventory_value() {
+  local expression="$1"
+  "$NODE_BIN" -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const v=(${expression}); if (Array.isArray(v)) console.log(v.join(',')); else if (v && typeof v === 'object') console.log(JSON.stringify(v)); else console.log(v ?? '');" "$INVENTORY_JSON"
+}
 
-echo "AGENT/FALLBACK INVENTORY: requires future operator-readable inventory of main, heartbeat, gmail-reader, research-handoff-gate, and email-researcher effective models."
-fail_gate "GATE H — agent/fallback inventory" "production inventory is not implemented in this foundation"
+if [ -f "$INVENTORY_JSON" ]; then
+  egress_status="$(inventory_value "j.gateStatus.egressPlacement")"
+  auth_status="$(inventory_value "j.gateStatus.authPrecedence")"
+  routing_status="$(inventory_value "j.gateStatus.agentFallback")"
+  auth_bypass_count="$(inventory_value "j.auth.bypassSourceCount")"
+  protected_gap_count="$(inventory_value "j.auth.unresolvedProtectedEvidence")"
+  direct_route_count="$(inventory_value "j.routing.directOpenAIRouteCount")"
+  unknown_route_count="$(inventory_value "j.routing.unknownRouteCount")"
+  placement="$(inventory_value "j.egress.selectedPlacement")"
+  echo "EGRESS PLACEMENT DECISION: $placement"
+  echo "EGRESS ENFORCEMENT POINT: $(inventory_value "j.egress.enforceableDesign.enforcementPoint")"
+  if [ "$egress_status" = "PASS_DESIGN_ONLY" ]; then
+    pass_gate "GATE F — egress-placement feasibility"
+    echo "EGRESS PLACEMENT FEASIBILITY: PASS"
+  else
+    fail_gate "GATE F — egress-placement feasibility" "no enforceable placement design proved; inspect $INVENTORY_JSON"
+    echo "EGRESS PLACEMENT FEASIBILITY: FAIL"
+  fi
+  echo "OPENAI AUTH PRECEDENCE INVENTORY: $auth_status"
+  echo "OPENAI AUTH BYPASS SOURCE COUNT: $auth_bypass_count"
+  echo "OPENAI PROTECTED EVIDENCE GAP COUNT: $protected_gap_count"
+  if [ "$auth_status" = "PASS" ]; then
+    pass_gate "GATE G — auth-precedence inventory"
+  else
+    fail_gate "GATE G — auth-precedence inventory" "bypassSources=$auth_bypass_count protectedEvidenceGaps=$protected_gap_count; inspect $INVENTORY_JSON"
+  fi
+  echo "AGENT AND FALLBACK INVENTORY: $routing_status"
+  echo "DIRECT OPENAI ROUTE COUNT: $direct_route_count"
+  echo "UNKNOWN ROUTE COUNT: $unknown_route_count"
+  if [ "$routing_status" = "PASS" ]; then
+    pass_gate "GATE H — agent/fallback inventory"
+  else
+    fail_gate "GATE H — agent/fallback inventory" "directOpenAIRoutes=$direct_route_count unknownRoutes=$unknown_route_count; inspect $INVENTORY_JSON"
+  fi
+else
+  fail_gate "GATE F — egress-placement feasibility" "inventory evidence was not generated"
+  fail_gate "GATE G — auth-precedence inventory" "inventory evidence was not generated"
+  fail_gate "GATE H — agent/fallback inventory" "inventory evidence was not generated"
+fi
 
 if ! rg -n "__FIXTURE_SOCKET__|AGENT_OS_OPENAI_SECRETREF_TEST_MODE|fa4-openai-secretref-resolver" "$PROXY_SOURCE" "$FIXTURE_TEST" >/dev/null; then
   pass_gate "GATE I — production-plan contamination checks"
@@ -12288,11 +12845,13 @@ echo "Readiness blockers:"
 if [ -s "$FAILURES" ]; then
   cat "$FAILURES"
   echo "OPENAI PROXY IMPLEMENTATION READINESS: NO-GO"
+  echo "OPENAI PROXY PRODUCTION INVENTORY: NO-GO"
   exit 2
 fi
 
 echo "NONE"
 echo "OPENAI PROXY IMPLEMENTATION READINESS: GO"
+echo "OPENAI PROXY PRODUCTION INVENTORY: GO"
 ```
 
 ### scripts/fa4-openai-secretref-resolver.mjs

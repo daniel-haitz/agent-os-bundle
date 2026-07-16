@@ -57,6 +57,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - 2026-07-15 operator read-only validation captured service identity and filesystem evidence, but native OpenClaw, broker, and F-A3 runtime-identity checks were blocked by the harness's nested sudo design. The denials do not prove an underlying control failure. The corrected read-only validation path uses a fixed-operation `openclawgw` identity wrapper and remains to be operator-run.
 - 2026-07-15T184542Z operator read-only validation with the corrected identity wrapper proved OpenClaw version, gateway/broker/proxy identities, OpenClaw path modes, broker socket modes, broker health/search, and F-A3 clean/adversarial regressions. It also found bounded OpenClaw containment blockers: unsafe `ollama/qwen3-coder:30b` default fallback web access, gmail-reader shell/process exposure, plaintext OpenAI static API-key surfaces, pf disabled, stale launchd version metadata, and legacy config-health residue.
 - The file-backed and exec-backed SecretRef paths are superseded for OpenAI static-key custody. OpenClaw eagerly resolves SecretRefs into its runtime state, so zero-read upstream credential custody requires a local credential-injecting OpenAI forwarding proxy under the dedicated `openai-credential-broker` identity. OpenClaw may receive only a constrained synthetic local proxy token. This is an F-A4 design/readiness path, not production remediation or closure.
+- 2026-07-16 OpenAI proxy fixture and production-inventory readiness are implemented in `scripts/fa4-openai-proxy-readiness.sh` and `scripts/fa4-openai-proxy-inventory.mjs`. The fixture remains synthetic-only. Current readiness is `NO-GO`: egress placement feasibility resolves to contained-network placement, but upstream-key custody, operator-readable auth precedence inventory, and all-agent fallback inventory remain production blockers. Zero production mutation was verified.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
   - Evidence location: root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts; `docs/F-A4_CUTOVER_RUNBOOK.md` F.3 gate
@@ -176,7 +177,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Advance only the isolated OpenAI forwarding-proxy fixture/readiness path: validate proxy transport, local-token handling, upstream-key custody design, egress-placement feasibility, auth-precedence inventory, and zero-production-mutation evidence. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
+1. Advance only the OpenAI forwarding-proxy readiness path. Current inventory resolves egress placement to a contained-network design and keeps production `NO-GO` until upstream-key custody, operator-readable auth precedence, and all-agent fallback evidence are captured. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
@@ -187,7 +188,7 @@ The operator scripts follow the reusable Agent OS operator-action pattern: prefl
 
 ### Immediate bounded action
 
-Complete the isolated OpenAI forwarding-proxy readiness foundation and reconcile its evidence without changing live OpenClaw configuration, credentials, auth profiles, generated stores, production services, pf, or proxy policy.
+Implement the selected contained-network egress proof for the OpenAI forwarding-proxy path without installing the production proxy or changing live OpenClaw configuration, credentials, auth profiles, generated stores, launchd services, pf, or proxy policy.
 
 Required results:
 

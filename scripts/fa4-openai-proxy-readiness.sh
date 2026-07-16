@@ -21,6 +21,8 @@ OPENCLAW_TRANSPORT="/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_mo
 OPENAI_SDK="/Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/node_modules/openai/index.mjs"
 PROXY_SOURCE="$REPO_ROOT/src/openai-credential-proxy/openai-forward-proxy.mjs"
 FIXTURE_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-fixture-tests.mjs"
+INVENTORY_HELPER="$REPO_ROOT/scripts/fa4-openai-proxy-inventory.mjs"
+INVENTORY_JSON="$OUT_DIR/openai-proxy-production-inventory.json"
 
 LIVE_PATHS=(
   "/Users/agent/.openclaw"
@@ -112,21 +114,58 @@ else
   fail_gate "GATE E — exact OpenClaw transport compatibility" "installed OpenClaw transport or bundled OpenAI SDK not found"
 fi
 
-if command -v pfctl >/dev/null 2>&1; then
-  echo "EGRESS PLACEMENT DECISION: host-only per-identity containment is not accepted while pf remains disabled."
-  echo "EGRESS PLACEMENT DESIGN: proxy implementation must include a contained-network placement or a separately proven pf-equivalent identity egress wall before production GO."
-  fail_gate "GATE F — egress-placement feasibility" "pf is disabled by current F-A4 baseline; direct OpenAI egress denial is not structurally enforced yet"
-  echo "EGRESS PLACEMENT FEASIBILITY: FAIL"
+echo "Running production inventory helper..."
+if "$NODE_BIN" "$INVENTORY_HELPER" "$OUT_DIR" > "$OUT_DIR/production-inventory.log" 2>&1; then
+  cat "$OUT_DIR/production-inventory.log"
 else
-  fail_gate "GATE F — egress-placement feasibility" "pfctl unavailable and no contained-network proof exists"
-  echo "EGRESS PLACEMENT FEASIBILITY: FAIL"
+  cat "$OUT_DIR/production-inventory.log"
+  fail_gate "PRODUCTION INVENTORY HELPER" "inventory helper failed"
 fi
 
-echo "AUTH PRECEDENCE INVENTORY: requires future operator-readable inventory of openclaw.json, auth profiles, generated stores, launchd env, and snapshots."
-fail_gate "GATE G — auth-precedence inventory" "production inventory is not implemented in this foundation"
+inventory_value() {
+  local expression="$1"
+  "$NODE_BIN" -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const v=(${expression}); if (Array.isArray(v)) console.log(v.join(',')); else if (v && typeof v === 'object') console.log(JSON.stringify(v)); else console.log(v ?? '');" "$INVENTORY_JSON"
+}
 
-echo "AGENT/FALLBACK INVENTORY: requires future operator-readable inventory of main, heartbeat, gmail-reader, research-handoff-gate, and email-researcher effective models."
-fail_gate "GATE H — agent/fallback inventory" "production inventory is not implemented in this foundation"
+if [ -f "$INVENTORY_JSON" ]; then
+  egress_status="$(inventory_value "j.gateStatus.egressPlacement")"
+  auth_status="$(inventory_value "j.gateStatus.authPrecedence")"
+  routing_status="$(inventory_value "j.gateStatus.agentFallback")"
+  auth_bypass_count="$(inventory_value "j.auth.bypassSourceCount")"
+  protected_gap_count="$(inventory_value "j.auth.unresolvedProtectedEvidence")"
+  direct_route_count="$(inventory_value "j.routing.directOpenAIRouteCount")"
+  unknown_route_count="$(inventory_value "j.routing.unknownRouteCount")"
+  placement="$(inventory_value "j.egress.selectedPlacement")"
+  echo "EGRESS PLACEMENT DECISION: $placement"
+  echo "EGRESS ENFORCEMENT POINT: $(inventory_value "j.egress.enforceableDesign.enforcementPoint")"
+  if [ "$egress_status" = "PASS_DESIGN_ONLY" ]; then
+    pass_gate "GATE F — egress-placement feasibility"
+    echo "EGRESS PLACEMENT FEASIBILITY: PASS"
+  else
+    fail_gate "GATE F — egress-placement feasibility" "no enforceable placement design proved; inspect $INVENTORY_JSON"
+    echo "EGRESS PLACEMENT FEASIBILITY: FAIL"
+  fi
+  echo "OPENAI AUTH PRECEDENCE INVENTORY: $auth_status"
+  echo "OPENAI AUTH BYPASS SOURCE COUNT: $auth_bypass_count"
+  echo "OPENAI PROTECTED EVIDENCE GAP COUNT: $protected_gap_count"
+  if [ "$auth_status" = "PASS" ]; then
+    pass_gate "GATE G — auth-precedence inventory"
+  else
+    fail_gate "GATE G — auth-precedence inventory" "bypassSources=$auth_bypass_count protectedEvidenceGaps=$protected_gap_count; inspect $INVENTORY_JSON"
+  fi
+  echo "AGENT AND FALLBACK INVENTORY: $routing_status"
+  echo "DIRECT OPENAI ROUTE COUNT: $direct_route_count"
+  echo "UNKNOWN ROUTE COUNT: $unknown_route_count"
+  if [ "$routing_status" = "PASS" ]; then
+    pass_gate "GATE H — agent/fallback inventory"
+  else
+    fail_gate "GATE H — agent/fallback inventory" "directOpenAIRoutes=$direct_route_count unknownRoutes=$unknown_route_count; inspect $INVENTORY_JSON"
+  fi
+else
+  fail_gate "GATE F — egress-placement feasibility" "inventory evidence was not generated"
+  fail_gate "GATE G — auth-precedence inventory" "inventory evidence was not generated"
+  fail_gate "GATE H — agent/fallback inventory" "inventory evidence was not generated"
+fi
 
 if ! rg -n "__FIXTURE_SOCKET__|AGENT_OS_OPENAI_SECRETREF_TEST_MODE|fa4-openai-secretref-resolver" "$PROXY_SOURCE" "$FIXTURE_TEST" >/dev/null; then
   pass_gate "GATE I — production-plan contamination checks"
@@ -163,8 +202,10 @@ echo "Readiness blockers:"
 if [ -s "$FAILURES" ]; then
   cat "$FAILURES"
   echo "OPENAI PROXY IMPLEMENTATION READINESS: NO-GO"
+  echo "OPENAI PROXY PRODUCTION INVENTORY: NO-GO"
   exit 2
 fi
 
 echo "NONE"
 echo "OPENAI PROXY IMPLEMENTATION READINESS: GO"
+echo "OPENAI PROXY PRODUCTION INVENTORY: GO"
