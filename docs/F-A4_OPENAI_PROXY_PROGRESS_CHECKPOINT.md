@@ -34,6 +34,7 @@
 - Production transaction dry-run package exists, but independent review rejected it as a production implementation.
 - Credential-migration, residue-scan, and rollback fixtures are synthetic/fixture evidence only.
 - Architecture alternatives review completed in `audits/F-A4-openai-proxy-architecture-alternatives.md`.
+- Formal reduced-objective risk acceptance recorded in `docs/ADR-016_F-A4_OPENAI_REDUCED_OBJECTIVE_RISK_ACCEPTANCE.md`.
 - Static deployment manifest prepared.
 - Static cutover package prepared.
 - Zero production mutation verified.
@@ -43,8 +44,9 @@
 
 - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
 - `OPENAI PROXY SYNTHETIC PROOF: GO`
-- `OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): GO`
-- `OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL`
+- `OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): HISTORICAL EVIDENCE`
+- `F-A4 SECURITY OBJECTIVE: FORMALLY REDUCED WITH RESIDUAL RISK ACCEPTED`
+- `OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: REQUIRES REVISION`
 - `OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO`
 - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
 - `OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED`
@@ -54,14 +56,9 @@ Rollback scenario fixtures and the transaction fixture suite are not executable 
 
 ## Active Blockers
 
-- Contained OpenClaw model-network placement decision is invalid as written and must be reopened.
-- Installed OpenClaw `2026.6.11` does not expose a supported model-network sidecar/worker boundary for moving only provider transport into containment while the host Gateway remains authoritative.
-- Gmail broker host Unix-socket boundary is not compatible with the rejected contained component without a separately reviewed bridge or socket-mount design.
-- Host Ollama loopback routes for `heartbeat` and `gmail-reader` are not compatible with a host-escape-denied contained component without a separately reviewed narrow bridge.
-- No currently viable path satisfies full structural OpenAI egress denial while preserving the host Gateway, Gmail broker socket, host Ollama routes, and `pf`-disabled constraint.
-- OpenClaw provider-bridge and host egress-gateway alternatives are not structural egress controls without a separate enforcement mechanism.
-- A formally reduced OpenAI proxy objective would require explicit architecture-risk acceptance.
-- Local-token single-file design is invalid as written for both `openclawgw` and proxy UID `540`.
+- Revised-objective transaction and executable rollback package has not been implemented.
+- The former structural-denial requirement for every possible direct OpenAI network connection from a fully compromised host Gateway is moved to future hardening.
+- Local-token implementation must use the ADR-016 two-file identity-owned model.
 - Actual upstream-key custody path not installed.
 - Actual production proxy is not installed.
 - Production OpenClaw routing is not changed.
@@ -75,17 +72,13 @@ Rollback scenario fixtures and the transaction fixture suite are not executable 
 - Exec-backed SecretRef resolver for the real OpenAI static key.
 - OpenClaw validator patch as the OpenAI credential-custody solution.
 
-## Latest Publication Baseline Entering Architecture Alternatives
+## Latest Publication Baseline Entering Reduced-Objective Decision
 
-- Private commit entering this decision pass: `fd68de71a54f047193eebf50e39e232f73fadfda`.
-- Published ref entering this decision pass: `437d563 @ 2026-07-16T21:30:53Z`.
+- Private commit entering this decision pass: `610be2bf5a97c50ae60170737bb4b96c8156f072`.
+- Published ref entering this decision pass: `6e5cbf9 @ 2026-07-16T21:41:50Z`.
 
 ## Approved Next Action
 
-Prepare a formal F-A4 architecture-risk decision package that chooses exactly one of:
+Implement the revised-objective proxy transaction and executable rollback package, with production execution still disabled.
 
-1. authorize a different enforcement platform/control, such as full Gateway replatforming, `pf`, or a signed Network Extension/content filter;
-2. authorize a maintained OpenClaw provider-bridge patch plus an explicitly separate enforcement control; or
-3. formally reduce the F-A4 OpenAI objective to credential non-readability plus authenticated direct-route cleanup, with the remaining compromised-Gateway direct-network risk accepted.
-
-Do not perform implementation, operator dry-run, production cutover, credential migration, or runtime changes from this step.
+Do not perform production execution, operator dry-run, production cutover, credential migration, or runtime changes from this step.

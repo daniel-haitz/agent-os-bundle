@@ -61,8 +61,9 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - Current OpenAI proxy package status:
   - `OPENAI PROXY PACKAGE STATIC READINESS: GO`
   - `OPENAI PROXY SYNTHETIC PROOF: GO`
-  - `OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): GO`
-  - `OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: PARTIAL`
+  - `OPENAI PROXY SUBSTRATE PROOF (TEMPORARY FIXTURES): HISTORICAL EVIDENCE`
+  - `F-A4 SECURITY OBJECTIVE: FORMALLY REDUCED WITH RESIDUAL RISK ACCEPTED`
+  - `OPENAI PROXY PRODUCTION TRANSACTION SPECIFICATION: REQUIRES REVISION`
   - `OPENAI PROXY PRODUCTION TRANSACTION EXECUTABLE: NO-GO`
   - `OPENAI PROXY PRODUCTION CUTOVER EXECUTED: NO`
   - `OPENAI PROXY OPERATOR DRY-RUN: NOT AUTHORIZED`
@@ -70,6 +71,7 @@ If live state, `CONTROL.md`, or canonical architecture conflict, stop mutation a
 - 2026-07-16 transaction package and rollback fixtures remain partial/specification evidence only. `scripts/fa4-openai-proxy-cutover.sh` is a dry-run/package validator with production mode hard-disabled; it does not implement a reviewed production cutover. `scripts/fa4-openai-proxy-rollback.mjs` restores fixture file bytes/modes only and does not restore production owner/group, ACL/xattrs, Docker/Colima state, service state, launchd state, or startup ordering.
 - 2026-07-16 real temporary Colima/internal-network substrate proof is recorded in `audits/F-A4-openai-proxy-colima-substrate-proof.md`. It proved temporary fixture containers and internal networks can enforce OpenClaw-side-to-proxy-only traffic, proxy-to-approved-upstream-only traffic, direct OpenAI hostname/IP/IPv6 denial, proxy arbitrary-destination denial, restart/reconnect policy preservation, token mount separation, and zero production mutation. This proof does not prove the rejected production placement. Read-only reconciliation in `audits/F-A4-openai-proxy-architecture-reconciliation.md` found no supported OpenClaw model-network sidecar/worker boundary, found the contained placement incompatible with the current host Gmail broker Unix-socket boundary and host Ollama loopback routes as written, and requires reopening the placement decision.
 - 2026-07-16 bounded architecture alternatives review is recorded in `audits/F-A4-openai-proxy-architecture-alternatives.md`. Verdict: `NO CURRENTLY VIABLE PATH — F-A4 MUST PAUSE PENDING A DIFFERENT PLATFORM OR CONTROL`. Full Gateway containment could provide structural egress but replatforms the host Gateway and has unproven Gmail/Ollama bridges. An OpenClaw provider bridge can preserve key non-readability and normal authenticated-route control, but does not structurally deny direct OpenAI networking from a host Gateway. Host egress gateways and `baseUrl`/proxy-environment settings are cooperative only. A reduced objective is possible only with explicit architecture-risk acceptance.
+- 2026-07-16 owner/operator architecture-risk decision accepted the formally reduced F-A4 OpenAI objective in `docs/ADR-016_F-A4_OPENAI_REDUCED_OBJECTIVE_RISK_ACCEPTANCE.md`. Agent OS preserves the host OpenClaw Gateway, Gmail broker Unix-socket boundary, host Ollama routes, Telegram, research/web capability, launchd/tamper controls, and disabled `pf`. The revised objective requires zero OpenClaw-readable upstream OpenAI credential, normal provider routing through a credential-injecting proxy, deterministic cleanup of authenticated direct credential sources, proxy credential-header stripping/injection, and Gmail/Ollama/Telegram/research regressions. It explicitly does not claim structural denial of every possible direct OpenAI network connection from a fully compromised host Gateway; that residual risk is accepted for the current platform release.
 - Operator-level OpenAI inventory is recorded in `audits/F-A4-openai-proxy-production-inventory.json` without credential values or hashes. It identifies one current direct-bypass OpenAI credential source in `openclaw.json`, three direct OpenAI routes (`main`, `research-handoff-gate`, `email-researcher`), and two local-only routes (`heartbeat`, `gmail-reader`). Because installed OpenClaw auth precedence can activate auth profiles/environment/generated stores if the explicit provider key is removed, those surfaces remain mandatory cleanup and verification scope.
 - The external-agent onboarding and session-bootstrap repair is a bounded governance/tooling correction. It does not change F-A4 architecture, phase status, or runtime authority.
 - F-A3 evidence is indexed through the root-owned `research-handoff-gate.mjs` and `test-research-handoff-gate.mjs` validation scripts plus the F-A4 cutover runbook's F.3 gate. This index does not change F-A3 closure status.
@@ -128,7 +130,7 @@ Research produces proposals. Implementation changes require explicit approval, s
 | F-A1 Gmail capability broker | BROKER EXIT GATE CLOSED | Broker capability, credential custody, socket initialization, and approved client path are proven. Exclusive Gmail routing is a separate gate. |
 | F-A2 Reader credential containment | PROVISIONAL PENDING EVIDENCE RECONSTRUCTION | Reader credential custody boundary is historically closed, but closure evidence linkage is pending reconstruction. Reader does not possess Gmail credentials. This does not prove complete Gmail mediation. |
 | F-A3 Typed handoff | CLOSED | Main-to-researcher handoff is schema validated and fail-closed. |
-| F-A4 Complete mediation and egress | IN BUILD — OPENAI PROXY ARCHITECTURE PAUSED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. OpenAI proxy design direction, synthetic transport proof, route inventory, static cutover package, real temporary Colima substrate proof, dry-run package validation, and synthetic fixture evidence exist. The contained model-network production placement is invalid as written, the production transaction is not executable, and no current candidate satisfies structural OpenAI egress denial while preserving the host Gateway, Gmail broker socket, host Ollama routes, and `pf`-disabled constraint. A formal architecture-risk decision is required before implementation resumes. |
+| F-A4 Complete mediation and egress | IN BUILD — OPENAI PROXY REDUCED OBJECTIVE ACCEPTED; NOT CLOSED | 2026-07-15 foundation validation evidence captured. Broker and direct handoff checks passed. OpenAI proxy design direction, synthetic transport proof, route inventory, static cutover package, temporary Colima substrate fixture evidence, and architecture-risk acceptance exist. The F-A4 OpenAI objective is formally reduced: real upstream key must be outside OpenClaw-readable state, normal provider traffic must route through the proxy, and authenticated direct credential sources must be removed or verified absent. Structural denial of every possible direct OpenAI network connection from a fully compromised host Gateway is future hardening, not a current closure claim. Production transaction requires revision, remains non-executable, and cutover remains unauthorized. |
 | OpenClaw 2026.7.1 qualification | PENDING | Qualification follows Gmail connector containment and F-A4 transport reconciliation and precedes F-B/F-C implementation. |
 | F-B Observability substrate | DESIGN RECONCILED; IMPLEMENTATION PENDING | Adopt qualified native audit while retaining boundary evidence and adding correlation, delivery evidence, alerts, retention, and coverage reconciliation. |
 | F-C Action governance | DESIGN RECONCILED; IMPLEMENTATION PENDING | Use native approvals with a minimal semantic action catalog and deterministic semantic-action enforcement. Unknown actions deny. |
@@ -190,7 +192,7 @@ Native OpenClaw audit/secrets/sandbox validation failed from the non-privileged 
 
 F-A4 closure remains blocked until these gaps are remediated or validated through the approved F-A4 operator path without weakening the root-owned tamper lock. The approved path is:
 
-1. Advance only the OpenAI forwarding-proxy architecture-risk decision path. Current inventory resolves the direct OpenAI route scope, the isolated contained-egress fixture proves synthetic policy logic, and the real temporary Colima substrate proof proves Docker/Colima internal-network behavior for fixture OpenClaw-side/proxy/upstream separation. The rejected contained OpenClaw model-network placement is not accepted for production. `audits/F-A4-openai-proxy-architecture-alternatives.md` records that no currently viable path satisfies the full structural egress objective while preserving the host Gateway, Gmail broker socket, host Ollama routes, and `pf`-disabled constraint. Production cutover and operator cutover dry-run remain unauthorized until governance chooses a different enforcement platform/control or explicitly reduces the F-A4 objective. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
+1. Advance only the revised-objective OpenAI forwarding-proxy package. Current inventory resolves the direct OpenAI route scope, the isolated contained-egress fixture remains historical evidence, and `docs/ADR-016_F-A4_OPENAI_REDUCED_OBJECTIVE_RISK_ACCEPTANCE.md` records the accepted residual risk. Production cutover and operator cutover dry-run remain unauthorized until a revised transaction and executable rollback package exists, is independently reviewed, and is explicitly authorized. The exec SecretRef provider path is superseded and must not be advanced as OpenAI static-key remediation.
 2. Re-run read-only native audit, sandbox, pf, broker, and regression evidence with `scripts/fa4-operator-readonly-validation.sh`.
 3. Repair/re-run the egress proxy installation with the corrected `scripts/fa4-operator-egress-proxy-repair.sh` if the proxy is not repeatably installed.
 4. Reconcile the captured evidence into `audits/F-A4-foundation-hardening-validation.md`.
@@ -201,16 +203,16 @@ The operator scripts follow the reusable Agent OS operator-action pattern: prefl
 
 ### Immediate bounded action
 
-Prepare a formal F-A4 architecture-risk decision package that chooses exactly one of: authorize a different enforcement platform/control, authorize a maintained OpenClaw provider-bridge patch plus a separate enforcement control, or formally reduce the F-A4 OpenAI objective to credential non-readability plus authenticated direct-route cleanup with the remaining compromised-Gateway direct-network risk accepted.
+Implement the revised-objective proxy transaction and executable rollback package, with production execution still disabled.
 
 Do not perform production cutover.
 
 Required results:
 
-1. State which F-A4 guarantees remain mandatory and whether fully compromised host-Gateway direct networking is in scope.
-2. If a stronger enforcement platform/control is authorized, define the exact proof required before implementation.
-3. If a provider bridge is authorized, record that it does not by itself provide structural egress denial.
-4. If the objective is reduced, record the accepted residual risk and the new closure criteria.
+1. Preserve the host Gateway, Gmail broker socket boundary, host Ollama routes, Telegram, research/web capability, launchd/tamper controls, and disabled `pf`.
+2. Implement the credential-injecting forwarding-proxy transaction under the reduced objective: upstream key in broker/proxy custody only, normal provider route through proxy, and deterministic authenticated credential cleanup.
+3. Implement executable rollback/recovery and residue scanning for the revised objective.
+4. Keep production execution hard-disabled pending independent review and operator authorization.
 5. Do not authorize operator dry-run or production cutover from this step.
 
 ### Locked sequence after the immediate action

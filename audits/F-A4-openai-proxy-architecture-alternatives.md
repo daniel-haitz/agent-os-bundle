@@ -8,6 +8,8 @@
 
 `NO CURRENTLY VIABLE PATH — F-A4 MUST PAUSE PENDING A DIFFERENT PLATFORM OR CONTROL`
 
+**Superseding decision:** `docs/ADR-016_F-A4_OPENAI_REDUCED_OBJECTIVE_RISK_ACCEPTANCE.md` accepts Candidate E for the current platform release. This audit remains the source evidence for why the former stronger structural-egress objective was moved to future hardening.
+
 Under current canonical constraints, no reviewed candidate both preserves the functioning host OpenClaw Gateway, Gmail broker Unix-socket boundary, host Ollama routes, Telegram/research/web behavior, and `pf`-disabled rule while also structurally denying direct OpenAI egress from the process that originates OpenAI model transport.
 
 The closest implementable path is a provider-bridge/proxy that keeps the real OpenAI key outside OpenClaw and removes normal authenticated direct routes. That is useful, but it does not structurally prevent a host Gateway with general network capability from opening a direct connection to OpenAI if the Gateway process is compromised.
@@ -208,6 +210,8 @@ Because no production placement is selected, there is no final local-token selec
 - No formal risk acceptance for reducing F-A4 to credential non-readability plus cooperative/authenticated-route denial.
 
 ## Approved Next Bounded Action
+
+Superseded by ADR-016. The option chosen after this audit was the formally reduced objective.
 
 Prepare a formal F-A4 architecture-risk decision package that chooses exactly one of:
 

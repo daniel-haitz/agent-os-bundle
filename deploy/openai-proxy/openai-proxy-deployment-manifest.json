@@ -1,25 +1,26 @@
 {
   "name": "agent-os-openai-proxy-cutover-package",
   "version": 1,
-  "status": "static-package-placement-reopened-not-executable",
+  "status": "static-package-reduced-objective-requires-revision-not-executable",
   "productionMutationAuthorized": false,
-  "productionSubstrateProof": true,
-  "productionTransactionSpecification": "partial",
+  "productionSubstrateProof": "historical-fixture-evidence",
+  "securityObjective": "formally-reduced-with-residual-risk-accepted",
+  "productionTransactionSpecification": "requires-revision",
   "productionTransactionImplemented": false,
   "productionTransactionExecutable": false,
   "productionCutoverExecuted": false,
   "operatorDryRunAuthorized": false,
-  "architectureVerdict": "no-currently-viable-path-pending-architecture-risk-decision",
+  "architectureVerdict": "reduced-objective-accepted-by-adr-016",
   "topology": {
-    "placement": "unresolved",
-    "placementStatus": "paused; temporary fixture proof passed but no production placement satisfies current constraints",
+    "placement": "host-openclaw-gateway-preserved-with-credential-injecting-proxy",
+    "placementStatus": "reduced-objective; not structural egress containment",
     "colimaProfile": "agent-os",
     "networkName": "agent-os-openai-egress",
     "networkCidr": "172.31.240.0/24",
     "ipv6": "disabled-deny-by-policy",
     "openclawSideComponent": {
       "name": "agent-os-openclaw-model-network-component",
-      "purpose": "rejected production placeholder retained for historical context; installed OpenClaw 2026.6.11 has no supported model-network sidecar/worker boundary as written.",
+      "purpose": "rejected production placeholder retained for historical context only; not part of the reduced-objective implementation path.",
       "allowedEgress": [
         "agent-os-openai-forward-proxy:18187"
       ],
@@ -36,8 +37,8 @@
       "uid": 540,
       "gid": 740,
       "listen": "0.0.0.0:18187",
-      "internalDnsName": "agent-os-openai-forward-proxy",
-      "futureOpenClawBaseUrl": "http://agent-os-openai-forward-proxy:18187/v1",
+      "internalDnsName": "not-selected-for-reduced-objective-host-placement",
+      "futureOpenClawBaseUrl": "http://127.0.0.1:<reviewed-local-proxy-port>/v1",
       "allowedUpstream": "https://api.openai.com:443",
       "deniedUpstream": [
         "example.com",
@@ -47,22 +48,20 @@
       ]
     },
     "hostPublishedPorts": [],
-    "gmailBrokerInteraction": "host broker socket must remain preserved; rejected contained OpenClaw placement does not preserve it as written",
-    "ollamaInteraction": "host loopback Ollama routes must remain preserved; rejected contained OpenClaw placement cannot reach them while host escape is denied",
+    "gmailBrokerInteraction": "host broker socket boundary preserved unchanged",
+    "ollamaInteraction": "host loopback Ollama routes preserved unchanged",
     "startupOrder": [
-      "Colima profile/network",
       "OpenAI forward proxy with synthetic local-token and upstream credential custody",
-      "placement-dependent OpenClaw model transport boundary pending architecture-risk decision",
-      "OpenClaw config cutover/restart after a supported placement, proxy health, and egress proofs"
+      "OpenClaw config/auth cutover under reduced objective",
+      "gateway restart after proxy health and rollback point",
+      "Gmail/Ollama/Telegram/research regressions"
     ],
     "rollbackBoundary": "before OpenClaw config/auth cutover and before removal of the direct provider apiKey"
   },
   "reviewRequiredCorrections": [
-    "complete formal architecture-risk decision after alternatives verdict",
-    "resolve Gmail broker path without weakening the host Unix-socket boundary",
-    "resolve Ollama loopback path without host escape",
-    "replace invalid shared local-token file with a reviewed custody model",
-    "implement real production transaction and rollback only after placement is resolved",
+    "revise production transaction for ADR-016 reduced objective",
+    "replace invalid shared local-token file with two identity-owned token files",
+    "implement executable rollback under reduced objective",
     "install actual upstream credential custody",
     "prove Gmail, Telegram, and Ollama regression during cutover readiness",
     "prove cold-start and reboot behavior"
@@ -73,7 +72,7 @@
       "owner": "root",
       "group": "openai-credential-broker",
       "mode": "0550",
-      "purpose": "staged Node runtime executable for proxy container/rootfs",
+      "purpose": "staged Node runtime executable for the local proxy service",
       "creationMethod": "copy from validated OpenClaw-bundled Node during authorized cutover",
       "rollback": "remove if absent-before; restore metadata if existing-before"
     },
@@ -100,9 +99,19 @@
       "owner": "openclawgw",
       "group": "openclawgw",
       "mode": "0600",
-      "status": "rejected-shared-single-file-token-source",
-      "purpose": "synthetic local bearer token readable by OpenClaw and mounted read-only into contained OpenClaw/proxy components",
+      "status": "openclaw-owned-token-source",
+      "purpose": "synthetic local bearer token readable only by OpenClaw runtime identity",
       "creationMethod": "generate at least 256 bits entropy via stdin/file write only; no command-line exposure",
+      "rollback": "restore previous token or remove if absent-before"
+    },
+    {
+      "path": "/Users/openai-credential-broker/agent-os-openai-credential-broker/secrets/local-proxy-token",
+      "owner": "openai-credential-broker",
+      "group": "openai-credential-broker",
+      "mode": "0600",
+      "status": "proxy-owned-token-source",
+      "purpose": "same synthetic local bearer token content readable only by proxy identity",
+      "creationMethod": "transactionally write identical content to both identity-owned token files; no command-line exposure",
       "rollback": "restore previous token or remove if absent-before"
     },
     {
@@ -110,7 +119,7 @@
       "owner": "root",
       "group": "openai-credential-broker",
       "mode": "0440",
-      "purpose": "placeholder container/network manifest; rejected contained OpenClaw component must be replaced after placement reconciliation",
+      "purpose": "historical placeholder; reduced-objective host placement does not use the rejected contained OpenClaw component",
       "creationMethod": "generated by reviewed production transaction script during authorized cutover",
       "rollback": "remove if absent-before; restore backup if existing-before"
     },
@@ -125,10 +134,10 @@
     }
   ],
   "openclawConfigPatch": {
-    "models.providers.openai.baseUrl": "http://agent-os-openai-forward-proxy:18187/v1",
+    "models.providers.openai.baseUrl": "http://127.0.0.1:<reviewed-local-proxy-port>/v1",
     "models.providers.openai.api": "openai-responses",
     "models.providers.openai.auth": "api-key",
-    "models.providers.openai.apiKey": "<synthetic-local-proxy-token-from-/Users/agent/.openclaw/openai-proxy/local-token>",
+    "models.providers.openai.apiKey": "<synthetic-local-proxy-token-from-openclaw-owned-token-source>",
     "preserveAgents": [
       "main",
       "research-handoff-gate",
@@ -140,7 +149,7 @@
   "authCleanupPlan": [
     "capture rollback point before changing live OpenClaw config",
     "move real upstream OpenAI key into proxy custody without printing",
-    "set OpenClaw provider baseUrl/api/auth/apiKey to contained proxy and synthetic token",
+    "set OpenClaw provider baseUrl/api/auth/apiKey to local proxy and synthetic token",
     "restart gateway under controlled validation",
     "verify main, research-handoff-gate, and email-researcher route through proxy",
     "verify heartbeat and gmail-reader remain local-only",
