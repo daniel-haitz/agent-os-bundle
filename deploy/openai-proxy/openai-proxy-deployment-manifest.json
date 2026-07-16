@@ -9,17 +9,17 @@
   "productionTransactionExecutable": false,
   "productionCutoverExecuted": false,
   "operatorDryRunAuthorized": false,
-  "architectureVerdict": "contained-model-network-component-not-supported-placement-reopened",
+  "architectureVerdict": "no-currently-viable-path-pending-architecture-risk-decision",
   "topology": {
-    "placement": "contained-colima-internal-network",
-    "placementStatus": "temporary-fixture-proof-only-production-placement-reopened",
+    "placement": "unresolved",
+    "placementStatus": "paused; temporary fixture proof passed but no production placement satisfies current constraints",
     "colimaProfile": "agent-os",
     "networkName": "agent-os-openai-egress",
     "networkCidr": "172.31.240.0/24",
     "ipv6": "disabled-deny-by-policy",
     "openclawSideComponent": {
       "name": "agent-os-openclaw-model-network-component",
-      "purpose": "rejected production placeholder; installed OpenClaw 2026.6.11 has no supported model-network sidecar/worker boundary as written.",
+      "purpose": "rejected production placeholder retained for historical context; installed OpenClaw 2026.6.11 has no supported model-network sidecar/worker boundary as written.",
       "allowedEgress": [
         "agent-os-openai-forward-proxy:18187"
       ],
@@ -47,18 +47,18 @@
       ]
     },
     "hostPublishedPorts": [],
-    "gmailBrokerInteraction": "unresolved; rejected contained OpenClaw placement does not preserve the host Unix-socket broker boundary as written",
-    "ollamaInteraction": "unresolved; rejected contained OpenClaw placement cannot reach host loopback Ollama while host escape is denied",
+    "gmailBrokerInteraction": "host broker socket must remain preserved; rejected contained OpenClaw placement does not preserve it as written",
+    "ollamaInteraction": "host loopback Ollama routes must remain preserved; rejected contained OpenClaw placement cannot reach them while host escape is denied",
     "startupOrder": [
       "Colima profile/network",
       "OpenAI forward proxy with synthetic local-token and upstream credential custody",
-      "placement-dependent OpenClaw model transport boundary pending reconciliation",
+      "placement-dependent OpenClaw model transport boundary pending architecture-risk decision",
       "OpenClaw config cutover/restart after a supported placement, proxy health, and egress proofs"
     ],
     "rollbackBoundary": "before OpenClaw config/auth cutover and before removal of the direct provider apiKey"
   },
   "reviewRequiredCorrections": [
-    "reopen production placement decision",
+    "complete formal architecture-risk decision after alternatives verdict",
     "resolve Gmail broker path without weakening the host Unix-socket boundary",
     "resolve Ollama loopback path without host escape",
     "replace invalid shared local-token file with a reviewed custody model",

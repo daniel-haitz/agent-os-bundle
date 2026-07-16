@@ -33,6 +33,7 @@
 - Rollback scenario fixture: `7/7 PASS`.
 - Production transaction dry-run package exists, but independent review rejected it as a production implementation.
 - Credential-migration, residue-scan, and rollback fixtures are synthetic/fixture evidence only.
+- Architecture alternatives review completed in `audits/F-A4-openai-proxy-architecture-alternatives.md`.
 - Static deployment manifest prepared.
 - Static cutover package prepared.
 - Zero production mutation verified.
@@ -57,6 +58,9 @@ Rollback scenario fixtures and the transaction fixture suite are not executable 
 - Installed OpenClaw `2026.6.11` does not expose a supported model-network sidecar/worker boundary for moving only provider transport into containment while the host Gateway remains authoritative.
 - Gmail broker host Unix-socket boundary is not compatible with the rejected contained component without a separately reviewed bridge or socket-mount design.
 - Host Ollama loopback routes for `heartbeat` and `gmail-reader` are not compatible with a host-escape-denied contained component without a separately reviewed narrow bridge.
+- No currently viable path satisfies full structural OpenAI egress denial while preserving the host Gateway, Gmail broker socket, host Ollama routes, and `pf`-disabled constraint.
+- OpenClaw provider-bridge and host egress-gateway alternatives are not structural egress controls without a separate enforcement mechanism.
+- A formally reduced OpenAI proxy objective would require explicit architecture-risk acceptance.
 - Local-token single-file design is invalid as written for both `openclawgw` and proxy UID `540`.
 - Actual upstream-key custody path not installed.
 - Actual production proxy is not installed.
@@ -71,11 +75,17 @@ Rollback scenario fixtures and the transaction fixture suite are not executable 
 - Exec-backed SecretRef resolver for the real OpenAI static key.
 - OpenClaw validator patch as the OpenAI credential-custody solution.
 
-## Latest Publication Baseline
+## Latest Publication Baseline Entering Architecture Alternatives
 
-- Private commit entering this reconciliation: `cfd66dcdea6149f286b640ea6478120e40a9505e`.
-- Published ref entering this reconciliation: `0fcde94 @ 2026-07-16T20:06:19Z`.
+- Private commit entering this decision pass: `fd68de71a54f047193eebf50e39e232f73fadfda`.
+- Published ref entering this decision pass: `437d563 @ 2026-07-16T21:30:53Z`.
 
 ## Approved Next Action
 
-Reopen the OpenAI proxy placement decision and produce a bounded architecture alternative that preserves the proven host OpenClaw Gateway, host Gmail broker Unix-socket boundary, and host Ollama loopback routes while still structurally denying direct OpenAI egress from the process that performs OpenAI model transport.
+Prepare a formal F-A4 architecture-risk decision package that chooses exactly one of:
+
+1. authorize a different enforcement platform/control, such as full Gateway replatforming, `pf`, or a signed Network Extension/content filter;
+2. authorize a maintained OpenClaw provider-bridge patch plus an explicitly separate enforcement control; or
+3. formally reduce the F-A4 OpenAI objective to credential non-readability plus authenticated direct-route cleanup, with the remaining compromised-Gateway direct-network risk accepted.
+
+Do not perform implementation, operator dry-run, production cutover, credential migration, or runtime changes from this step.

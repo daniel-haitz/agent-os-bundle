@@ -19,15 +19,14 @@ Prepare the controlled replacement of direct OpenAI credential use in OpenClaw w
 
 ## Production Placement
 
-- Colima profile: `agent-os`.
-- Network: `agent-os-openai-egress`.
-- Proxy service: `agent-os-openai-forward-proxy`.
-- Proxy identity: `openai-credential-broker` (`uid=540`, `gid=740`).
-- Future OpenClaw base URL: `http://agent-os-openai-forward-proxy:18187/v1`.
-- Upstream: fixed `https://api.openai.com`.
-- Host-published ports: none in the target design.
+- Status: unresolved and paused.
+- Rejected placement: a separate contained OpenClaw model-network component.
+- Proxy identity remains `openai-credential-broker` (`uid=540`, `gid=740`) if a proxy path is later authorized.
+- Future OpenClaw base URL depends on the selected enforcement architecture.
+- Upstream, if a proxy path is authorized: fixed `https://api.openai.com`.
+- Host-published ports: none accepted without a separate review.
 
-OpenClaw host-only placement is not accepted while `pf` is disabled. The production egress boundary must be the contained network or a separately reviewed equivalent.
+OpenClaw host-only `baseUrl` placement is not accepted as structural containment while `pf` is disabled. A production egress boundary must be a separately reviewed equivalent that preserves the host Gateway, Gmail broker socket, and host Ollama routes, or governance must explicitly reduce the objective.
 
 The real temporary Colima/internal-network substrate proof proved fixture network behavior, but it did not resolve the production OpenClaw placement decision. The following rejected statement is retained for history only:
 
@@ -36,6 +35,8 @@ The real temporary Colima/internal-network substrate proof proved fixture networ
 A host OpenClaw Gateway cannot be structurally denied direct OpenAI egress by changing `baseUrl` alone while `pf` remains disabled.
 
 Read-only reconciliation in `audits/F-A4-openai-proxy-architecture-reconciliation.md` found this rejected placement is not constructible as written on installed OpenClaw `2026.6.11`: model-provider HTTP originates inside the host Gateway process, and the package does not preserve the existing host Gmail broker Unix-socket boundary or host Ollama loopback model routes.
+
+Architecture alternatives review in `audits/F-A4-openai-proxy-architecture-alternatives.md` found no currently viable path that satisfies structural direct OpenAI egress denial while also preserving the host Gateway, Gmail broker socket, host Ollama routes, and `pf`-disabled constraint. The package is paused pending a formal architecture-risk decision.
 
 ## Credential Migration
 
@@ -112,6 +113,7 @@ Temporary restoration of the old direct OpenAI route after cutover requires expl
 ## Open Blockers
 
 - Production placement decision reopened; contained OpenClaw model-network component is not supported as written.
+- Architecture alternatives verdict: no currently viable path under current constraints; formal architecture-risk decision required.
 - Local-token custody is unresolved.
 - Executable production transaction is not implemented.
 - Executable production rollback is not implemented.
