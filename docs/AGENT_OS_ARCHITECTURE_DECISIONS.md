@@ -36,6 +36,7 @@ This document supersedes research notes and discussion artifacts for approved ar
 | OpenClaw logical agents are OS security principals by default | REJECT |
 | Plugin, MCP, and connector governance is required | ADOPT |
 | Current Gmail reader/researcher model assignments documented | ADOPT |
+| OpenAI static-key custody moves to contained credential-injecting proxy | ADOPT |
 | Change-control standard establishes mandatory reconciliation between runtime state, operational state, evidence, and canonical documentation. | ADOPT |
 | Change-control standard is adopted as an enforced operating model. | ADOPT |
 | Cedar becomes the initial policy engine | DEFER |

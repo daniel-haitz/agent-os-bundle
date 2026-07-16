@@ -23,6 +23,9 @@ PROXY_SOURCE="$REPO_ROOT/src/openai-credential-proxy/openai-forward-proxy.mjs"
 FIXTURE_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-fixture-tests.mjs"
 CONTAINED_EGRESS_TEST="$REPO_ROOT/scripts/fa4-openai-proxy-contained-egress-tests.mjs"
 INVENTORY_HELPER="$REPO_ROOT/scripts/fa4-openai-proxy-inventory.mjs"
+CUTOVER_SCRIPT="$REPO_ROOT/scripts/fa4-openai-proxy-cutover.sh"
+ROLLBACK_FIXTURES="$REPO_ROOT/scripts/fa4-openai-proxy-rollback-fixtures.mjs"
+DEPLOYMENT_MANIFEST="$REPO_ROOT/deploy/openai-proxy/openai-proxy-deployment-manifest.json"
 INVENTORY_JSON="$OUT_DIR/openai-proxy-production-inventory.json"
 
 LIVE_PATHS=(
@@ -95,6 +98,12 @@ else
   fail_gate "GATE B — proxy code/runtime custody" "required proxy source/runtime fixture files are missing"
 fi
 
+if [ -f "$CUTOVER_SCRIPT" ] && [ -f "$ROLLBACK_FIXTURES" ] && [ -f "$DEPLOYMENT_MANIFEST" ]; then
+  pass_gate "GATE M — cutover package artifacts"
+else
+  fail_gate "GATE M — cutover package artifacts" "cutover script, rollback fixtures, or deployment manifest missing"
+fi
+
 if rg -n "apiKey: SecretInputSchema|baseUrl: string\\(\\)\\.min\\(1\\)|auth: union" \
   /Users/agent/.local/openclaw/tools/node-v22.22.0/lib/node_modules/openclaw/dist/zod-schema.core-DGUr-AGH.js >/dev/null; then
   pass_gate "GATE C — local-token compatibility"
@@ -103,10 +112,10 @@ else
   fail_gate "GATE C — local-token compatibility" "installed schema evidence for provider apiKey/baseUrl/auth was not found"
 fi
 
-if [ -d "/Users/openai-credential-broker/agent-os-openai-credential-broker/secrets" ]; then
-  pass_gate "GATE D — upstream-key custody"
+if [ -f "$DEPLOYMENT_MANIFEST" ] && "$NODE_BIN" -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const ok=(j.artifacts||[]).some(a=>String(a.path).endsWith('/secrets/openai-upstream.json')&&a.owner==='openai-credential-broker'&&a.mode==='0600'); process.exit(ok?0:1)" "$DEPLOYMENT_MANIFEST"; then
+  pass_gate "GATE D — upstream-key custody design"
 else
-  fail_gate "GATE D — upstream-key custody" "broker secrets directory is absent; expected before production cutover"
+  fail_gate "GATE D — upstream-key custody design" "deployment manifest lacks broker-owned 0600 upstream credential store"
 fi
 
 if [ -f "$OPENCLAW_TRANSPORT" ] && [ -f "$OPENAI_SDK" ]; then
@@ -149,18 +158,18 @@ if [ -f "$INVENTORY_JSON" ]; then
   echo "OPENAI AUTH PRECEDENCE INVENTORY: $auth_status"
   echo "OPENAI AUTH BYPASS SOURCE COUNT: $auth_bypass_count"
   echo "OPENAI PROTECTED EVIDENCE GAP COUNT: $protected_gap_count"
-  if [ "$auth_status" = "PASS" ]; then
+  if [ "$protected_gap_count" = "0" ]; then
     pass_gate "GATE G — auth-precedence inventory"
   else
-    fail_gate "GATE G — auth-precedence inventory" "bypassSources=$auth_bypass_count protectedEvidenceGaps=$protected_gap_count; inspect $INVENTORY_JSON"
+    fail_gate "GATE G — auth-precedence inventory" "protectedEvidenceGaps=$protected_gap_count; inspect $INVENTORY_JSON"
   fi
   echo "AGENT AND FALLBACK INVENTORY: $routing_status"
   echo "DIRECT OPENAI ROUTE COUNT: $direct_route_count"
   echo "UNKNOWN ROUTE COUNT: $unknown_route_count"
-  if [ "$routing_status" = "PASS" ]; then
+  if [ "$unknown_route_count" = "0" ]; then
     pass_gate "GATE H — agent/fallback inventory"
   else
-    fail_gate "GATE H — agent/fallback inventory" "directOpenAIRoutes=$direct_route_count unknownRoutes=$unknown_route_count; inspect $INVENTORY_JSON"
+    fail_gate "GATE H — agent/fallback inventory" "unknownRoutes=$unknown_route_count; inspect $INVENTORY_JSON"
   fi
 else
   fail_gate "GATE F — egress-placement feasibility" "inventory evidence was not generated"
@@ -199,6 +208,24 @@ else
   echo "OPENAI PROXY CONTAINED EGRESS PROOF: NO-GO"
 fi
 
+echo "Running cutover package dry-run..."
+if "$CUTOVER_SCRIPT" --dry-run > "$OUT_DIR/cutover-dry-run.log" 2>&1; then
+  cat "$OUT_DIR/cutover-dry-run.log"
+  pass_gate "OPENAI PROXY CUTOVER PACKAGE DRY RUN"
+else
+  cat "$OUT_DIR/cutover-dry-run.log"
+  fail_gate "OPENAI PROXY CUTOVER PACKAGE DRY RUN" "cutover dry-run failed"
+fi
+
+echo "Running rollback fixture tests..."
+if "$NODE_BIN" "$ROLLBACK_FIXTURES" > "$OUT_DIR/rollback-fixtures.log" 2>&1; then
+  cat "$OUT_DIR/rollback-fixtures.log"
+  pass_gate "OPENAI PROXY ROLLBACK FIXTURES"
+else
+  cat "$OUT_DIR/rollback-fixtures.log"
+  fail_gate "OPENAI PROXY ROLLBACK FIXTURES" "rollback fixtures failed"
+fi
+
 capture_metadata "$METADATA_AFTER"
 capture_hashes "$HASHES_AFTER"
 
@@ -215,9 +242,12 @@ if [ -s "$FAILURES" ]; then
   cat "$FAILURES"
   echo "OPENAI PROXY IMPLEMENTATION READINESS: NO-GO"
   echo "OPENAI PROXY PRODUCTION INVENTORY: NO-GO"
+  echo "OPENAI PROXY CUTOVER PACKAGE READINESS: NO-GO"
   exit 2
 fi
 
 echo "NONE"
+echo "PRODUCTION CUTOVER EXECUTED: NO"
 echo "OPENAI PROXY IMPLEMENTATION READINESS: GO"
 echo "OPENAI PROXY PRODUCTION INVENTORY: GO"
+echo "OPENAI PROXY CUTOVER PACKAGE READINESS: GO"

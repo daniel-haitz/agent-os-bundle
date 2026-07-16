@@ -1,0 +1,129 @@
+{
+  "name": "agent-os-openai-proxy-cutover-package",
+  "version": 1,
+  "status": "prepared-not-applied",
+  "productionMutationAuthorized": false,
+  "topology": {
+    "placement": "contained-colima-internal-network",
+    "colimaProfile": "agent-os",
+    "networkName": "agent-os-openai-egress",
+    "networkCidr": "172.31.240.0/24",
+    "ipv6": "disabled-deny-by-policy",
+    "openclawSideComponent": {
+      "name": "agent-os-openclaw-network-sidecar",
+      "purpose": "future network-originating OpenClaw component or gateway egress sidecar; host launchd gateway must not retain unrestricted direct OpenAI egress for F-A4 closure",
+      "allowedEgress": [
+        "agent-os-openai-forward-proxy:18187"
+      ],
+      "deniedEgress": [
+        "api.openai.com:443",
+        "direct OpenAI IPs",
+        "IPv6 external destinations",
+        "arbitrary DNS/proxy destinations"
+      ]
+    },
+    "proxyComponent": {
+      "name": "agent-os-openai-forward-proxy",
+      "user": "openai-credential-broker",
+      "uid": 540,
+      "gid": 740,
+      "listen": "0.0.0.0:18187",
+      "internalDnsName": "agent-os-openai-forward-proxy",
+      "futureOpenClawBaseUrl": "http://agent-os-openai-forward-proxy:18187/v1",
+      "allowedUpstream": "https://api.openai.com:443",
+      "deniedUpstream": [
+        "example.com",
+        "arbitrary IPs",
+        "caller-controlled hosts",
+        "redirect targets"
+      ]
+    },
+    "hostPublishedPorts": [],
+    "gmailBrokerInteraction": "unchanged; Gmail broker remains host capability boundary and is not routed through this proxy",
+    "ollamaInteraction": "unchanged; heartbeat and gmail-reader remain local-model routes",
+    "startupOrder": [
+      "Colima profile/network",
+      "OpenAI forward proxy with synthetic local-token and upstream credential custody",
+      "OpenClaw config cutover/restart after proxy health and egress proofs"
+    ],
+    "rollbackBoundary": "before OpenClaw config/auth cutover and before removal of the direct provider apiKey"
+  },
+  "artifacts": [
+    {
+      "path": "/Users/openai-credential-broker/agent-os-openai-credential-broker/runtime/node",
+      "owner": "root",
+      "group": "openai-credential-broker",
+      "mode": "0550",
+      "purpose": "staged Node runtime executable for proxy container/rootfs",
+      "creationMethod": "copy from validated OpenClaw-bundled Node during authorized cutover",
+      "rollback": "remove if absent-before; restore metadata if existing-before"
+    },
+    {
+      "path": "/Users/openai-credential-broker/agent-os-openai-credential-broker/bin/openai-forward-proxy.mjs",
+      "owner": "root",
+      "group": "openai-credential-broker",
+      "mode": "0550",
+      "purpose": "root-controlled proxy application source",
+      "creationMethod": "copy from src/openai-credential-proxy/openai-forward-proxy.mjs during authorized cutover",
+      "rollback": "remove if absent-before; restore backup if existing-before"
+    },
+    {
+      "path": "/Users/openai-credential-broker/agent-os-openai-credential-broker/secrets/openai-upstream.json",
+      "owner": "openai-credential-broker",
+      "group": "openai-credential-broker",
+      "mode": "0600",
+      "purpose": "real upstream OpenAI credential store owned only by proxy identity",
+      "creationMethod": "operator script copies value from live OpenClaw config without printing or command-line exposure after rollback point",
+      "rollback": "remove if absent-before; restore existing-before encrypted/secret file metadata if present"
+    },
+    {
+      "path": "/Users/openai-credential-broker/agent-os-openai-credential-broker/local-token/openai-proxy-token",
+      "owner": "openclawgw",
+      "group": "openclawgw",
+      "mode": "0600",
+      "purpose": "synthetic local bearer token readable by OpenClaw and mounted read-only to proxy",
+      "creationMethod": "generate at least 256 bits entropy via stdin/file write only; no command-line exposure",
+      "rollback": "restore previous token or remove if absent-before"
+    },
+    {
+      "path": "/private/tmp/agent-os-openai-proxy-cutover-<timestamp>",
+      "owner": "operator",
+      "group": "operator",
+      "mode": "0700",
+      "purpose": "cutover evidence, backups, rollback manifest, redacted metadata",
+      "creationMethod": "created by cutover script",
+      "rollback": "preserve evidence; never delete automatically"
+    }
+  ],
+  "openclawConfigPatch": {
+    "models.providers.openai.baseUrl": "http://agent-os-openai-forward-proxy:18187/v1",
+    "models.providers.openai.api": "openai-responses",
+    "models.providers.openai.auth": "api-key",
+    "models.providers.openai.apiKey": "<synthetic-local-proxy-token>",
+    "preserveAgents": [
+      "main",
+      "research-handoff-gate",
+      "email-researcher",
+      "heartbeat",
+      "gmail-reader"
+    ]
+  },
+  "authCleanupPlan": [
+    "capture rollback point before changing live OpenClaw config",
+    "move real upstream OpenAI key into proxy custody without printing",
+    "set OpenClaw provider baseUrl/api/auth/apiKey to contained proxy and synthetic token",
+    "restart gateway under controlled validation",
+    "verify main, research-handoff-gate, and email-researcher route through proxy",
+    "verify heartbeat and gmail-reader remain local-only",
+    "scan openclaw.json, launchd env, agent auth profiles, generated models, snapshots, logs, and temp files for residual real OpenAI key indicators without printing values",
+    "retire superseded SecretRef resolver artifacts only after separate approval"
+  ],
+  "excludedFeatures": [
+    "realtime websocket",
+    "images",
+    "audio/TTS",
+    "files/uploads",
+    "batches",
+    "assistants/threads"
+  ]
+}
